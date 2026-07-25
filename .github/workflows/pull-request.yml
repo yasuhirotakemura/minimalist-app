@@ -1,0 +1,226 @@
+name: pull-request
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# 設計書 27.1 に対応する。
+#   frontend : format check / ESLint / typecheck / unit test / build
+#   backend  : gofmt / go vet / staticcheck / unit test / integration test / build
+#   contract : OpenAPI validation / generated code差分 / migration適用 / schema差分
+#   system   : Docker image build
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GO_VERSION: '1.25'
+  NODE_VERSION: '22'
+  PNPM_VERSION: '10.17.1'
+  SQLC_VERSION: '1.29.0'
+
+jobs:
+  frontend:
+    name: frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: format check
+        run: pnpm --filter @less/web format:check
+
+      - name: lint
+        run: pnpm --filter @less/web lint
+
+      - name: typecheck
+        run: pnpm --filter @less/web typecheck
+
+      - name: unit test
+        run: pnpm --filter @less/web test
+
+      - name: build
+        run: pnpm --filter @less/web build
+
+  backend:
+    name: backend
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: less
+          POSTGRES_PASSWORD: less_ci_password
+          POSTGRES_DB: less_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U less -d less_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: apps/api/go.sum
+
+      - name: gofmt check
+        working-directory: apps/api
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "gofmt差分があります:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: go vet
+        working-directory: apps/api
+        run: go vet ./...
+
+      - name: staticcheck
+        working-directory: apps/api
+        run: go tool staticcheck ./...
+
+      - name: layering check (domain must not depend on HTTP / PostgreSQL)
+        working-directory: apps/api
+        run: |
+          violations="$(go list -deps ./internal/domain/... \
+            | grep -E '^(net/http$|github.com/jackc/pgx|github.com/oapi-codegen|github.com/go-chi)' || true)"
+          if [ -n "$violations" ]; then
+            echo "禁止依存を検出しました:"
+            echo "$violations"
+            exit 1
+          fi
+
+      - name: unit test
+        working-directory: apps/api
+        run: go test ./internal/... ./cmd/...
+
+      - name: integration test
+        working-directory: apps/api
+        env:
+          TEST_DATABASE_URL: postgres://less:less_ci_password@localhost:5432/less_test?sslmode=disable
+        run: go test -count=1 -tags=integration ./test/integration/...
+
+      - name: build
+        working-directory: apps/api
+        run: go build ./...
+
+  contract:
+    name: contract / database
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: less
+          POSTGRES_PASSWORD: less_ci_password
+          POSTGRES_DB: less
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U less -d less"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: apps/api/go.sum
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: OpenAPI validation
+        run: pnpm dlx @redocly/cli@latest lint docs/api/openapi.yml
+
+      - name: install sqlc
+        run: go install github.com/sqlc-dev/sqlc/cmd/sqlc@v${{ env.SQLC_VERSION }}
+
+      - name: regenerate code
+        run: |
+          (cd apps/api && sqlc generate)
+          (cd apps/api && go tool oapi-codegen -config oapi-codegen.yml ../../docs/api/openapi.yml)
+          pnpm --filter @less/web generate:api-client
+
+      - name: generated code差分確認
+        run: |
+          if ! git diff --exit-code -- \
+            apps/api/internal/generated apps/web/src/api/generated; then
+            echo "generated codeが最新ではありません。'make generate' を実行してcommitしてください。"
+            exit 1
+          fi
+
+      - name: migration適用
+        working-directory: apps/api
+        env:
+          APP_ENV: local
+          DATABASE_URL: postgres://less:less_ci_password@localhost:5432/less?sslmode=disable
+          MIGRATIONS_DIR: ../../db/migrations
+        run: go run ./cmd/migrate up
+
+      - name: seed適用
+        working-directory: apps/api
+        env:
+          APP_ENV: local
+          DATABASE_URL: postgres://less:less_ci_password@localhost:5432/less?sslmode=disable
+          SEEDS_DIR: ../../db/seeds
+          PASSWORD_PEPPER: ci_password_pepper_value
+        run: go run ./cmd/migrate seed
+
+      - name: schema dump差分確認
+        env:
+          PGPASSWORD: less_ci_password
+        run: |
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client
+          pg_dump --host=localhost --port=5432 --username=less --dbname=less \
+            --schema-only --no-owner --no-privileges --no-comments \
+            --schema=identity --schema=public > db/schema.sql
+          if ! git diff --exit-code -- db/schema.sql; then
+            echo "db/schema.sql が最新ではありません。'make schema-dump' を実行してcommitしてください。"
+            exit 1
+          fi
+
+  system:
+    name: system
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: API imageをbuildする
+        run: docker build -f deployments/docker/api.Dockerfile --target runtime -t less-api:ci .
+
+      - name: Web imageをbuildする
+        run: docker build -f deployments/docker/web.Dockerfile --target runtime -t less-web:ci .

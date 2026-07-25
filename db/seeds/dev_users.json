@@ -1,0 +1,25 @@
+{
+  "$comment": [
+    "local開発用のseed data。",
+    "password hashはArgon2id + PASSWORD_PEPPERに依存するため、SQLではなく",
+    "cmd/migrate seed が本fileを読み込みhash化して投入する。",
+    "APP_ENV=local 以外では投入を拒否する。",
+    "本fileへ本番の認証情報を書かない。"
+  ],
+  "users": [
+    {
+      "email": "dev@example.com",
+      "password": "less-dev-password",
+      "displayName": "開発ユーザー",
+      "timezone": "Asia/Tokyo",
+      "locale": "ja-JP"
+    },
+    {
+      "email": "another@example.com",
+      "password": "less-dev-password",
+      "displayName": "別の開発ユーザー",
+      "timezone": "Asia/Tokyo",
+      "locale": "ja-JP"
+    }
+  ]
+}

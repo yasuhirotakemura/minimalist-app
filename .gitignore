@@ -1,0 +1,29 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build output
+dist/
+apps/api/bin/
+apps/web/dist/
+
+# environment
+.env
+.env.local
+.env.*.local
+
+# test / coverage
+coverage/
+apps/api/coverage.out
+
+# tooling cache
+.vite/
+.turbo/
+*.tsbuildinfo
+apps/web/test-results/
+apps/web/playwright-report/
+
+# editor / os
+.DS_Store
+.idea/
+*.swp

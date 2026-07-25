@@ -1,0 +1,18 @@
+{
+  "name": "less",
+  "private": true,
+  "version": "0.0.0",
+  "packageManager": "pnpm@10.17.1",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "format": "pnpm --filter @less/web format",
+    "format:check": "pnpm --filter @less/web format:check",
+    "lint": "pnpm --filter @less/web lint",
+    "typecheck": "pnpm --filter @less/web typecheck",
+    "test": "pnpm --filter @less/web test",
+    "build": "pnpm --filter @less/web build",
+    "generate:api-client": "pnpm --filter @less/web generate:api-client"
+  }
+}

@@ -1,0 +1,1683 @@
+openapi: 3.0.3
+
+info:
+  title: LESS API
+  version: 0.1.0
+  description: |
+    LESSのREST API定義。本fileがフロントエンドとバックエンドの契約の正本である。
+
+    現在のスコープは以下とする。
+      - Phase 0: 認証 (F-001)
+      - Phase 1: Category初期data / Item CRUD / 一覧filter / Tag / 使用記録 (F-003〜F-006)
+
+    StorageUnit (Phase 2)、Review (Phase 3)、PurchaseCandidate (Phase 4)、
+    Scenario (Phase 5)、Import/Export (Phase 6) はまだ定義しない。
+
+    共通仕様 (設計書 12.1):
+      - base path: `/api`
+      - Content-Type: `application/json`
+      - datetime: RFC3339 (UTC)
+      - JSON field: camelCase
+      - enum value: lowercase snake_case
+      - path: 複数形kebab-case
+      - URLでは内部IDではなくpublicIdを使用する
+
+    一覧のpagination:
+      設計書 12.2 はcursor paginationを基本とするが、Item一覧は
+      任意のsort keyとの組み合わせ、および総件数表示を要件とするため
+      `limit` / `offset` によるoffset paginationとする。
+
+    楽観ロック (設計書 11.7):
+      更新・archive・restore・削除requestは `expectedVersion` を受け取る。
+      現在のversionと一致しない場合は 409 を返す。
+
+    `/health/live` と `/health/ready` は監視用endpointであり、
+    `/api` prefixを持たないため本定義には含めない。
+
+servers:
+  - url: /api
+    description: 同一オリジンのreverse proxy経由
+
+tags:
+  - name: auth
+    description: ユーザー登録・login・logout・認証context
+  - name: categories
+    description: アイテムの主分類 (F-004)
+  - name: tags
+    description: アイテムへ付与する任意のlabel (F-005)
+  - name: items
+    description: 所持品の登録・取得・更新・archive・使用記録 (F-003 / F-006)
+
+paths:
+  /auth/register:
+    post:
+      tags: [auth]
+      operationId: registerUser
+      summary: ユーザーを登録する
+      description: |
+        新しいユーザーを登録する。
+        本endpointはsessionを発行しない。登録後は `POST /auth/login` でloginする。
+      security:
+        - csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterUserRequest"
+      responses:
+        "201":
+          description: 登録に成功した
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: 同一emailのユーザーが既に存在する
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                code: EMAIL_ALREADY_REGISTERED
+                message: このメールアドレスは既に登録されています。
+                fieldErrors: []
+                requestId: req_01JQ0000000000000000000000
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /auth/login:
+    post:
+      tags: [auth]
+      operationId: loginUser
+      summary: loginする
+      description: |
+        email と password を検証し、session tokenをhttpOnly Cookieへ設定する。
+        認証失敗時は、emailの存在有無を区別せず 401 を返す。
+      security:
+        - csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginUserRequest"
+      responses:
+        "200":
+          description: loginに成功した
+          headers:
+            Set-Cookie:
+              description: session Cookie (HttpOnly, SameSite=Lax) とCSRF token Cookie
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticatedUserContextResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          description: emailまたはpasswordが正しくない
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                code: INVALID_CREDENTIALS
+                message: メールアドレスまたはパスワードが正しくありません。
+                fieldErrors: []
+                requestId: req_01JQ0000000000000000000000
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /auth/logout:
+    post:
+      tags: [auth]
+      operationId: logoutUser
+      summary: logoutする
+      description: |
+        現在のsessionを失効させ、session Cookieを削除する。
+        未認証状態で呼び出した場合も 204 を返す (冪等)。
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      responses:
+        "204":
+          description: logoutに成功した
+          headers:
+            Set-Cookie:
+              description: 失効させたsession Cookie
+              schema:
+                type: string
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /auth/context:
+    get:
+      tags: [auth]
+      operationId: getAuthenticatedUserContext
+      summary: 認証contextを取得する
+      description: |
+        現在のsessionに紐づくユーザー情報を返す。
+        Web起動時に呼び出すことで、CSRF token Cookieの発行も同時に行われる。
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: 認証済みである
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticatedUserContextResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /categories:
+    get:
+      tags: [categories]
+      operationId: listCategories
+      summary: カテゴリー一覧を取得する
+      description: |
+        認証ユーザーのカテゴリーをsortOrder昇順で返す。
+        カテゴリーはユーザー登録時に既定値が作成される。
+        件数が少なく画面側で全件を保持するため、paginationを行わない。
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: 取得に成功した
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CategoryListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /tags:
+    get:
+      tags: [tags]
+      operationId: listTags
+      summary: タグ一覧を取得する
+      description: 認証ユーザーのタグを名称昇順で返す。
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: 取得に成功した
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TagListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    post:
+      tags: [tags]
+      operationId: createTag
+      summary: タグを登録する
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTagRequest"
+      responses:
+        "201":
+          description: 登録に成功した
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TagResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /tags/{publicId}:
+    parameters:
+      - $ref: "#/components/parameters/PublicIdPathParameter"
+
+    put:
+      tags: [tags]
+      operationId: updateTag
+      summary: タグを更新する
+      description: |
+        設計書 12.4 のendpoint一覧には含まれないが、
+        タグ名の修正を行えるようにするため追加した。
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTagRequest"
+      responses:
+        "200":
+          description: 更新に成功した
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TagResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    delete:
+      tags: [tags]
+      operationId: deleteTag
+      summary: タグを削除する
+      description: |
+        soft deleteする (設計書 1.4)。アイテムへの付与情報は保持したまま
+        一覧・アイテムresponseから除外する。
+        bodyを持たないmethodのため `expectedVersion` はquery parameterで受け取る。
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      parameters:
+        - name: expectedVersion
+          in: query
+          required: true
+          description: 楽観ロック用の現在version (設計書 11.7)
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+      responses:
+        "204":
+          description: 削除に成功した
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /items:
+    get:
+      tags: [items]
+      operationId: listItems
+      summary: 所持品一覧を取得する
+      description: |
+        認証ユーザーの所持品を検索・絞り込み・並び替えして返す (設計書 9.4)。
+        archive済みのアイテムは既定で除外し、`includeDeleted=true` の場合のみ含める。
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: keyword
+          in: query
+          description: アイテム名またはメモの部分一致 (大文字小文字を区別しない)
+          schema:
+            type: string
+            maxLength: 100
+        - name: categoryPublicId
+          in: query
+          description: カテゴリーで絞り込む
+          schema:
+            type: string
+            format: uuid
+        - name: tagPublicId
+          in: query
+          description: タグで絞り込む
+          schema:
+            type: string
+            format: uuid
+        - name: necessityLevelCode
+          in: query
+          schema:
+            $ref: "#/components/schemas/NecessityLevelCode"
+        - name: usageFrequencyCode
+          in: query
+          schema:
+            $ref: "#/components/schemas/UsageFrequencyCode"
+        - name: mobilityClassCode
+          in: query
+          schema:
+            $ref: "#/components/schemas/MobilityClassCode"
+        - name: includeDeleted
+          in: query
+          description: archive済みのアイテムを含めるか。未指定時はfalse。
+          schema:
+            type: boolean
+        - name: sort
+          in: query
+          description: 並び替えkey。未指定時は updatedAt。
+          schema:
+            $ref: "#/components/schemas/ItemSortKey"
+        - name: order
+          in: query
+          description: 並び順。未指定時は desc。
+          schema:
+            $ref: "#/components/schemas/SortOrder"
+        - $ref: "#/components/parameters/LimitQueryParameter"
+        - $ref: "#/components/parameters/OffsetQueryParameter"
+      responses:
+        "200":
+          description: 取得に成功した
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItemListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    post:
+      tags: [items]
+      operationId: createItem
+      summary: 所持品を登録する
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateItemRequest"
+      responses:
+        "201":
+          description: 登録に成功した
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItemResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: |
+            指定したカテゴリーまたはタグが存在しない。
+            他ユーザーのカテゴリー・タグを指定した場合も本statusを返す (設計書 18.3)。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /items/{publicId}:
+    parameters:
+      - $ref: "#/components/parameters/PublicIdPathParameter"
+
+    get:
+      tags: [items]
+      operationId: getItemByPublicId
+      summary: 所持品を取得する
+      description: |
+        他ユーザーのpublicIdを指定した場合も 404 を返し、
+        存在有無を公開しない (設計書 18.3)。
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: 取得に成功した
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItemResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    put:
+      tags: [items]
+      operationId: updateItem
+      summary: 所持品を更新する
+      description: |
+        全項目を置き換える。省略した任意項目はNULLへ更新される。
+        `expectedVersion` が現在versionと一致しない場合は 409 を返す。
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateItemRequest"
+      responses:
+        "200":
+          description: 更新に成功した
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItemResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /items/{publicId}/archive:
+    parameters:
+      - $ref: "#/components/parameters/PublicIdPathParameter"
+
+    post:
+      tags: [items]
+      operationId: archiveItem
+      summary: 所持品をarchiveする
+      description: |
+        soft deleteとして `archivedAt` を設定する (設計書 1.4)。
+        archive済みのアイテムは既定の一覧から除外され、使用記録を追加できない。
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ItemVersionRequest"
+      responses:
+        "200":
+          description: archiveに成功した
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItemResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /items/{publicId}/restore:
+    parameters:
+      - $ref: "#/components/parameters/PublicIdPathParameter"
+
+    post:
+      tags: [items]
+      operationId: restoreItem
+      summary: archive済みの所持品を復元する
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ItemVersionRequest"
+      responses:
+        "200":
+          description: 復元に成功した
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItemResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /items/{publicId}/usage-records:
+    parameters:
+      - $ref: "#/components/parameters/PublicIdPathParameter"
+
+    get:
+      tags: [items]
+      operationId: listItemUsageRecords
+      summary: 使用記録の履歴を取得する
+      description: 使用日時の降順で返す。
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/LimitQueryParameter"
+        - $ref: "#/components/parameters/OffsetQueryParameter"
+      responses:
+        "200":
+          description: 取得に成功した
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItemUsageRecordListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    post:
+      tags: [items]
+      operationId: createItemUsageRecord
+      summary: 使用記録を登録する
+      description: |
+        登録と同時にアイテムの最終使用日時を更新する。
+        既存の最終使用日時より古い記録では更新しない。
+        archive済みのアイテムへは登録できず 422 を返す (設計書 7.2)。
+      security:
+        - sessionCookie: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateItemUsageRecordRequest"
+      responses:
+        "201":
+          description: 登録に成功した
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItemUsageRecordResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: less_session
+      description: |
+        session token Cookie。HttpOnly、SameSite=Lax、本番環境ではSecureを付与する。
+        実際のCookie名は環境変数 `SESSION_COOKIE_NAME` で変更できる。
+    csrfToken:
+      type: apiKey
+      in: header
+      name: X-CSRF-Token
+      description: |
+        CSRF token。非HttpOnly Cookie `less_csrf` の値をそのまま送信する
+        (signed double-submit cookie)。state変更requestで必須とする。
+
+  parameters:
+    PublicIdPathParameter:
+      name: publicId
+      in: path
+      required: true
+      description: 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。
+      schema:
+        type: string
+        format: uuid
+    LimitQueryParameter:
+      name: limit
+      in: query
+      description: 取得件数。未指定時は50。
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        maximum: 100
+    OffsetQueryParameter:
+      name: offset
+      in: query
+      description: 読み飛ばす件数。未指定時は0。
+      schema:
+        type: integer
+        format: int32
+        minimum: 0
+
+  responses:
+    BadRequest:
+      description: request形式が不正である
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: BAD_REQUEST
+            message: リクエストの形式が正しくありません。
+            fieldErrors:
+              - field: email
+                code: INVALID_FORMAT
+                message: メールアドレスの形式が正しくありません。
+            requestId: req_01JQ0000000000000000000000
+    Unauthorized:
+      description: 未認証である
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: UNAUTHENTICATED
+            message: ログインが必要です。
+            fieldErrors: []
+            requestId: req_01JQ0000000000000000000000
+    Forbidden:
+      description: CSRF検証に失敗した、または操作が許可されていない
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: CSRF_TOKEN_INVALID
+            message: セキュリティトークンが無効です。画面を再読み込みしてください。
+            fieldErrors: []
+            requestId: req_01JQ0000000000000000000000
+    NotFound:
+      description: |
+        対象が存在しない。
+        他ユーザーのpublicIdを指定した場合も本statusを返し、存在有無を公開しない (設計書 18.3)。
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: ITEM_NOT_FOUND
+            message: アイテムが見つかりません。
+            fieldErrors: []
+            requestId: req_01JQ0000000000000000000000
+    Conflict:
+      description: version競合、unique競合、状態競合が発生した
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: ITEM_VERSION_CONFLICT
+            message: アイテムが別の操作で更新されています。最新の内容を読み込み直してください。
+            fieldErrors: []
+            requestId: req_01JQ0000000000000000000000
+    UnprocessableEntity:
+      description: 業務ルールに違反している
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    TooManyRequests:
+      description: request回数の上限を超えた
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: TOO_MANY_REQUESTS
+            message: 試行回数が多すぎます。しばらく待ってから再度お試しください。
+            fieldErrors: []
+            requestId: req_01JQ0000000000000000000000
+    InternalServerError:
+      description: 予期しないerrorが発生した
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: INTERNAL_SERVER_ERROR
+            message: サーバーでエラーが発生しました。
+            fieldErrors: []
+            requestId: req_01JQ0000000000000000000000
+
+  schemas:
+    ErrorResponse:
+      type: object
+      description: 全endpointで共通のerror形式 (設計書 12.3)
+      required: [code, message, fieldErrors, requestId]
+      properties:
+        code:
+          type: string
+          description: 機械判定用のerror code (SCREAMING_SNAKE_CASE)
+          example: EMAIL_ALREADY_REGISTERED
+        message:
+          type: string
+          description: 利用者向けmessage。内部stack traceを含めない。
+        fieldErrors:
+          type: array
+          description: 入力項目単位のerror
+          items:
+            $ref: "#/components/schemas/FieldError"
+        requestId:
+          type: string
+          description: server logと突き合わせるためのrequest ID
+
+    FieldError:
+      type: object
+      required: [field, code, message]
+      properties:
+        field:
+          type: string
+          description: requestBodyのfield名 (camelCase)
+          example: password
+        code:
+          type: string
+          example: TOO_SHORT
+        message:
+          type: string
+          example: パスワードは12文字以上で入力してください。
+
+    RegisterUserRequest:
+      type: object
+      required: [email, password, displayName]
+      additionalProperties: false
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 3
+          maxLength: 254
+          description: |
+            大文字小文字を区別せず一意とする。
+            x-go-typeでGo側をstringとし、形式検証はDomainのEmail ValueObjectへ集約する。
+            これによりfieldErrorsへ `email` を含むresponseを返せる。
+          x-go-type: string
+          example: user@example.com
+        password:
+          type: string
+          format: password
+          minLength: 12
+          maxLength: 128
+          description: Argon2idでhash化して保存する。平文は保存・log出力しない。
+          example: correct-horse-battery
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: 山田太郎
+        timezone:
+          type: string
+          maxLength: 64
+          description: |
+            IANA timezone名。未指定時はserverがAsia/Tokyoを適用する。
+            既定値の適用はserverの責務のため、schemaへdefaultを記述しない。
+          example: Asia/Tokyo
+        locale:
+          type: string
+          maxLength: 16
+          description: 未指定時はserverがja-JPを適用する。
+          example: ja-JP
+
+    LoginUserRequest:
+      type: object
+      required: [email, password]
+      additionalProperties: false
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          x-go-type: string
+          example: user@example.com
+        password:
+          type: string
+          format: password
+          maxLength: 128
+          example: correct-horse-battery
+
+    UserResponse:
+      type: object
+      description: 内部IDを含めない (設計書 12.1)
+      required:
+        [publicId, email, displayName, timezone, locale, createdAt, updatedAt]
+      additionalProperties: false
+      properties:
+        publicId:
+          type: string
+          format: uuid
+          example: 018f8d0a-1c2b-7a3d-9e4f-5a6b7c8d9e0f
+        email:
+          type: string
+          format: email
+          x-go-type: string
+          example: user@example.com
+        displayName:
+          type: string
+          example: 山田太郎
+        timezone:
+          type: string
+          example: Asia/Tokyo
+        locale:
+          type: string
+          example: ja-JP
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-07-25T00:00:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2026-07-25T00:00:00Z"
+
+    AuthenticatedUserContextResponse:
+      type: object
+      description: |
+        認証済みユーザーのcontext。
+        将来の設定値追加に備えてuserをnestした形とする。
+      required: [user]
+      additionalProperties: false
+      properties:
+        user:
+          $ref: "#/components/schemas/UserResponse"
+
+    # ---------------------------------------------------------------------
+    # enum (設計書 6.2: lowercase snake_case)
+    # ---------------------------------------------------------------------
+    ItemKindCode:
+      type: string
+      description: |
+        アイテム種別。設計書 13.7 は種別の存在のみを定め、値集合を定義していない。
+        12.5 の例 `durable` を基に、耐久品と消耗品の2値で開始する。
+      enum: [durable, consumable]
+      example: durable
+
+    NecessityLevelCode:
+      type: string
+      description: 必要度 (設計書 14.5)
+      enum: [essential, important, optional, undecided, unnecessary]
+      example: essential
+
+    UsageFrequencyCode:
+      type: string
+      description: 使用頻度 (設計書 14.3)
+      enum: [daily, weekly, monthly, quarterly, yearly, rarely, never]
+      example: monthly
+
+    SubstitutabilityCode:
+      type: string
+      description: 代替可能性 (設計書 14.4)
+      enum: [none, partial, full, unknown]
+      example: none
+
+    MobilityClassCode:
+      type: string
+      description: 携行区分 (設計書 16.1)
+      enum:
+        [
+          worn,
+          pocket,
+          daily_bag,
+          on_demand,
+          self_carry,
+          parcel,
+          mover,
+          dispose_rebuy,
+          fixed,
+        ]
+      example: daily_bag
+
+    ItemSortKey:
+      type: string
+      description: 所持品一覧の並び替えkey
+      enum: [name, quantity, lastUsedAt, updatedAt]
+      example: updatedAt
+
+    SortOrder:
+      type: string
+      enum: [asc, desc]
+      example: desc
+
+    # ---------------------------------------------------------------------
+    # 共通
+    # ---------------------------------------------------------------------
+    PaginationResponse:
+      type: object
+      description: |
+        offset paginationの結果 (本file冒頭の注記を参照)。
+      required: [limit, offset, totalCount, hasNext]
+      additionalProperties: false
+      properties:
+        limit:
+          type: integer
+          format: int32
+          example: 50
+        offset:
+          type: integer
+          format: int32
+          example: 0
+        totalCount:
+          type: integer
+          format: int64
+          description: 絞り込み条件に一致する総件数
+          example: 128
+        hasNext:
+          type: boolean
+          description: 次のpageが存在するか
+          example: true
+
+    # ---------------------------------------------------------------------
+    # Category
+    # ---------------------------------------------------------------------
+    CategoryReferenceResponse:
+      type: object
+      description: 他resourceから参照する際の最小表現
+      required: [publicId, name]
+      additionalProperties: false
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: 外出・携行品
+
+    CategoryResponse:
+      type: object
+      required: [publicId, name, description, sortOrder, version, createdAt, updatedAt]
+      additionalProperties: false
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: 外出・携行品
+        description:
+          type: string
+          nullable: true
+          example: 外出時に持ち出す物
+        sortOrder:
+          type: integer
+          format: int32
+          description: 画面の表示順。小さい順に表示する。
+          example: 10
+        version:
+          type: integer
+          format: int32
+          example: 1
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CategoryListResponse:
+      type: object
+      required: [items]
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryResponse"
+
+    # ---------------------------------------------------------------------
+    # Tag
+    # ---------------------------------------------------------------------
+    TagReferenceResponse:
+      type: object
+      required: [publicId, name]
+      additionalProperties: false
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: 防災
+
+    TagResponse:
+      type: object
+      required: [publicId, name, itemCount, version, createdAt, updatedAt]
+      additionalProperties: false
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: 防災
+        itemCount:
+          type: integer
+          format: int64
+          description: 本タグが付与されているarchive前アイテムの件数
+          example: 3
+        version:
+          type: integer
+          format: int32
+          example: 1
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    TagListResponse:
+      type: object
+      required: [items]
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/TagResponse"
+
+    CreateTagRequest:
+      type: object
+      required: [name]
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: 同一ユーザー内で一意とする。
+          example: 防災
+
+    UpdateTagRequest:
+      type: object
+      required: [name, expectedVersion]
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 50
+          example: 防災用品
+        expectedVersion:
+          type: integer
+          format: int32
+          minimum: 1
+          description: 楽観ロック用の現在version (設計書 11.7)
+          example: 1
+
+    # ---------------------------------------------------------------------
+    # Item
+    # ---------------------------------------------------------------------
+    ItemResponse:
+      type: object
+      description: |
+        所持品 (設計書 12.6 / 13.7)。内部IDを含めない。
+        一覧と詳細で同一の表現を使用する。
+
+        `review` (見直しスコア) と `storageUnits` (収納割当) は
+        それぞれPhase 3 / Phase 2のスコープのため含めない。
+      required:
+        - publicId
+        - name
+        - category
+        - itemKindCode
+        - itemKindLabel
+        - quantity
+        - desiredQuantity
+        - unitName
+        - necessityLevelCode
+        - necessityLevelLabel
+        - usageFrequencyCode
+        - usageFrequencyLabel
+        - substitutabilityCode
+        - substitutabilityLabel
+        - mobilityClassCode
+        - mobilityClassLabel
+        - ownershipReason
+        - disposalCondition
+        - lastUsedAt
+        - purchasedOn
+        - purchaseAmount
+        - replacementAmount
+        - resaleAmount
+        - weightGram
+        - volumeMilliliter
+        - isFragile
+        - isValuable
+        - isSentimental
+        - requiresMaintenance
+        - expiresOn
+        - sourceUrl
+        - notes
+        - isConfirmed
+        - confirmedAt
+        - tags
+        - isArchived
+        - archivedAt
+        - version
+        - createdAt
+        - updatedAt
+      additionalProperties: false
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: 折りたたみ傘
+        category:
+          $ref: "#/components/schemas/CategoryReferenceResponse"
+        itemKindCode:
+          $ref: "#/components/schemas/ItemKindCode"
+        itemKindLabel:
+          type: string
+          example: 耐久品
+        quantity:
+          type: integer
+          format: int32
+          example: 1
+        desiredQuantity:
+          type: integer
+          format: int32
+          nullable: true
+          description: 希望上限数量。未設定の場合はnull。
+          example: 1
+        unitName:
+          type: string
+          example: 本
+        necessityLevelCode:
+          $ref: "#/components/schemas/NecessityLevelCode"
+        necessityLevelLabel:
+          type: string
+          example: 必須
+        usageFrequencyCode:
+          $ref: "#/components/schemas/UsageFrequencyCode"
+        usageFrequencyLabel:
+          type: string
+          example: 月に1回程度
+        substitutabilityCode:
+          $ref: "#/components/schemas/SubstitutabilityCode"
+        substitutabilityLabel:
+          type: string
+          example: 代替不可
+        mobilityClassCode:
+          $ref: "#/components/schemas/MobilityClassCode"
+        mobilityClassLabel:
+          type: string
+          example: 常時リュック
+        ownershipReason:
+          type: string
+          nullable: true
+          example: 突然の雨に対応するため
+        disposalCondition:
+          type: string
+          nullable: true
+          example: 破損して修理不能になった場合
+        lastUsedAt:
+          type: string
+          format: date-time
+          nullable: true
+        purchasedOn:
+          type: string
+          format: date
+          nullable: true
+        purchaseAmount:
+          type: integer
+          format: int64
+          nullable: true
+          description: 購入金額 (円)。丸め誤差を避けるため整数で扱う (設計書 11章)。
+        replacementAmount:
+          type: integer
+          format: int64
+          nullable: true
+        resaleAmount:
+          type: integer
+          format: int64
+          nullable: true
+        weightGram:
+          type: integer
+          format: int32
+          nullable: true
+        volumeMilliliter:
+          type: integer
+          format: int32
+          nullable: true
+        isFragile:
+          type: boolean
+        isValuable:
+          type: boolean
+        isSentimental:
+          type: boolean
+        requiresMaintenance:
+          type: boolean
+        expiresOn:
+          type: string
+          format: date
+          nullable: true
+        sourceUrl:
+          type: string
+          format: uri
+          nullable: true
+          maxLength: 2048
+        notes:
+          type: string
+          nullable: true
+        isConfirmed:
+          type: boolean
+          description: |
+            棚卸し確認済みか (設計書 13.7)。
+            確認操作 (`confirmItem`) はPhase 1のスコープ外のため、常にfalseとなる。
+        confirmedAt:
+          type: string
+          format: date-time
+          nullable: true
+        tags:
+          type: array
+          items:
+            $ref: "#/components/schemas/TagReferenceResponse"
+        isArchived:
+          type: boolean
+          description: archive (soft delete) 済みか
+        archivedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: archive日時。DBの `deleted_at` に対応する。
+        version:
+          type: integer
+          format: int32
+          description: 楽観ロック用のversion (設計書 11.7)
+          example: 3
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ItemListResponse:
+      type: object
+      required: [items, pagination]
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ItemResponse"
+        pagination:
+          $ref: "#/components/schemas/PaginationResponse"
+
+    CreateItemRequest:
+      type: object
+      description: 設計書 12.5 に対応する。
+      required:
+        - name
+        - categoryPublicId
+        - quantity
+        - necessityLevelCode
+        - usageFrequencyCode
+        - substitutabilityCode
+        - mobilityClassCode
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          example: 折りたたみ傘
+        categoryPublicId:
+          type: string
+          format: uuid
+        itemKindCode:
+          allOf:
+            - $ref: "#/components/schemas/ItemKindCode"
+          description: 未指定時はserverが `durable` を適用する。
+        quantity:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 1000000
+          example: 1
+        desiredQuantity:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 1000000
+          nullable: true
+          example: 1
+        unitName:
+          type: string
+          minLength: 1
+          maxLength: 20
+          description: 未指定時はserverが `個` を適用する。
+          example: 本
+        necessityLevelCode:
+          $ref: "#/components/schemas/NecessityLevelCode"
+        usageFrequencyCode:
+          $ref: "#/components/schemas/UsageFrequencyCode"
+        substitutabilityCode:
+          $ref: "#/components/schemas/SubstitutabilityCode"
+        mobilityClassCode:
+          $ref: "#/components/schemas/MobilityClassCode"
+        ownershipReason:
+          type: string
+          maxLength: 1000
+          nullable: true
+        disposalCondition:
+          type: string
+          maxLength: 1000
+          nullable: true
+        lastUsedAt:
+          type: string
+          format: date-time
+          nullable: true
+        purchasedOn:
+          type: string
+          format: date
+          nullable: true
+        purchaseAmount:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+        replacementAmount:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+        resaleAmount:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+        weightGram:
+          type: integer
+          format: int32
+          minimum: 0
+          nullable: true
+        volumeMilliliter:
+          type: integer
+          format: int32
+          minimum: 0
+          nullable: true
+        isFragile:
+          type: boolean
+          description: 未指定時はfalse。
+        isValuable:
+          type: boolean
+          description: 未指定時はfalse。
+        isSentimental:
+          type: boolean
+          description: 未指定時はfalse。
+        requiresMaintenance:
+          type: boolean
+          description: 未指定時はfalse。
+        expiresOn:
+          type: string
+          format: date
+          nullable: true
+        sourceUrl:
+          type: string
+          maxLength: 2048
+          nullable: true
+          description: httpまたはhttpsのみを許可する (設計書 24.15)。
+        notes:
+          type: string
+          maxLength: 2000
+          nullable: true
+        tagPublicIds:
+          type: array
+          maxItems: 30
+          items:
+            type: string
+            format: uuid
+
+    UpdateItemRequest:
+      type: object
+      description: |
+        全項目を置き換える。CreateItemRequestと同じ項目に `expectedVersion` を加える。
+        allOfで合成せず明示的に列挙し、`additionalProperties: false` を正しく機能させる。
+      required:
+        - name
+        - categoryPublicId
+        - quantity
+        - necessityLevelCode
+        - usageFrequencyCode
+        - substitutabilityCode
+        - mobilityClassCode
+        - expectedVersion
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        categoryPublicId:
+          type: string
+          format: uuid
+        itemKindCode:
+          allOf:
+            - $ref: "#/components/schemas/ItemKindCode"
+          description: 未指定時はserverが `durable` を適用する。
+        quantity:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 1000000
+        desiredQuantity:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 1000000
+          nullable: true
+        unitName:
+          type: string
+          minLength: 1
+          maxLength: 20
+          description: 未指定時はserverが `個` を適用する。
+        necessityLevelCode:
+          $ref: "#/components/schemas/NecessityLevelCode"
+        usageFrequencyCode:
+          $ref: "#/components/schemas/UsageFrequencyCode"
+        substitutabilityCode:
+          $ref: "#/components/schemas/SubstitutabilityCode"
+        mobilityClassCode:
+          $ref: "#/components/schemas/MobilityClassCode"
+        ownershipReason:
+          type: string
+          maxLength: 1000
+          nullable: true
+        disposalCondition:
+          type: string
+          maxLength: 1000
+          nullable: true
+        lastUsedAt:
+          type: string
+          format: date-time
+          nullable: true
+        purchasedOn:
+          type: string
+          format: date
+          nullable: true
+        purchaseAmount:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+        replacementAmount:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+        resaleAmount:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+        weightGram:
+          type: integer
+          format: int32
+          minimum: 0
+          nullable: true
+        volumeMilliliter:
+          type: integer
+          format: int32
+          minimum: 0
+          nullable: true
+        isFragile:
+          type: boolean
+        isValuable:
+          type: boolean
+        isSentimental:
+          type: boolean
+        requiresMaintenance:
+          type: boolean
+        expiresOn:
+          type: string
+          format: date
+          nullable: true
+        sourceUrl:
+          type: string
+          maxLength: 2048
+          nullable: true
+        notes:
+          type: string
+          maxLength: 2000
+          nullable: true
+        tagPublicIds:
+          type: array
+          maxItems: 30
+          items:
+            type: string
+            format: uuid
+        expectedVersion:
+          type: integer
+          format: int32
+          minimum: 1
+          description: 楽観ロック用の現在version (設計書 11.7)
+
+    ItemVersionRequest:
+      type: object
+      description: archive・restoreのように追加入力を持たない操作で使用する。
+      required: [expectedVersion]
+      additionalProperties: false
+      properties:
+        expectedVersion:
+          type: integer
+          format: int32
+          minimum: 1
+          description: 楽観ロック用の現在version (設計書 11.7)
+
+    # ---------------------------------------------------------------------
+    # Item usage record
+    # ---------------------------------------------------------------------
+    ItemUsageRecordResponse:
+      type: object
+      required: [publicId, usedAt, quantity, note, createdAt]
+      additionalProperties: false
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        usedAt:
+          type: string
+          format: date-time
+        quantity:
+          type: integer
+          format: int32
+          description: 使用した数量。
+          example: 1
+        note:
+          type: string
+          nullable: true
+          example: 通勤時に使用
+        createdAt:
+          type: string
+          format: date-time
+
+    ItemUsageRecordListResponse:
+      type: object
+      required: [items, pagination]
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ItemUsageRecordResponse"
+        pagination:
+          $ref: "#/components/schemas/PaginationResponse"
+
+    CreateItemUsageRecordRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        usedAt:
+          type: string
+          format: date-time
+          description: 使用日時。未指定時はserverの現在時刻を使用する。未来日時は許可しない。
+        quantity:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 1000000
+          description: 使用した数量。未指定時は1。
+        note:
+          type: string
+          maxLength: 500
+          nullable: true

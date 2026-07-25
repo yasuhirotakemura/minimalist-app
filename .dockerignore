@@ -1,0 +1,10 @@
+.git/
+node_modules/
+**/node_modules/
+apps/web/dist/
+apps/api/bin/
+coverage/
+.env
+.env.local
+docs/
+.github/

@@ -1,0 +1,281 @@
+--
+-- PostgreSQL database dump
+--
+
+\restrict ZXanTXrMcvmOG8zQkv7MaEfmhEd1w8jHmtJ9x6iQe1BNK0tE0gDJBWyWZC85fxB
+
+-- Dumped from database version 17.10
+-- Dumped by pg_dump version 17.10
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET transaction_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
+
+--
+-- Name: identity; Type: SCHEMA; Schema: -; Owner: -
+--
+
+CREATE SCHEMA identity;
+
+
+--
+-- Name: public; Type: SCHEMA; Schema: -; Owner: -
+--
+
+CREATE SCHEMA public;
+
+
+SET default_tablespace = '';
+
+SET default_table_access_method = heap;
+
+--
+-- Name: auth_sessions; Type: TABLE; Schema: identity; Owner: -
+--
+
+CREATE TABLE identity.auth_sessions (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id bigint NOT NULL,
+    token_hash bytea NOT NULL,
+    issued_at timestamp with time zone DEFAULT now() NOT NULL,
+    expires_at timestamp with time zone NOT NULL,
+    last_used_at timestamp with time zone DEFAULT now() NOT NULL,
+    revoked_at timestamp with time zone,
+    user_agent text,
+    ip_address inet,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT ck_auth_sessions__expires_after_issued CHECK ((expires_at > issued_at)),
+    CONSTRAINT ck_auth_sessions__token_hash_length CHECK ((octet_length(token_hash) = 32)),
+    CONSTRAINT ck_auth_sessions__user_agent_length CHECK ((char_length(user_agent) <= 512))
+);
+
+
+--
+-- Name: auth_sessions_id_seq; Type: SEQUENCE; Schema: identity; Owner: -
+--
+
+ALTER TABLE identity.auth_sessions ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME identity.auth_sessions_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: user_password_auths; Type: TABLE; Schema: identity; Owner: -
+--
+
+CREATE TABLE identity.user_password_auths (
+    id bigint NOT NULL,
+    user_id bigint NOT NULL,
+    password_hash text NOT NULL,
+    algorithm text DEFAULT 'argon2id'::text NOT NULL,
+    password_updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    version integer DEFAULT 1 NOT NULL,
+    CONSTRAINT ck_user_password_auths__algorithm_allowed CHECK ((algorithm = 'argon2id'::text)),
+    CONSTRAINT ck_user_password_auths__password_hash_shape CHECK ((password_hash ~~ '$argon2id$%'::text)),
+    CONSTRAINT ck_user_password_auths__version_positive CHECK ((version > 0))
+);
+
+
+--
+-- Name: user_password_auths_id_seq; Type: SEQUENCE; Schema: identity; Owner: -
+--
+
+ALTER TABLE identity.user_password_auths ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME identity.user_password_auths_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: users; Type: TABLE; Schema: identity; Owner: -
+--
+
+CREATE TABLE identity.users (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT gen_random_uuid() NOT NULL,
+    email text NOT NULL,
+    display_name text NOT NULL,
+    timezone text DEFAULT 'Asia/Tokyo'::text NOT NULL,
+    locale text DEFAULT 'ja-JP'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    deleted_at timestamp with time zone,
+    version integer DEFAULT 1 NOT NULL,
+    CONSTRAINT ck_users__display_name_length CHECK (((char_length(display_name) >= 1) AND (char_length(display_name) <= 100))),
+    CONSTRAINT ck_users__email_length CHECK (((char_length(email) >= 3) AND (char_length(email) <= 254))),
+    CONSTRAINT ck_users__email_lowercase CHECK ((email = lower(email))),
+    CONSTRAINT ck_users__email_shape CHECK ((POSITION(('@'::text) IN (email)) > 1)),
+    CONSTRAINT ck_users__locale_not_blank CHECK ((btrim(locale) <> ''::text)),
+    CONSTRAINT ck_users__timezone_not_blank CHECK ((btrim(timezone) <> ''::text)),
+    CONSTRAINT ck_users__version_positive CHECK ((version > 0))
+);
+
+
+--
+-- Name: users_id_seq; Type: SEQUENCE; Schema: identity; Owner: -
+--
+
+ALTER TABLE identity.users ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME identity.users_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: goose_db_version; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.goose_db_version (
+    id integer NOT NULL,
+    version_id bigint NOT NULL,
+    is_applied boolean NOT NULL,
+    tstamp timestamp without time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: goose_db_version_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.goose_db_version ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME public.goose_db_version_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: auth_sessions pk_auth_sessions; Type: CONSTRAINT; Schema: identity; Owner: -
+--
+
+ALTER TABLE ONLY identity.auth_sessions
+    ADD CONSTRAINT pk_auth_sessions PRIMARY KEY (id);
+
+
+--
+-- Name: user_password_auths pk_user_password_auths; Type: CONSTRAINT; Schema: identity; Owner: -
+--
+
+ALTER TABLE ONLY identity.user_password_auths
+    ADD CONSTRAINT pk_user_password_auths PRIMARY KEY (id);
+
+
+--
+-- Name: users pk_users; Type: CONSTRAINT; Schema: identity; Owner: -
+--
+
+ALTER TABLE ONLY identity.users
+    ADD CONSTRAINT pk_users PRIMARY KEY (id);
+
+
+--
+-- Name: auth_sessions uq_auth_sessions__public_id; Type: CONSTRAINT; Schema: identity; Owner: -
+--
+
+ALTER TABLE ONLY identity.auth_sessions
+    ADD CONSTRAINT uq_auth_sessions__public_id UNIQUE (public_id);
+
+
+--
+-- Name: auth_sessions uq_auth_sessions__token_hash; Type: CONSTRAINT; Schema: identity; Owner: -
+--
+
+ALTER TABLE ONLY identity.auth_sessions
+    ADD CONSTRAINT uq_auth_sessions__token_hash UNIQUE (token_hash);
+
+
+--
+-- Name: user_password_auths uq_user_password_auths__user_id; Type: CONSTRAINT; Schema: identity; Owner: -
+--
+
+ALTER TABLE ONLY identity.user_password_auths
+    ADD CONSTRAINT uq_user_password_auths__user_id UNIQUE (user_id);
+
+
+--
+-- Name: users uq_users__public_id; Type: CONSTRAINT; Schema: identity; Owner: -
+--
+
+ALTER TABLE ONLY identity.users
+    ADD CONSTRAINT uq_users__public_id UNIQUE (public_id);
+
+
+--
+-- Name: goose_db_version goose_db_version_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.goose_db_version
+    ADD CONSTRAINT goose_db_version_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: idx_auth_sessions__expires_at; Type: INDEX; Schema: identity; Owner: -
+--
+
+CREATE INDEX idx_auth_sessions__expires_at ON identity.auth_sessions USING btree (expires_at) WHERE (revoked_at IS NULL);
+
+
+--
+-- Name: idx_auth_sessions__user_id_expires_at; Type: INDEX; Schema: identity; Owner: -
+--
+
+CREATE INDEX idx_auth_sessions__user_id_expires_at ON identity.auth_sessions USING btree (user_id, expires_at DESC);
+
+
+--
+-- Name: uq_users__email_active; Type: INDEX; Schema: identity; Owner: -
+--
+
+CREATE UNIQUE INDEX uq_users__email_active ON identity.users USING btree (email) WHERE (deleted_at IS NULL);
+
+
+--
+-- Name: auth_sessions fk_auth_sessions__user_id; Type: FK CONSTRAINT; Schema: identity; Owner: -
+--
+
+ALTER TABLE ONLY identity.auth_sessions
+    ADD CONSTRAINT fk_auth_sessions__user_id FOREIGN KEY (user_id) REFERENCES identity.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: user_password_auths fk_user_password_auths__user_id; Type: FK CONSTRAINT; Schema: identity; Owner: -
+--
+
+ALTER TABLE ONLY identity.user_password_auths
+    ADD CONSTRAINT fk_user_password_auths__user_id FOREIGN KEY (user_id) REFERENCES identity.users(id) ON DELETE CASCADE;
+
+
+--
+-- PostgreSQL database dump complete
+--
+
+\unrestrict ZXanTXrMcvmOG8zQkv7MaEfmhEd1w8jHmtJ9x6iQe1BNK0tE0gDJBWyWZC85fxB
+

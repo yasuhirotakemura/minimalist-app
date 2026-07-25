@@ -1,0 +1,21 @@
+@import 'tailwindcss';
+
+/* focus表示を消さない (設計書 10.9)。 */
+:focus-visible {
+  outline-offset: 2px;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Hiragino Sans',
+    'Noto Sans JP',
+    Meiryo,
+    sans-serif;
+}

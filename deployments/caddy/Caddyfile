@@ -1,0 +1,29 @@
+# local開発用reverse proxy。
+# WebとAPIを同一オリジンで公開し、Cookie SameSite=Laxのまま動作させる。
+
+{
+	admin off
+	auto_https off
+}
+
+:8080 {
+	log {
+		output stdout
+		format console
+	}
+
+	# Go API
+	handle /api/* {
+		reverse_proxy api:8081
+	}
+
+	# health check endpoint (設計書 23.2)
+	handle /health/* {
+		reverse_proxy api:8081
+	}
+
+	# Vite dev server (HMR websocketもreverse_proxyが中継する)
+	handle {
+		reverse_proxy web:5173
+	}
+}

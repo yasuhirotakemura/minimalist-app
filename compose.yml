@@ -1,0 +1,142 @@
+name: less
+
+# ---------------------------------------------------------------------------
+# local開発環境 (設計書 26.1)
+#   reverse-proxy :8080  -> web (Vite dev server) / api (/api/*, /health/*)
+# ---------------------------------------------------------------------------
+
+x-database-url: &database-url
+  DATABASE_URL: ${DATABASE_URL:-postgres://less:less_local_password@postgres:5432/less?sslmode=disable}
+
+x-go-dev: &go-dev
+  build:
+    context: .
+    dockerfile: deployments/docker/api.Dockerfile
+    target: dev
+  volumes:
+    - ./apps/api:/src
+    - ./db:/db
+    - go-module-cache:/go/pkg/mod
+    - go-build-cache:/root/.cache/go-build
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-less}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-less_local_password}
+      POSTGRES_DB: ${POSTGRES_DB:-less}
+      TZ: UTC
+      PGTZ: UTC
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-less} -d ${POSTGRES_DB:-less}"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+
+  # 起動時に一度だけmigrationを適用する。
+  migrate:
+    <<: *go-dev
+    command: ["go", "run", "./cmd/migrate", "up"]
+    environment:
+      <<: *database-url
+      MIGRATIONS_DIR: /db/migrations
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    <<: *go-dev
+    environment:
+      <<: *database-url
+      APP_ENV: ${APP_ENV:-local}
+      API_PORT: ${API_PORT:-8081}
+      WEB_BASE_URL: ${WEB_BASE_URL:-http://localhost:8080}
+      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-less_session}
+      SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-720}
+      PASSWORD_PEPPER: ${PASSWORD_PEPPER:-local_password_pepper_change_me}
+      CSRF_SECRET: ${CSRF_SECRET:-local_csrf_secret_change_me}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8080,http://localhost:5173}
+      LOG_LEVEL: ${LOG_LEVEL:-debug}
+      MAX_IMPORT_SIZE_MB: ${MAX_IMPORT_SIZE_MB:-10}
+      EXPORT_TTL_MINUTES: ${EXPORT_TTL_MINUTES:-15}
+    expose:
+      - "${API_PORT:-8081}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--quiet",
+          "--tries=1",
+          "--spider",
+          "http://127.0.0.1:${API_PORT:-8081}/health/live",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 30s
+
+  web:
+    build:
+      context: .
+      dockerfile: deployments/docker/web.Dockerfile
+      target: dev
+    environment:
+      VITE_HMR_CLIENT_PORT: "8080"
+    volumes:
+      - ./apps/web:/app/apps/web
+      - web-node-modules:/app/node_modules
+      - web-app-node-modules:/app/apps/web/node_modules
+    expose:
+      - "5173"
+
+  reverse-proxy:
+    image: caddy:2.9-alpine
+    ports:
+      - "${PROXY_PORT:-8080}:8080"
+    volumes:
+      - ./deployments/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - api
+      - web
+
+  # `make seed` から起動する。local開発用のdataを投入する。
+  seed:
+    <<: *go-dev
+    profiles: ["tools"]
+    command: ["go", "run", "./cmd/migrate", "seed"]
+    environment:
+      <<: *database-url
+      APP_ENV: ${APP_ENV:-local}
+      PASSWORD_PEPPER: ${PASSWORD_PEPPER:-local_password_pepper_change_me}
+      SEEDS_DIR: /db/seeds
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+volumes:
+  postgres-data:
+  go-module-cache:
+  go-build-cache:
+  web-node-modules:
+  web-app-node-modules:
+  caddy-data:
+  caddy-config:

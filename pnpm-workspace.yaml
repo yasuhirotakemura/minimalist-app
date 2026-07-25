@@ -1,0 +1,7 @@
+packages:
+  - apps/web
+
+# postinstall scriptの実行を明示的に許可する依存 (pnpm 10)。
+# esbuildはplatform別binaryの取得にpostinstallを使用する。
+onlyBuiltDependencies:
+  - esbuild

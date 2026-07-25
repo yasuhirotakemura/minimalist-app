@@ -1,0 +1,36 @@
+# 本番相当の静的配信用設定。
+# TLS終端とAPIへのreverse proxyは前段のload balancerまたは本設定を拡張して行う。
+
+{
+	admin off
+	auto_https off
+}
+
+:8080 {
+	log {
+		output stdout
+		format json
+	}
+
+	root * /srv
+	encode zstd gzip
+
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		X-Frame-Options DENY
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+		-Server
+	}
+
+	# hashed assetは長期cache、それ以外は都度検証させる。
+	@hashedAsset path /assets/*
+	header @hashedAsset Cache-Control "public, max-age=31536000, immutable"
+
+	@html path *.html /
+	header @html Cache-Control "no-cache"
+
+	# SPA fallback
+	try_files {path} /index.html
+	file_server
+}

@@ -1,0 +1,49 @@
+{
+  "name": "@less/web",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --build --force && vite build",
+    "preview": "vite preview",
+    "typecheck": "vue-tsc --build --force",
+    "lint": "eslint . --max-warnings 0",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write \"src/**/*.{ts,vue,css}\" \"tests/**/*.ts\" \"*.{ts,json,cjs}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,vue,css}\" \"tests/**/*.ts\" \"*.{ts,json,cjs}\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "generate:api-client": "openapi-typescript ../../docs/api/openapi.yml -o ./src/api/generated/schema.d.ts"
+  },
+  "dependencies": {
+    "@tanstack/vue-query": "^5.62.0",
+    "openapi-fetch": "^0.13.0",
+    "pinia": "^2.3.0",
+    "vee-validate": "^4.15.0",
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "@tailwindcss/postcss": "^4.0.0",
+    "@testing-library/user-event": "^14.5.2",
+    "@testing-library/vue": "^8.1.0",
+    "@types/node": "^22.10.0",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "@vue/eslint-config-prettier": "^10.1.0",
+    "@vue/eslint-config-typescript": "^14.2.0",
+    "eslint": "^9.17.0",
+    "eslint-plugin-vue": "^9.32.0",
+    "jsdom": "^25.0.1",
+    "openapi-typescript": "^7.4.4",
+    "postcss": "^8.4.49",
+    "prettier": "^3.4.2",
+    "tailwindcss": "^4.0.0",
+    "typescript": "~5.7.2",
+    "vite": "^6.0.5",
+    "vitest": "^3.2.0",
+    "vue-tsc": "^2.2.0"
+  }
+}
