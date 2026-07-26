@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import AppShell from '@/layouts/AppShell.vue'
 import BaseAlert from '@/components/base/BaseAlert.vue'
+import BaseButton from '@/components/base/BaseButton.vue'
 import { useAuthSession } from '@/composables/useAuthSession'
 
 /**
  * ダッシュボード (設計書 9.3)。
  *
- * Phase 0では認証が成立していることの確認までを実装する。
- * 集計値と主要操作 (アイテム追加 / 見直し開始 / シナリオ) はPhase 1以降で追加する。
+ * 集計値の表示 (見直し候補数・推定総重量等) は見直しと収納の導入後に追加する。
+ * 現時点では所持品への導線までを実装する。
  */
 const { user } = useAuthSession()
 </script>
@@ -38,8 +39,21 @@ const { user } = useAuthSession()
       </dl>
     </section>
 
-    <BaseAlert class="mt-6" title="Phase 0">
-      アイテム・収納・見直しの機能は Phase 1 以降で追加します。
+    <section class="mt-4 rounded-lg border border-slate-200 bg-white p-5">
+      <h2 class="text-sm font-medium text-slate-600">主要な操作</h2>
+      <div class="mt-3 flex flex-wrap gap-2">
+        <BaseButton @click="$router.push({ name: 'itemNew' })">アイテムを追加</BaseButton>
+        <BaseButton variant="secondary" @click="$router.push({ name: 'items' })">
+          所持品を見る
+        </BaseButton>
+        <BaseButton variant="secondary" @click="$router.push({ name: 'tags' })">
+          タグを管理
+        </BaseButton>
+      </div>
+    </section>
+
+    <BaseAlert class="mt-6" title="今後追加する機能">
+      収納単位・見直し・購入審査・シナリオは、以降のフェーズで追加します。
     </BaseAlert>
   </AppShell>
 </template>

@@ -13,6 +13,42 @@ export type AuthenticatedUserContextResponse =
 export type RegisterUserRequest = components['schemas']['RegisterUserRequest']
 export type LoginUserRequest = components['schemas']['LoginUserRequest']
 
+export type CategoryResponse = components['schemas']['CategoryResponse']
+export type CategoryListResponse = components['schemas']['CategoryListResponse']
+export type CategoryReferenceResponse = components['schemas']['CategoryReferenceResponse']
+
+export type TagResponse = components['schemas']['TagResponse']
+export type TagListResponse = components['schemas']['TagListResponse']
+export type TagReferenceResponse = components['schemas']['TagReferenceResponse']
+export type CreateTagRequest = components['schemas']['CreateTagRequest']
+export type UpdateTagRequest = components['schemas']['UpdateTagRequest']
+
+export type ItemResponse = components['schemas']['ItemResponse']
+export type ItemListResponse = components['schemas']['ItemListResponse']
+export type CreateItemRequest = components['schemas']['CreateItemRequest']
+export type UpdateItemRequest = components['schemas']['UpdateItemRequest']
+export type PaginationResponse = components['schemas']['PaginationResponse']
+
+export type ItemUsageRecordResponse = components['schemas']['ItemUsageRecordResponse']
+export type ItemUsageRecordListResponse = components['schemas']['ItemUsageRecordListResponse']
+export type CreateItemUsageRecordRequest = components['schemas']['CreateItemUsageRecordRequest']
+
+export type ItemKindCode = components['schemas']['ItemKindCode']
+export type NecessityLevelCode = components['schemas']['NecessityLevelCode']
+export type UsageFrequencyCode = components['schemas']['UsageFrequencyCode']
+export type SubstitutabilityCode = components['schemas']['SubstitutabilityCode']
+export type MobilityClassCode = components['schemas']['MobilityClassCode']
+export type ItemSortKey = components['schemas']['ItemSortKey']
+export type SortOrder = components['schemas']['SortOrder']
+
+/** GET /api/items のquery parameter。 */
+export type ListItemsQuery = NonNullable<paths['/items']['get']['parameters']['query']>
+
+/** limit / offset のみを取るquery parameter。 */
+export type PageQuery = NonNullable<
+  paths['/items/{publicId}/usage-records']['get']['parameters']['query']
+>
+
 /**
  * APIのbase path。
  *
@@ -75,6 +111,15 @@ export class ApiError extends Error {
   get isUnauthenticated(): boolean {
     return this.status === 401
   }
+
+  /** version競合・unique競合・状態競合 (設計書 19.2)。 */
+  get isConflict(): boolean {
+    return this.status === 409
+  }
+
+  get isNotFound(): boolean {
+    return this.status === 404
+  }
 }
 
 /** 通信自体に失敗した場合のerror。 */
@@ -115,6 +160,21 @@ function toErrorResponse(error: unknown, response: Response): ErrorResponse {
     message: `サーバーでエラーが発生しました。(HTTP ${response.status})`,
     fieldErrors: [],
     requestId: response.headers.get('X-Request-Id') ?? '',
+  }
+}
+
+/**
+ * fetch自体の失敗をNetworkErrorへ変換する。
+ * ApiErrorはそのまま伝播させる。
+ */
+export async function withNetworkErrorHandling<T>(operation: () => Promise<T>): Promise<T> {
+  try {
+    return await operation()
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new NetworkError(error)
+    }
+    throw error
   }
 }
 

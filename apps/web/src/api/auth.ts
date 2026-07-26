@@ -1,7 +1,7 @@
 import {
   apiClient,
-  NetworkError,
   unwrap,
+  withNetworkErrorHandling,
   type AuthenticatedUserContextResponse,
   type LoginUserRequest,
   type RegisterUserRequest,
@@ -36,19 +36,4 @@ export async function logoutUser(): Promise<void> {
 /** GET /api/auth/context */
 export async function fetchAuthenticatedUserContext(): Promise<AuthenticatedUserContextResponse> {
   return withNetworkErrorHandling(async () => unwrap(await apiClient.GET('/auth/context')))
-}
-
-/**
- * fetch自体の失敗をNetworkErrorへ変換する。
- * ApiErrorはそのまま伝播させる。
- */
-async function withNetworkErrorHandling<T>(operation: () => Promise<T>): Promise<T> {
-  try {
-    return await operation()
-  } catch (error) {
-    if (error instanceof TypeError) {
-      throw new NetworkError(error)
-    }
-    throw error
-  }
 }

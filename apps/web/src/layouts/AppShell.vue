@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 import BaseButton from '@/components/base/BaseButton.vue'
 import { useAuthSession } from '@/composables/useAuthSession'
@@ -7,11 +7,26 @@ import { useAuthSession } from '@/composables/useAuthSession'
 /**
  * 認証後の共通レイアウト (設計書 9.2)。
  *
- * Phase 0ではheaderのみを実装する。
- * sidebar・bottom navigationは画面が増えるPhase 1以降で追加する。
+ * 画面数が少ないうちはheaderと主要navigationのみとする。
+ * sidebar・bottom navigationは画面が増えるPhase 2以降で追加する。
  */
 const router = useRouter()
+const route = useRoute()
 const { user, isSubmitting, logout } = useAuthSession()
+
+const navigationLinks = [
+  { name: 'dashboard', label: 'ホーム' },
+  { name: 'items', label: '所持品' },
+  { name: 'tags', label: 'タグ' },
+] as const
+
+/** アイテム詳細・編集でも「所持品」を選択中として示す。 */
+function isActive(name: string): boolean {
+  if (name === 'items') {
+    return route.path === '/items' || route.path.startsWith('/items/')
+  }
+  return route.name === name
+}
 
 async function handleLogout(): Promise<void> {
   // destructiveではないが、作業中の離脱を避けるため確認する (設計書 10.6)。
@@ -42,6 +57,25 @@ async function handleLogout(): Promise<void> {
           </BaseButton>
         </div>
       </div>
+
+      <nav aria-label="メインナビゲーション" class="mx-auto max-w-5xl px-4">
+        <ul class="flex gap-1 overflow-x-auto">
+          <li v-for="link in navigationLinks" :key="link.name">
+            <RouterLink
+              :to="{ name: link.name }"
+              class="inline-flex min-h-11 items-center border-b-2 px-3 text-sm font-medium"
+              :class="
+                isActive(link.name)
+                  ? 'border-slate-900 text-slate-900'
+                  : 'border-transparent text-slate-600 hover:text-slate-900'
+              "
+              :aria-current="isActive(link.name) ? 'page' : undefined"
+            >
+              {{ link.label }}
+            </RouterLink>
+          </li>
+        </ul>
+      </nav>
     </header>
 
     <main class="mx-auto max-w-5xl px-4 py-6">

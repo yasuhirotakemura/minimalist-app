@@ -5,7 +5,8 @@ import { useAuthSessionStore } from '@/stores/authSession'
 /**
  * route定義 (設計書 9.1)。
  *
- * Phase 0のスコープは `/login` `/register` `/dashboard` のみとする。
+ * 現在のスコープは認証 (Phase 0) と所持品・タグ (Phase 1) とする。
+ * 収納単位・見直し・シナリオ等はPhase 2以降で追加する。
  */
 export const routes: RouteRecordRaw[] = [
   {
@@ -30,6 +31,36 @@ export const routes: RouteRecordRaw[] = [
     name: 'dashboard',
     component: () => import('@/pages/dashboard.vue'),
     meta: { requiresAuth: true, title: 'ダッシュボード' },
+  },
+  {
+    path: '/items',
+    name: 'items',
+    component: () => import('@/pages/items.vue'),
+    meta: { requiresAuth: true, title: '所持品' },
+  },
+  {
+    path: '/items/new',
+    name: 'itemNew',
+    component: () => import('@/pages/item-new.vue'),
+    meta: { requiresAuth: true, title: 'アイテムを追加' },
+  },
+  {
+    path: '/items/:publicId',
+    name: 'itemDetail',
+    component: () => import('@/pages/item-detail.vue'),
+    meta: { requiresAuth: true, title: 'アイテム詳細' },
+  },
+  {
+    path: '/items/:publicId/edit',
+    name: 'itemEdit',
+    component: () => import('@/pages/item-edit.vue'),
+    meta: { requiresAuth: true, title: 'アイテムを編集' },
+  },
+  {
+    path: '/tags',
+    name: 'tags',
+    component: () => import('@/pages/tags.vue'),
+    meta: { requiresAuth: true, title: 'タグ' },
   },
   {
     path: '/:pathMatch(.*)*',

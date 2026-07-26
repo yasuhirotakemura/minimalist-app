@@ -88,6 +88,203 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/categories': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * カテゴリー一覧を取得する
+     * @description 認証ユーザーのカテゴリーをsortOrder昇順で返す。
+     *     カテゴリーはユーザー登録時に既定値が作成される。
+     *     件数が少なく画面側で全件を保持するため、paginationを行わない。
+     */
+    get: operations['listCategories']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/tags': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * タグ一覧を取得する
+     * @description 認証ユーザーのタグを名称昇順で返す。
+     */
+    get: operations['listTags']
+    put?: never
+    /** タグを登録する */
+    post: operations['createTag']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/tags/{publicId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+        publicId: components['parameters']['PublicIdPathParameter']
+      }
+      cookie?: never
+    }
+    get?: never
+    /**
+     * タグを更新する
+     * @description 設計書 12.4 のendpoint一覧には含まれないが、
+     *     タグ名の修正を行えるようにするため追加した。
+     */
+    put: operations['updateTag']
+    post?: never
+    /**
+     * タグを削除する
+     * @description soft deleteする (設計書 1.4)。アイテムへの付与情報は保持したまま
+     *     一覧・アイテムresponseから除外する。
+     *     bodyを持たないmethodのため `expectedVersion` はquery parameterで受け取る。
+     */
+    delete: operations['deleteTag']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/items': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * 所持品一覧を取得する
+     * @description 認証ユーザーの所持品を検索・絞り込み・並び替えして返す (設計書 9.4)。
+     *     archive済みのアイテムは既定で除外し、`includeDeleted=true` の場合のみ含める。
+     */
+    get: operations['listItems']
+    put?: never
+    /** 所持品を登録する */
+    post: operations['createItem']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/items/{publicId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+        publicId: components['parameters']['PublicIdPathParameter']
+      }
+      cookie?: never
+    }
+    /**
+     * 所持品を取得する
+     * @description 他ユーザーのpublicIdを指定した場合も 404 を返し、
+     *     存在有無を公開しない (設計書 18.3)。
+     */
+    get: operations['getItemByPublicId']
+    /**
+     * 所持品を更新する
+     * @description 全項目を置き換える。省略した任意項目はNULLへ更新される。
+     *     `expectedVersion` が現在versionと一致しない場合は 409 を返す。
+     */
+    put: operations['updateItem']
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/items/{publicId}/archive': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+        publicId: components['parameters']['PublicIdPathParameter']
+      }
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * 所持品をarchiveする
+     * @description soft deleteとして `archivedAt` を設定する (設計書 1.4)。
+     *     archive済みのアイテムは既定の一覧から除外され、使用記録を追加できない。
+     */
+    post: operations['archiveItem']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/items/{publicId}/restore': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+        publicId: components['parameters']['PublicIdPathParameter']
+      }
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** archive済みの所持品を復元する */
+    post: operations['restoreItem']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/items/{publicId}/usage-records': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+        publicId: components['parameters']['PublicIdPathParameter']
+      }
+      cookie?: never
+    }
+    /**
+     * 使用記録の履歴を取得する
+     * @description 使用日時の降順で返す。
+     */
+    get: operations['listItemUsageRecords']
+    put?: never
+    /**
+     * 使用記録を登録する
+     * @description 登録と同時にアイテムの最終使用日時を更新する。
+     *     既存の最終使用日時より古い記録では更新しない。
+     *     archive済みのアイテムへは登録できず 422 を返す (設計書 7.2)。
+     */
+    post: operations['createItemUsageRecord']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
 }
 export type webhooks = Record<string, never>
 export interface components {
@@ -194,6 +391,412 @@ export interface components {
     AuthenticatedUserContextResponse: {
       user: components['schemas']['UserResponse']
     }
+    /**
+     * @description アイテム種別。設計書 13.7 は種別の存在のみを定め、値集合を定義していない。
+     *     12.5 の例 `durable` を基に、耐久品と消耗品の2値で開始する。
+     * @example durable
+     * @enum {string}
+     */
+    ItemKindCode: 'durable' | 'consumable'
+    /**
+     * @description 必要度 (設計書 14.5)
+     * @example essential
+     * @enum {string}
+     */
+    NecessityLevelCode: 'essential' | 'important' | 'optional' | 'undecided' | 'unnecessary'
+    /**
+     * @description 使用頻度 (設計書 14.3)
+     * @example monthly
+     * @enum {string}
+     */
+    UsageFrequencyCode: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly' | 'rarely' | 'never'
+    /**
+     * @description 代替可能性 (設計書 14.4)
+     * @example none
+     * @enum {string}
+     */
+    SubstitutabilityCode: 'none' | 'partial' | 'full' | 'unknown'
+    /**
+     * @description 携行区分 (設計書 16.1)
+     * @example daily_bag
+     * @enum {string}
+     */
+    MobilityClassCode:
+      | 'worn'
+      | 'pocket'
+      | 'daily_bag'
+      | 'on_demand'
+      | 'self_carry'
+      | 'parcel'
+      | 'mover'
+      | 'dispose_rebuy'
+      | 'fixed'
+    /**
+     * @description 所持品一覧の並び替えkey
+     * @example updatedAt
+     * @enum {string}
+     */
+    ItemSortKey: 'name' | 'quantity' | 'lastUsedAt' | 'updatedAt'
+    /**
+     * @example desc
+     * @enum {string}
+     */
+    SortOrder: 'asc' | 'desc'
+    /** @description offset paginationの結果 (本file冒頭の注記を参照)。 */
+    PaginationResponse: {
+      /**
+       * Format: int32
+       * @example 50
+       */
+      limit: number
+      /**
+       * Format: int32
+       * @example 0
+       */
+      offset: number
+      /**
+       * Format: int64
+       * @description 絞り込み条件に一致する総件数
+       * @example 128
+       */
+      totalCount: number
+      /**
+       * @description 次のpageが存在するか
+       * @example true
+       */
+      hasNext: boolean
+    }
+    /** @description 他resourceから参照する際の最小表現 */
+    CategoryReferenceResponse: {
+      /** Format: uuid */
+      publicId: string
+      /** @example 外出・携行品 */
+      name: string
+    }
+    CategoryResponse: {
+      /** Format: uuid */
+      publicId: string
+      /** @example 外出・携行品 */
+      name: string
+      /** @example 外出時に持ち出す物 */
+      description: string | null
+      /**
+       * Format: int32
+       * @description 画面の表示順。小さい順に表示する。
+       * @example 10
+       */
+      sortOrder: number
+      /**
+       * Format: int32
+       * @example 1
+       */
+      version: number
+      /** Format: date-time */
+      createdAt: string
+      /** Format: date-time */
+      updatedAt: string
+    }
+    CategoryListResponse: {
+      items: components['schemas']['CategoryResponse'][]
+    }
+    TagReferenceResponse: {
+      /** Format: uuid */
+      publicId: string
+      /** @example 防災 */
+      name: string
+    }
+    TagResponse: {
+      /** Format: uuid */
+      publicId: string
+      /** @example 防災 */
+      name: string
+      /**
+       * Format: int64
+       * @description 本タグが付与されているarchive前アイテムの件数
+       * @example 3
+       */
+      itemCount: number
+      /**
+       * Format: int32
+       * @example 1
+       */
+      version: number
+      /** Format: date-time */
+      createdAt: string
+      /** Format: date-time */
+      updatedAt: string
+    }
+    TagListResponse: {
+      items: components['schemas']['TagResponse'][]
+    }
+    CreateTagRequest: {
+      /**
+       * @description 同一ユーザー内で一意とする。
+       * @example 防災
+       */
+      name: string
+    }
+    UpdateTagRequest: {
+      /** @example 防災用品 */
+      name: string
+      /**
+       * Format: int32
+       * @description 楽観ロック用の現在version (設計書 11.7)
+       * @example 1
+       */
+      expectedVersion: number
+    }
+    /**
+     * @description 所持品 (設計書 12.6 / 13.7)。内部IDを含めない。
+     *     一覧と詳細で同一の表現を使用する。
+     *
+     *     `review` (見直しスコア) と `storageUnits` (収納割当) は
+     *     それぞれPhase 3 / Phase 2のスコープのため含めない。
+     */
+    ItemResponse: {
+      /** Format: uuid */
+      publicId: string
+      /** @example 折りたたみ傘 */
+      name: string
+      category: components['schemas']['CategoryReferenceResponse']
+      itemKindCode: components['schemas']['ItemKindCode']
+      /** @example 耐久品 */
+      itemKindLabel: string
+      /**
+       * Format: int32
+       * @example 1
+       */
+      quantity: number
+      /**
+       * Format: int32
+       * @description 希望上限数量。未設定の場合はnull。
+       * @example 1
+       */
+      desiredQuantity: number | null
+      /** @example 本 */
+      unitName: string
+      necessityLevelCode: components['schemas']['NecessityLevelCode']
+      /** @example 必須 */
+      necessityLevelLabel: string
+      usageFrequencyCode: components['schemas']['UsageFrequencyCode']
+      /** @example 月に1回程度 */
+      usageFrequencyLabel: string
+      substitutabilityCode: components['schemas']['SubstitutabilityCode']
+      /** @example 代替不可 */
+      substitutabilityLabel: string
+      mobilityClassCode: components['schemas']['MobilityClassCode']
+      /** @example 常時リュック */
+      mobilityClassLabel: string
+      /** @example 突然の雨に対応するため */
+      ownershipReason: string | null
+      /** @example 破損して修理不能になった場合 */
+      disposalCondition: string | null
+      /** Format: date-time */
+      lastUsedAt: string | null
+      /** Format: date */
+      purchasedOn: string | null
+      /**
+       * Format: int64
+       * @description 購入金額 (円)。丸め誤差を避けるため整数で扱う (設計書 11章)。
+       */
+      purchaseAmount: number | null
+      /** Format: int64 */
+      replacementAmount: number | null
+      /** Format: int64 */
+      resaleAmount: number | null
+      /** Format: int32 */
+      weightGram: number | null
+      /** Format: int32 */
+      volumeMilliliter: number | null
+      isFragile: boolean
+      isValuable: boolean
+      isSentimental: boolean
+      requiresMaintenance: boolean
+      /** Format: date */
+      expiresOn: string | null
+      /** Format: uri */
+      sourceUrl: string | null
+      notes: string | null
+      /**
+       * @description 棚卸し確認済みか (設計書 13.7)。
+       *     確認操作 (`confirmItem`) はPhase 1のスコープ外のため、常にfalseとなる。
+       */
+      isConfirmed: boolean
+      /** Format: date-time */
+      confirmedAt: string | null
+      tags: components['schemas']['TagReferenceResponse'][]
+      /** @description archive (soft delete) 済みか */
+      isArchived: boolean
+      /**
+       * Format: date-time
+       * @description archive日時。DBの `deleted_at` に対応する。
+       */
+      archivedAt: string | null
+      /**
+       * Format: int32
+       * @description 楽観ロック用のversion (設計書 11.7)
+       * @example 3
+       */
+      version: number
+      /** Format: date-time */
+      createdAt: string
+      /** Format: date-time */
+      updatedAt: string
+    }
+    ItemListResponse: {
+      items: components['schemas']['ItemResponse'][]
+      pagination: components['schemas']['PaginationResponse']
+    }
+    /** @description 設計書 12.5 に対応する。 */
+    CreateItemRequest: {
+      /** @example 折りたたみ傘 */
+      name: string
+      /** Format: uuid */
+      categoryPublicId: string
+      /** @description 未指定時はserverが `durable` を適用する。 */
+      itemKindCode?: components['schemas']['ItemKindCode']
+      /**
+       * Format: int32
+       * @example 1
+       */
+      quantity: number
+      /**
+       * Format: int32
+       * @example 1
+       */
+      desiredQuantity?: number | null
+      /**
+       * @description 未指定時はserverが `個` を適用する。
+       * @example 本
+       */
+      unitName?: string
+      necessityLevelCode: components['schemas']['NecessityLevelCode']
+      usageFrequencyCode: components['schemas']['UsageFrequencyCode']
+      substitutabilityCode: components['schemas']['SubstitutabilityCode']
+      mobilityClassCode: components['schemas']['MobilityClassCode']
+      ownershipReason?: string | null
+      disposalCondition?: string | null
+      /** Format: date-time */
+      lastUsedAt?: string | null
+      /** Format: date */
+      purchasedOn?: string | null
+      /** Format: int64 */
+      purchaseAmount?: number | null
+      /** Format: int64 */
+      replacementAmount?: number | null
+      /** Format: int64 */
+      resaleAmount?: number | null
+      /** Format: int32 */
+      weightGram?: number | null
+      /** Format: int32 */
+      volumeMilliliter?: number | null
+      /** @description 未指定時はfalse。 */
+      isFragile?: boolean
+      /** @description 未指定時はfalse。 */
+      isValuable?: boolean
+      /** @description 未指定時はfalse。 */
+      isSentimental?: boolean
+      /** @description 未指定時はfalse。 */
+      requiresMaintenance?: boolean
+      /** Format: date */
+      expiresOn?: string | null
+      /** @description httpまたはhttpsのみを許可する (設計書 24.15)。 */
+      sourceUrl?: string | null
+      notes?: string | null
+      tagPublicIds?: string[]
+    }
+    /**
+     * @description 全項目を置き換える。CreateItemRequestと同じ項目に `expectedVersion` を加える。
+     *     allOfで合成せず明示的に列挙し、`additionalProperties: false` を正しく機能させる。
+     */
+    UpdateItemRequest: {
+      name: string
+      /** Format: uuid */
+      categoryPublicId: string
+      /** @description 未指定時はserverが `durable` を適用する。 */
+      itemKindCode?: components['schemas']['ItemKindCode']
+      /** Format: int32 */
+      quantity: number
+      /** Format: int32 */
+      desiredQuantity?: number | null
+      /** @description 未指定時はserverが `個` を適用する。 */
+      unitName?: string
+      necessityLevelCode: components['schemas']['NecessityLevelCode']
+      usageFrequencyCode: components['schemas']['UsageFrequencyCode']
+      substitutabilityCode: components['schemas']['SubstitutabilityCode']
+      mobilityClassCode: components['schemas']['MobilityClassCode']
+      ownershipReason?: string | null
+      disposalCondition?: string | null
+      /** Format: date-time */
+      lastUsedAt?: string | null
+      /** Format: date */
+      purchasedOn?: string | null
+      /** Format: int64 */
+      purchaseAmount?: number | null
+      /** Format: int64 */
+      replacementAmount?: number | null
+      /** Format: int64 */
+      resaleAmount?: number | null
+      /** Format: int32 */
+      weightGram?: number | null
+      /** Format: int32 */
+      volumeMilliliter?: number | null
+      isFragile?: boolean
+      isValuable?: boolean
+      isSentimental?: boolean
+      requiresMaintenance?: boolean
+      /** Format: date */
+      expiresOn?: string | null
+      sourceUrl?: string | null
+      notes?: string | null
+      tagPublicIds?: string[]
+      /**
+       * Format: int32
+       * @description 楽観ロック用の現在version (設計書 11.7)
+       */
+      expectedVersion: number
+    }
+    /** @description archive・restoreのように追加入力を持たない操作で使用する。 */
+    ItemVersionRequest: {
+      /**
+       * Format: int32
+       * @description 楽観ロック用の現在version (設計書 11.7)
+       */
+      expectedVersion: number
+    }
+    ItemUsageRecordResponse: {
+      /** Format: uuid */
+      publicId: string
+      /** Format: date-time */
+      usedAt: string
+      /**
+       * Format: int32
+       * @description 使用した数量。
+       * @example 1
+       */
+      quantity: number
+      /** @example 通勤時に使用 */
+      note: string | null
+      /** Format: date-time */
+      createdAt: string
+    }
+    ItemUsageRecordListResponse: {
+      items: components['schemas']['ItemUsageRecordResponse'][]
+      pagination: components['schemas']['PaginationResponse']
+    }
+    CreateItemUsageRecordRequest: {
+      /**
+       * Format: date-time
+       * @description 使用日時。未指定時はserverの現在時刻を使用する。未来日時は許可しない。
+       */
+      usedAt?: string
+      /**
+       * Format: int32
+       * @description 使用した数量。未指定時は1。
+       */
+      quantity?: number
+      note?: string | null
+    }
   }
   responses: {
     /** @description request形式が不正である */
@@ -253,6 +856,43 @@ export interface components {
         'application/json': components['schemas']['ErrorResponse']
       }
     }
+    /**
+     * @description 対象が存在しない。
+     *     他ユーザーのpublicIdを指定した場合も本statusを返し、存在有無を公開しない (設計書 18.3)。
+     */
+    NotFound: {
+      headers: {
+        [name: string]: unknown
+      }
+      content: {
+        /**
+         * @example {
+         *       "code": "ITEM_NOT_FOUND",
+         *       "message": "アイテムが見つかりません。",
+         *       "fieldErrors": [],
+         *       "requestId": "req_01JQ0000000000000000000000"
+         *     }
+         */
+        'application/json': components['schemas']['ErrorResponse']
+      }
+    }
+    /** @description version競合、unique競合、状態競合が発生した */
+    Conflict: {
+      headers: {
+        [name: string]: unknown
+      }
+      content: {
+        /**
+         * @example {
+         *       "code": "ITEM_VERSION_CONFLICT",
+         *       "message": "アイテムが別の操作で更新されています。最新の内容を読み込み直してください。",
+         *       "fieldErrors": [],
+         *       "requestId": "req_01JQ0000000000000000000000"
+         *     }
+         */
+        'application/json': components['schemas']['ErrorResponse']
+      }
+    }
     /** @description 業務ルールに違反している */
     UnprocessableEntity: {
       headers: {
@@ -297,7 +937,14 @@ export interface components {
       }
     }
   }
-  parameters: never
+  parameters: {
+    /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+    PublicIdPathParameter: string
+    /** @description 取得件数。未指定時は50。 */
+    LimitQueryParameter: number
+    /** @description 読み飛ばす件数。未指定時は0。 */
+    OffsetQueryParameter: number
+  }
   requestBodies: never
   headers: never
   pathItems: never
@@ -438,6 +1085,420 @@ export interface operations {
         }
       }
       401: components['responses']['Unauthorized']
+      500: components['responses']['InternalServerError']
+    }
+  }
+  listCategories: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description 取得に成功した */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['CategoryListResponse']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      500: components['responses']['InternalServerError']
+    }
+  }
+  listTags: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description 取得に成功した */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['TagListResponse']
+        }
+      }
+      401: components['responses']['Unauthorized']
+      500: components['responses']['InternalServerError']
+    }
+  }
+  createTag: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CreateTagRequest']
+      }
+    }
+    responses: {
+      /** @description 登録に成功した */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['TagResponse']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      409: components['responses']['Conflict']
+      500: components['responses']['InternalServerError']
+    }
+  }
+  updateTag: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+        publicId: components['parameters']['PublicIdPathParameter']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['UpdateTagRequest']
+      }
+    }
+    responses: {
+      /** @description 更新に成功した */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['TagResponse']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      500: components['responses']['InternalServerError']
+    }
+  }
+  deleteTag: {
+    parameters: {
+      query: {
+        /** @description 楽観ロック用の現在version (設計書 11.7) */
+        expectedVersion: number
+      }
+      header?: never
+      path: {
+        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+        publicId: components['parameters']['PublicIdPathParameter']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description 削除に成功した */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      500: components['responses']['InternalServerError']
+    }
+  }
+  listItems: {
+    parameters: {
+      query?: {
+        /** @description アイテム名またはメモの部分一致 (大文字小文字を区別しない) */
+        keyword?: string
+        /** @description カテゴリーで絞り込む */
+        categoryPublicId?: string
+        /** @description タグで絞り込む */
+        tagPublicId?: string
+        necessityLevelCode?: components['schemas']['NecessityLevelCode']
+        usageFrequencyCode?: components['schemas']['UsageFrequencyCode']
+        mobilityClassCode?: components['schemas']['MobilityClassCode']
+        /** @description archive済みのアイテムを含めるか。未指定時はfalse。 */
+        includeDeleted?: boolean
+        /** @description 並び替えkey。未指定時は updatedAt。 */
+        sort?: components['schemas']['ItemSortKey']
+        /** @description 並び順。未指定時は desc。 */
+        order?: components['schemas']['SortOrder']
+        /** @description 取得件数。未指定時は50。 */
+        limit?: components['parameters']['LimitQueryParameter']
+        /** @description 読み飛ばす件数。未指定時は0。 */
+        offset?: components['parameters']['OffsetQueryParameter']
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description 取得に成功した */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ItemListResponse']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthorized']
+      500: components['responses']['InternalServerError']
+    }
+  }
+  createItem: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CreateItemRequest']
+      }
+    }
+    responses: {
+      /** @description 登録に成功した */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ItemResponse']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      /**
+       * @description 指定したカテゴリーまたはタグが存在しない。
+       *     他ユーザーのカテゴリー・タグを指定した場合も本statusを返す (設計書 18.3)。
+       */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorResponse']
+        }
+      }
+      422: components['responses']['UnprocessableEntity']
+      500: components['responses']['InternalServerError']
+    }
+  }
+  getItemByPublicId: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+        publicId: components['parameters']['PublicIdPathParameter']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description 取得に成功した */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ItemResponse']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthorized']
+      404: components['responses']['NotFound']
+      500: components['responses']['InternalServerError']
+    }
+  }
+  updateItem: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+        publicId: components['parameters']['PublicIdPathParameter']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['UpdateItemRequest']
+      }
+    }
+    responses: {
+      /** @description 更新に成功した */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ItemResponse']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      422: components['responses']['UnprocessableEntity']
+      500: components['responses']['InternalServerError']
+    }
+  }
+  archiveItem: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+        publicId: components['parameters']['PublicIdPathParameter']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ItemVersionRequest']
+      }
+    }
+    responses: {
+      /** @description archiveに成功した */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ItemResponse']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      422: components['responses']['UnprocessableEntity']
+      500: components['responses']['InternalServerError']
+    }
+  }
+  restoreItem: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+        publicId: components['parameters']['PublicIdPathParameter']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ItemVersionRequest']
+      }
+    }
+    responses: {
+      /** @description 復元に成功した */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ItemResponse']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      422: components['responses']['UnprocessableEntity']
+      500: components['responses']['InternalServerError']
+    }
+  }
+  listItemUsageRecords: {
+    parameters: {
+      query?: {
+        /** @description 取得件数。未指定時は50。 */
+        limit?: components['parameters']['LimitQueryParameter']
+        /** @description 読み飛ばす件数。未指定時は0。 */
+        offset?: components['parameters']['OffsetQueryParameter']
+      }
+      header?: never
+      path: {
+        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+        publicId: components['parameters']['PublicIdPathParameter']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description 取得に成功した */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ItemUsageRecordListResponse']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthorized']
+      404: components['responses']['NotFound']
+      500: components['responses']['InternalServerError']
+    }
+  }
+  createItemUsageRecord: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+        publicId: components['parameters']['PublicIdPathParameter']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CreateItemUsageRecordRequest']
+      }
+    }
+    responses: {
+      /** @description 登録に成功した */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ItemUsageRecordResponse']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthorized']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['UnprocessableEntity']
       500: components['responses']['InternalServerError']
     }
   }
