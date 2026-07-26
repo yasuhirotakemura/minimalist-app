@@ -121,7 +121,16 @@ func truncateAll(t *testing.T) {
 
 	_, err := testPool.Exec(
 		context.Background(),
-		`TRUNCATE identity.auth_sessions, identity.user_password_auths, identity.users
+		`TRUNCATE
+		     audit.audit_logs,
+		     ownership.item_usage_records,
+		     ownership.item_tags,
+		     ownership.items,
+		     ownership.tags,
+		     ownership.categories,
+		     identity.auth_sessions,
+		     identity.user_password_auths,
+		     identity.users
 		 RESTART IDENTITY CASCADE`,
 	)
 	if err != nil {
