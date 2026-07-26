@@ -125,7 +125,7 @@ schema-dump: ## 適用済みschemaを db/schema.sql へ出力する
 	$(COMPOSE) exec -T postgres pg_dump \
 		--username=$(POSTGRES_USER) --dbname=$(POSTGRES_DB) \
 		--schema-only --no-owner --no-privileges --no-comments \
-		--schema=identity --schema=public \
+		--schema=identity --schema=ownership --schema=audit --schema=public \
 		> db/schema.sql
 	@echo "db/schema.sql を更新しました。"
 

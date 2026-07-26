@@ -80,7 +80,9 @@ func runSeed(
 	}
 
 	logger.Info("seed completed", "inserted", inserted, "skipped", skipped)
-	return nil
+
+	// 所持品・タグはユーザー作成後に投入する。
+	return runItemSeed(ctx, database, cfg, logger)
 }
 
 func readSeedUsers(path string) ([]seedUser, error) {
@@ -174,6 +176,11 @@ func insertSeedUser(
 		user.UpdatedAt(),
 	); err != nil {
 		return false, fmt.Errorf("insert seed password auth for %s: %w", email, err)
+	}
+
+	// API経由の登録と同様に既定カテゴリーを作成する (設計書 28章 Phase 1)。
+	if err := insertDefaultCategories(ctx, transaction, userID, user.CreatedAt()); err != nil {
+		return false, fmt.Errorf("insert default categories for %s: %w", email, err)
 	}
 
 	if err := transaction.Commit(); err != nil {

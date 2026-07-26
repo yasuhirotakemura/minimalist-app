@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict ZXanTXrMcvmOG8zQkv7MaEfmhEd1w8jHmtJ9x6iQe1BNK0tE0gDJBWyWZC85fxB
+\restrict saO1Q2RN463Taw6Q1WAUPyBe59Iaqg7wfhqS1dfNGSNBpaMCAMFqSPhz8H1vOqs
 
 -- Dumped from database version 17.10
 -- Dumped by pg_dump version 17.10
@@ -20,10 +20,24 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 --
+-- Name: audit; Type: SCHEMA; Schema: -; Owner: -
+--
+
+CREATE SCHEMA audit;
+
+
+--
 -- Name: identity; Type: SCHEMA; Schema: -; Owner: -
 --
 
 CREATE SCHEMA identity;
+
+
+--
+-- Name: ownership; Type: SCHEMA; Schema: -; Owner: -
+--
+
+CREATE SCHEMA ownership;
 
 
 --
@@ -36,6 +50,39 @@ CREATE SCHEMA public;
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
+
+--
+-- Name: audit_logs; Type: TABLE; Schema: audit; Owner: -
+--
+
+CREATE TABLE audit.audit_logs (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id bigint NOT NULL,
+    action_code text NOT NULL,
+    target_type_code text NOT NULL,
+    target_public_id uuid,
+    changes jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT ck_audit_logs__action_code_shape CHECK ((action_code ~ '^[a-z][a-z0-9_]{0,62}$'::text)),
+    CONSTRAINT ck_audit_logs__changes_is_object CHECK ((jsonb_typeof(changes) = 'object'::text)),
+    CONSTRAINT ck_audit_logs__target_type_code_shape CHECK ((target_type_code ~ '^[a-z][a-z0-9_]{0,31}$'::text))
+);
+
+
+--
+-- Name: audit_logs_id_seq; Type: SEQUENCE; Schema: audit; Owner: -
+--
+
+ALTER TABLE audit.audit_logs ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME audit.audit_logs_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
 
 --
 -- Name: auth_sessions; Type: TABLE; Schema: identity; Owner: -
@@ -147,6 +194,200 @@ ALTER TABLE identity.users ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
+-- Name: categories; Type: TABLE; Schema: ownership; Owner: -
+--
+
+CREATE TABLE ownership.categories (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id bigint NOT NULL,
+    name text NOT NULL,
+    description text,
+    sort_order integer DEFAULT 0 NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    deleted_at timestamp with time zone,
+    version integer DEFAULT 1 NOT NULL,
+    CONSTRAINT ck_categories__description_length CHECK ((char_length(description) <= 500)),
+    CONSTRAINT ck_categories__name_length CHECK (((char_length(name) >= 1) AND (char_length(name) <= 100))),
+    CONSTRAINT ck_categories__name_not_blank CHECK ((btrim(name) <> ''::text)),
+    CONSTRAINT ck_categories__sort_order_not_negative CHECK ((sort_order >= 0)),
+    CONSTRAINT ck_categories__version_positive CHECK ((version > 0))
+);
+
+
+--
+-- Name: categories_id_seq; Type: SEQUENCE; Schema: ownership; Owner: -
+--
+
+ALTER TABLE ownership.categories ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME ownership.categories_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: item_tags; Type: TABLE; Schema: ownership; Owner: -
+--
+
+CREATE TABLE ownership.item_tags (
+    user_id bigint NOT NULL,
+    item_id bigint NOT NULL,
+    tag_id bigint NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: item_usage_records; Type: TABLE; Schema: ownership; Owner: -
+--
+
+CREATE TABLE ownership.item_usage_records (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id bigint NOT NULL,
+    item_id bigint NOT NULL,
+    used_at timestamp with time zone NOT NULL,
+    quantity integer DEFAULT 1 NOT NULL,
+    note text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT ck_item_usage_records__note_length CHECK ((char_length(note) <= 500)),
+    CONSTRAINT ck_item_usage_records__quantity_positive CHECK ((quantity > 0))
+);
+
+
+--
+-- Name: item_usage_records_id_seq; Type: SEQUENCE; Schema: ownership; Owner: -
+--
+
+ALTER TABLE ownership.item_usage_records ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME ownership.item_usage_records_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: items; Type: TABLE; Schema: ownership; Owner: -
+--
+
+CREATE TABLE ownership.items (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id bigint NOT NULL,
+    category_id bigint NOT NULL,
+    name text NOT NULL,
+    item_kind_code text NOT NULL,
+    quantity integer NOT NULL,
+    desired_quantity integer,
+    unit_name text NOT NULL,
+    necessity_level_code text NOT NULL,
+    usage_frequency_code text NOT NULL,
+    substitutability_code text NOT NULL,
+    mobility_class_code text NOT NULL,
+    ownership_reason text,
+    disposal_condition text,
+    last_used_at timestamp with time zone,
+    purchased_on date,
+    purchase_amount bigint,
+    replacement_amount bigint,
+    resale_amount bigint,
+    weight_gram integer,
+    volume_milliliter integer,
+    is_fragile boolean DEFAULT false NOT NULL,
+    is_valuable boolean DEFAULT false NOT NULL,
+    is_sentimental boolean DEFAULT false NOT NULL,
+    requires_maintenance boolean DEFAULT false NOT NULL,
+    expires_on date,
+    source_url text,
+    notes text,
+    is_confirmed boolean DEFAULT false NOT NULL,
+    confirmed_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    deleted_at timestamp with time zone,
+    version integer DEFAULT 1 NOT NULL,
+    CONSTRAINT ck_items__confirmed_at_required CHECK (((is_confirmed = false) OR (confirmed_at IS NOT NULL))),
+    CONSTRAINT ck_items__desired_quantity_not_negative CHECK (((desired_quantity IS NULL) OR (desired_quantity >= 0))),
+    CONSTRAINT ck_items__disposal_condition_length CHECK ((char_length(disposal_condition) <= 1000)),
+    CONSTRAINT ck_items__item_kind_code_allowed CHECK ((item_kind_code = ANY (ARRAY['durable'::text, 'consumable'::text]))),
+    CONSTRAINT ck_items__mobility_class_code_allowed CHECK ((mobility_class_code = ANY (ARRAY['worn'::text, 'pocket'::text, 'daily_bag'::text, 'on_demand'::text, 'self_carry'::text, 'parcel'::text, 'mover'::text, 'dispose_rebuy'::text, 'fixed'::text]))),
+    CONSTRAINT ck_items__name_length CHECK (((char_length(name) >= 1) AND (char_length(name) <= 200))),
+    CONSTRAINT ck_items__name_not_blank CHECK ((btrim(name) <> ''::text)),
+    CONSTRAINT ck_items__necessity_level_code_allowed CHECK ((necessity_level_code = ANY (ARRAY['essential'::text, 'important'::text, 'optional'::text, 'undecided'::text, 'unnecessary'::text]))),
+    CONSTRAINT ck_items__notes_length CHECK ((char_length(notes) <= 2000)),
+    CONSTRAINT ck_items__ownership_reason_length CHECK ((char_length(ownership_reason) <= 1000)),
+    CONSTRAINT ck_items__purchase_amount_not_negative CHECK (((purchase_amount IS NULL) OR (purchase_amount >= 0))),
+    CONSTRAINT ck_items__quantity_not_negative CHECK ((quantity >= 0)),
+    CONSTRAINT ck_items__replacement_amount_not_negative CHECK (((replacement_amount IS NULL) OR (replacement_amount >= 0))),
+    CONSTRAINT ck_items__resale_amount_not_negative CHECK (((resale_amount IS NULL) OR (resale_amount >= 0))),
+    CONSTRAINT ck_items__source_url_length CHECK ((char_length(source_url) <= 2048)),
+    CONSTRAINT ck_items__source_url_scheme CHECK (((source_url IS NULL) OR (source_url ~ '^https?://'::text))),
+    CONSTRAINT ck_items__substitutability_code_allowed CHECK ((substitutability_code = ANY (ARRAY['none'::text, 'partial'::text, 'full'::text, 'unknown'::text]))),
+    CONSTRAINT ck_items__unit_name_length CHECK (((char_length(unit_name) >= 1) AND (char_length(unit_name) <= 20))),
+    CONSTRAINT ck_items__unit_name_not_blank CHECK ((btrim(unit_name) <> ''::text)),
+    CONSTRAINT ck_items__usage_frequency_code_allowed CHECK ((usage_frequency_code = ANY (ARRAY['daily'::text, 'weekly'::text, 'monthly'::text, 'quarterly'::text, 'yearly'::text, 'rarely'::text, 'never'::text]))),
+    CONSTRAINT ck_items__version_positive CHECK ((version > 0)),
+    CONSTRAINT ck_items__volume_milliliter_not_negative CHECK (((volume_milliliter IS NULL) OR (volume_milliliter >= 0))),
+    CONSTRAINT ck_items__weight_gram_not_negative CHECK (((weight_gram IS NULL) OR (weight_gram >= 0)))
+);
+
+
+--
+-- Name: items_id_seq; Type: SEQUENCE; Schema: ownership; Owner: -
+--
+
+ALTER TABLE ownership.items ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME ownership.items_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: tags; Type: TABLE; Schema: ownership; Owner: -
+--
+
+CREATE TABLE ownership.tags (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id bigint NOT NULL,
+    name text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    deleted_at timestamp with time zone,
+    version integer DEFAULT 1 NOT NULL,
+    CONSTRAINT ck_tags__name_length CHECK (((char_length(name) >= 1) AND (char_length(name) <= 50))),
+    CONSTRAINT ck_tags__name_not_blank CHECK ((btrim(name) <> ''::text)),
+    CONSTRAINT ck_tags__version_positive CHECK ((version > 0))
+);
+
+
+--
+-- Name: tags_id_seq; Type: SEQUENCE; Schema: ownership; Owner: -
+--
+
+ALTER TABLE ownership.tags ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME ownership.tags_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: goose_db_version; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -170,6 +411,22 @@ ALTER TABLE public.goose_db_version ALTER COLUMN id ADD GENERATED BY DEFAULT AS 
     NO MAXVALUE
     CACHE 1
 );
+
+
+--
+-- Name: audit_logs pk_audit_logs; Type: CONSTRAINT; Schema: audit; Owner: -
+--
+
+ALTER TABLE ONLY audit.audit_logs
+    ADD CONSTRAINT pk_audit_logs PRIMARY KEY (id);
+
+
+--
+-- Name: audit_logs uq_audit_logs__public_id; Type: CONSTRAINT; Schema: audit; Owner: -
+--
+
+ALTER TABLE ONLY audit.audit_logs
+    ADD CONSTRAINT uq_audit_logs__public_id UNIQUE (public_id);
 
 
 --
@@ -229,11 +486,114 @@ ALTER TABLE ONLY identity.users
 
 
 --
+-- Name: categories pk_categories; Type: CONSTRAINT; Schema: ownership; Owner: -
+--
+
+ALTER TABLE ONLY ownership.categories
+    ADD CONSTRAINT pk_categories PRIMARY KEY (id);
+
+
+--
+-- Name: item_tags pk_item_tags; Type: CONSTRAINT; Schema: ownership; Owner: -
+--
+
+ALTER TABLE ONLY ownership.item_tags
+    ADD CONSTRAINT pk_item_tags PRIMARY KEY (item_id, tag_id);
+
+
+--
+-- Name: item_usage_records pk_item_usage_records; Type: CONSTRAINT; Schema: ownership; Owner: -
+--
+
+ALTER TABLE ONLY ownership.item_usage_records
+    ADD CONSTRAINT pk_item_usage_records PRIMARY KEY (id);
+
+
+--
+-- Name: items pk_items; Type: CONSTRAINT; Schema: ownership; Owner: -
+--
+
+ALTER TABLE ONLY ownership.items
+    ADD CONSTRAINT pk_items PRIMARY KEY (id);
+
+
+--
+-- Name: tags pk_tags; Type: CONSTRAINT; Schema: ownership; Owner: -
+--
+
+ALTER TABLE ONLY ownership.tags
+    ADD CONSTRAINT pk_tags PRIMARY KEY (id);
+
+
+--
+-- Name: categories uq_categories__public_id; Type: CONSTRAINT; Schema: ownership; Owner: -
+--
+
+ALTER TABLE ONLY ownership.categories
+    ADD CONSTRAINT uq_categories__public_id UNIQUE (public_id);
+
+
+--
+-- Name: categories uq_categories__user_id_id; Type: CONSTRAINT; Schema: ownership; Owner: -
+--
+
+ALTER TABLE ONLY ownership.categories
+    ADD CONSTRAINT uq_categories__user_id_id UNIQUE (user_id, id);
+
+
+--
+-- Name: item_usage_records uq_item_usage_records__public_id; Type: CONSTRAINT; Schema: ownership; Owner: -
+--
+
+ALTER TABLE ONLY ownership.item_usage_records
+    ADD CONSTRAINT uq_item_usage_records__public_id UNIQUE (public_id);
+
+
+--
+-- Name: items uq_items__public_id; Type: CONSTRAINT; Schema: ownership; Owner: -
+--
+
+ALTER TABLE ONLY ownership.items
+    ADD CONSTRAINT uq_items__public_id UNIQUE (public_id);
+
+
+--
+-- Name: items uq_items__user_id_id; Type: CONSTRAINT; Schema: ownership; Owner: -
+--
+
+ALTER TABLE ONLY ownership.items
+    ADD CONSTRAINT uq_items__user_id_id UNIQUE (user_id, id);
+
+
+--
+-- Name: tags uq_tags__public_id; Type: CONSTRAINT; Schema: ownership; Owner: -
+--
+
+ALTER TABLE ONLY ownership.tags
+    ADD CONSTRAINT uq_tags__public_id UNIQUE (public_id);
+
+
+--
+-- Name: tags uq_tags__user_id_id; Type: CONSTRAINT; Schema: ownership; Owner: -
+--
+
+ALTER TABLE ONLY ownership.tags
+    ADD CONSTRAINT uq_tags__user_id_id UNIQUE (user_id, id);
+
+
+--
 -- Name: goose_db_version goose_db_version_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.goose_db_version
     ADD CONSTRAINT goose_db_version_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: idx_audit_logs__user_id_created_at; Type: INDEX; Schema: audit; Owner: -
+--
+
+CREATE INDEX idx_audit_logs__user_id_created_at ON audit.audit_logs USING btree (user_id, created_at DESC, id DESC);
 
 
 --
@@ -258,6 +618,84 @@ CREATE UNIQUE INDEX uq_users__email_active ON identity.users USING btree (email)
 
 
 --
+-- Name: idx_categories__user_id_sort_order; Type: INDEX; Schema: ownership; Owner: -
+--
+
+CREATE INDEX idx_categories__user_id_sort_order ON ownership.categories USING btree (user_id, sort_order, id) WHERE (deleted_at IS NULL);
+
+
+--
+-- Name: idx_item_tags__tag_id_item_id; Type: INDEX; Schema: ownership; Owner: -
+--
+
+CREATE INDEX idx_item_tags__tag_id_item_id ON ownership.item_tags USING btree (tag_id, item_id);
+
+
+--
+-- Name: idx_item_usage_records__item_id_used_at; Type: INDEX; Schema: ownership; Owner: -
+--
+
+CREATE INDEX idx_item_usage_records__item_id_used_at ON ownership.item_usage_records USING btree (item_id, used_at DESC, id DESC);
+
+
+--
+-- Name: idx_items__user_id_category_id_deleted_at; Type: INDEX; Schema: ownership; Owner: -
+--
+
+CREATE INDEX idx_items__user_id_category_id_deleted_at ON ownership.items USING btree (user_id, category_id, deleted_at);
+
+
+--
+-- Name: idx_items__user_id_deleted_at; Type: INDEX; Schema: ownership; Owner: -
+--
+
+CREATE INDEX idx_items__user_id_deleted_at ON ownership.items USING btree (user_id, deleted_at);
+
+
+--
+-- Name: idx_items__user_id_mobility_class_code_deleted_at; Type: INDEX; Schema: ownership; Owner: -
+--
+
+CREATE INDEX idx_items__user_id_mobility_class_code_deleted_at ON ownership.items USING btree (user_id, mobility_class_code, deleted_at);
+
+
+--
+-- Name: idx_items__user_id_updated_at; Type: INDEX; Schema: ownership; Owner: -
+--
+
+CREATE INDEX idx_items__user_id_updated_at ON ownership.items USING btree (user_id, updated_at DESC) WHERE (deleted_at IS NULL);
+
+
+--
+-- Name: idx_tags__user_id_name; Type: INDEX; Schema: ownership; Owner: -
+--
+
+CREATE INDEX idx_tags__user_id_name ON ownership.tags USING btree (user_id, name) WHERE (deleted_at IS NULL);
+
+
+--
+-- Name: uq_categories__user_id_name_active; Type: INDEX; Schema: ownership; Owner: -
+--
+
+CREATE UNIQUE INDEX uq_categories__user_id_name_active ON ownership.categories USING btree (user_id, name) WHERE (deleted_at IS NULL);
+
+
+--
+-- Name: uq_tags__user_id_name_active; Type: INDEX; Schema: ownership; Owner: -
+--
+
+CREATE UNIQUE INDEX uq_tags__user_id_name_active ON ownership.tags USING btree (user_id, name) WHERE (deleted_at IS NULL);
+
+
+--
+-- Name: audit_logs fk_audit_logs__user_id; Type: FK CONSTRAINT; Schema: audit; Owner: -
+--
+
+ALTER TABLE ONLY audit.audit_logs
+    ADD CONSTRAINT fk_audit_logs__user_id FOREIGN KEY (user_id) REFERENCES identity.users(id) ON DELETE CASCADE;
+
+
+--
 -- Name: auth_sessions fk_auth_sessions__user_id; Type: FK CONSTRAINT; Schema: identity; Owner: -
 --
 
@@ -274,8 +712,64 @@ ALTER TABLE ONLY identity.user_password_auths
 
 
 --
+-- Name: categories fk_categories__user_id; Type: FK CONSTRAINT; Schema: ownership; Owner: -
+--
+
+ALTER TABLE ONLY ownership.categories
+    ADD CONSTRAINT fk_categories__user_id FOREIGN KEY (user_id) REFERENCES identity.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: item_tags fk_item_tags__user_id_item_id; Type: FK CONSTRAINT; Schema: ownership; Owner: -
+--
+
+ALTER TABLE ONLY ownership.item_tags
+    ADD CONSTRAINT fk_item_tags__user_id_item_id FOREIGN KEY (user_id, item_id) REFERENCES ownership.items(user_id, id) ON DELETE CASCADE;
+
+
+--
+-- Name: item_tags fk_item_tags__user_id_tag_id; Type: FK CONSTRAINT; Schema: ownership; Owner: -
+--
+
+ALTER TABLE ONLY ownership.item_tags
+    ADD CONSTRAINT fk_item_tags__user_id_tag_id FOREIGN KEY (user_id, tag_id) REFERENCES ownership.tags(user_id, id) ON DELETE CASCADE;
+
+
+--
+-- Name: item_usage_records fk_item_usage_records__user_id_item_id; Type: FK CONSTRAINT; Schema: ownership; Owner: -
+--
+
+ALTER TABLE ONLY ownership.item_usage_records
+    ADD CONSTRAINT fk_item_usage_records__user_id_item_id FOREIGN KEY (user_id, item_id) REFERENCES ownership.items(user_id, id) ON DELETE CASCADE;
+
+
+--
+-- Name: items fk_items__user_id; Type: FK CONSTRAINT; Schema: ownership; Owner: -
+--
+
+ALTER TABLE ONLY ownership.items
+    ADD CONSTRAINT fk_items__user_id FOREIGN KEY (user_id) REFERENCES identity.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: items fk_items__user_id_category_id; Type: FK CONSTRAINT; Schema: ownership; Owner: -
+--
+
+ALTER TABLE ONLY ownership.items
+    ADD CONSTRAINT fk_items__user_id_category_id FOREIGN KEY (user_id, category_id) REFERENCES ownership.categories(user_id, id);
+
+
+--
+-- Name: tags fk_tags__user_id; Type: FK CONSTRAINT; Schema: ownership; Owner: -
+--
+
+ALTER TABLE ONLY ownership.tags
+    ADD CONSTRAINT fk_tags__user_id FOREIGN KEY (user_id) REFERENCES identity.users(id) ON DELETE CASCADE;
+
+
+--
 -- PostgreSQL database dump complete
 --
 
-\unrestrict ZXanTXrMcvmOG8zQkv7MaEfmhEd1w8jHmtJ9x6iQe1BNK0tE0gDJBWyWZC85fxB
+\unrestrict saO1Q2RN463Taw6Q1WAUPyBe59Iaqg7wfhqS1dfNGSNBpaMCAMFqSPhz8H1vOqs
 
