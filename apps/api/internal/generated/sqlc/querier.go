@@ -14,27 +14,49 @@ import (
 type Querier interface {
 	// archiveはsoft deleteとして表現する (設計書 1.4 / 12.4)。
 	ArchiveItem(ctx context.Context, arg ArchiveItemParams) (OwnershipItem, error)
+	// archiveはsoft deleteとして表現する (設計書 1.4)。
+	ArchiveStorageUnit(ctx context.Context, arg ArchiveStorageUnitParams) (int64, error)
+	// archive可否の判定に使用する (設計書 16章の暗黙cascade禁止方針)。
+	CountActiveChildStorageUnits(ctx context.Context, arg CountActiveChildStorageUnitsParams) (int64, error)
 	CountActiveItemsByTagID(ctx context.Context, arg CountActiveItemsByTagIDParams) (int64, error)
 	CountItemUsageRecordsByItemID(ctx context.Context, arg CountItemUsageRecordsByItemIDParams) (int64, error)
 	// ListItemsと同一の絞り込み条件で総件数を返す。
 	CountItems(ctx context.Context, arg CountItemsParams) (int64, error)
+	// archive可否の判定に使用する。
+	CountStorageAllocationsByStorageUnitID(ctx context.Context, arg CountStorageAllocationsByStorageUnitIDParams) (int64, error)
+	// ListStorageUnitsと同一の絞り込み条件で総件数を返す。
+	CountStorageUnits(ctx context.Context, arg CountStorageUnitsParams) (int64, error)
 	DeleteExpiredAuthSessions(ctx context.Context, expiredBefore pgtype.Timestamptz) (int64, error)
 	DeleteItemTagsByItemID(ctx context.Context, arg DeleteItemTagsByItemIDParams) error
+	// 割当は現在状態であり取り出した履歴を保持しないため物理削除する。
+	DeleteStorageAllocation(ctx context.Context, arg DeleteStorageAllocationParams) (int64, error)
+	// 一括置換で既存の割当をすべて取り除く。
+	DeleteStorageAllocationsByStorageUnitID(ctx context.Context, arg DeleteStorageAllocationsByStorageUnitIDParams) error
 	// 更新件数0の理由 (不存在か競合か) を判定するために使用する。
 	ExistsActiveTagByPublicID(ctx context.Context, arg ExistsActiveTagByPublicIDParams) (bool, error)
 	ExistsActiveUserByEmail(ctx context.Context, email string) (bool, error)
 	// 更新件数0の理由 (不存在か競合か) を判定するために使用する。
 	ExistsItemByPublicID(ctx context.Context, arg ExistsItemByPublicIDParams) (bool, error)
+	// 更新件数0の理由 (不存在か競合か) を判定するために使用する。
+	ExistsStorageAllocationByPublicID(ctx context.Context, arg ExistsStorageAllocationByPublicIDParams) (bool, error)
+	// 更新件数0の理由 (不存在か競合か) を判定するために使用する。
+	ExistsStorageUnitByPublicID(ctx context.Context, arg ExistsStorageUnitByPublicIDParams) (bool, error)
 	FindActiveCategoryByPublicID(ctx context.Context, arg FindActiveCategoryByPublicIDParams) (OwnershipCategory, error)
 	FindActiveTagByPublicID(ctx context.Context, arg FindActiveTagByPublicIDParams) (OwnershipTag, error)
 	FindActiveUserByEmail(ctx context.Context, email string) (IdentityUser, error)
 	FindActiveUserByID(ctx context.Context, id int64) (IdentityUser, error)
 	FindActiveUserByPublicID(ctx context.Context, publicID uuid.UUID) (IdentityUser, error)
+	// 割当対象アイテムの解決。archive状態も返し、新規割当の可否をDomainが判断する。
+	FindAllocatedItemByPublicID(ctx context.Context, arg FindAllocatedItemByPublicIDParams) (FindAllocatedItemByPublicIDRow, error)
 	// archive済み (deleted_at IS NOT NULL) も返す。
 	// 詳細画面からの復元と、archive状態の表示に使用する。
 	FindItemByPublicID(ctx context.Context, arg FindItemByPublicIDParams) (FindItemByPublicIDRow, error)
 	// 有効なsessionと所有ユーザーを1回のqueryで取得する。
 	FindLiveAuthSessionWithUserByTokenHash(ctx context.Context, arg FindLiveAuthSessionWithUserByTokenHashParams) (FindLiveAuthSessionWithUserByTokenHashRow, error)
+	FindStorageAllocationByPublicID(ctx context.Context, arg FindStorageAllocationByPublicIDParams) (FindStorageAllocationByPublicIDRow, error)
+	// archive済み (deleted_at IS NOT NULL) も返す。
+	// 詳細画面からの復元と、archive状態の表示に使用する。
+	FindStorageUnitByPublicID(ctx context.Context, arg FindStorageUnitByPublicIDParams) (FindStorageUnitByPublicIDRow, error)
 	FindUserPasswordAuthByUserID(ctx context.Context, userID int64) (IdentityUserPasswordAuth, error)
 	// 監査ログ (設計書 22章)。
 	// 追記のみのtableであり、更新・削除queryを持たない。
@@ -51,6 +73,20 @@ type Querier interface {
 	// 全てのユーザーdata queryは user internal ID を条件に含める (設計書 11.6 / 18.3)。
 	InsertItemUsageRecord(ctx context.Context, arg InsertItemUsageRecordParams) (OwnershipItemUsageRecord, error)
 	// 全てのユーザーdata queryは user internal ID を条件に含める (設計書 11.6 / 18.3)。
+	//
+	// 「割当数量合計 <= 所有数量」は複数行の集計を伴うためCHECK constraintで
+	// 表現できない。Application Serviceがtransaction内で対象items行を
+	// SELECT FOR UPDATE でロックしてから集計・検証する (設計書 20章)。
+	InsertStorageAllocation(ctx context.Context, arg InsertStorageAllocationParams) (OwnershipStorageAllocation, error)
+	// 全てのユーザーdata queryは user internal ID を条件に含める (設計書 11.6 / 18.3)。
+	// 楽観ロックは version を WHERE 条件へ含め、更新件数0を競合として扱う (設計書 11.7)。
+	//
+	// 祖先の取得について:
+	//   階層上限が3であるため (設計書 7.3)、親・祖父母の2段をLEFT JOINすれば
+	//   rootまでの並びが得られる。recursive CTEを避け、planを単純に保つ。
+	//   階層上限はDomainが保証する。
+	InsertStorageUnit(ctx context.Context, arg InsertStorageUnitParams) (OwnershipStorageUnit, error)
+	// 全てのユーザーdata queryは user internal ID を条件に含める (設計書 11.6 / 18.3)。
 	InsertTag(ctx context.Context, arg InsertTagParams) (OwnershipTag, error)
 	// 全てのユーザーdata queryは user internal ID もしくは一意な公開値を条件に含める (設計書 11.6 / 18.3)。
 	InsertUser(ctx context.Context, arg InsertUserParams) (IdentityUser, error)
@@ -62,6 +98,13 @@ type Querier interface {
 	// 一覧では付与済みアイテム件数を併せて返す。
 	// archive済みアイテムは件数へ含めない。
 	ListActiveTagsWithItemCountByUserID(ctx context.Context, userID int64) ([]ListActiveTagsWithItemCountByUserIDRow, error)
+	// 階層をまたぐ容量集計と循環参照の検証は木全体を必要とするため、
+	// pageに含まれない収納単位も取得する (設計書 16.2)。
+	ListAllStorageUnits(ctx context.Context, arg ListAllStorageUnitsParams) ([]ListAllStorageUnitsRow, error)
+	// 一括置換で指定された複数アイテムをまとめて解決する。
+	ListAllocatedItemsByPublicIDs(ctx context.Context, arg ListAllocatedItemsByPublicIDsParams) ([]ListAllocatedItemsByPublicIDsRow, error)
+	// 詳細画面で直接の子収納単位を表示する。archive済みは含めない。
+	ListChildStorageUnits(ctx context.Context, arg ListChildStorageUnitsParams) ([]ListChildStorageUnitsRow, error)
 	// 一覧のN+1を避けるため、pageに含まれるアイテムのタグをまとめて取得する。
 	ListItemTagsByItemIDs(ctx context.Context, arg ListItemTagsByItemIDsParams) ([]ListItemTagsByItemIDsRow, error)
 	// 履歴は使用日時の降順で返す。同時刻はid降順で安定させる。
@@ -72,18 +115,44 @@ type Querier interface {
 	// sort keyに一致しないCASEは全行NULLとなり順序へ影響しない。
 	// 同値時の順序を安定させるため、最後に id を加える。
 	ListItems(ctx context.Context, arg ListItemsParams) ([]ListItemsRow, error)
+	// アイテム側から割当先を引く (設計書 13.14)。
+	// アイテム詳細・一覧の収納情報表示と未割当数量の算出に使用する。
+	ListStorageAllocationsByItemIDs(ctx context.Context, arg ListStorageAllocationsByItemIDsParams) ([]ListStorageAllocationsByItemIDsRow, error)
+	// 収納内容の一覧。複数収納単位分をまとめて取得しN+1 queryを避ける。
+	// 表示順を安定させるためアイテム名昇順で返す。
+	ListStorageAllocationsByStorageUnitIDs(ctx context.Context, arg ListStorageAllocationsByStorageUnitIDsParams) ([]ListStorageAllocationsByStorageUnitIDsRow, error)
+	// 収納単位一覧 (設計書 9.4 相当)。
+	//
+	// 並び替えはsqlcで静的に生成するため、ORDER BYへCASEを並べて表現する。
+	// 同値時の順序を安定させるため、最後に id を加える。
+	ListStorageUnits(ctx context.Context, arg ListStorageUnitsParams) ([]ListStorageUnitsRow, error)
+	// 対象アイテム行をロックし、並行更新で数量整合性が破られないよう直列化する
+	// (設計書 20章)。deadlockを避けるため内部IDの昇順でロックする。
+	LockItemQuantitiesForUpdate(ctx context.Context, arg LockItemQuantitiesForUpdateParams) ([]LockItemQuantitiesForUpdateRow, error)
 	RestoreItem(ctx context.Context, arg RestoreItemParams) (OwnershipItem, error)
+	RestoreStorageUnit(ctx context.Context, arg RestoreStorageUnitParams) (int64, error)
 	RevokeAllAuthSessionsByUserID(ctx context.Context, arg RevokeAllAuthSessionsByUserIDParams) (int64, error)
 	RevokeAuthSessionByTokenHash(ctx context.Context, arg RevokeAuthSessionByTokenHashParams) (int64, error)
 	SoftDeleteTag(ctx context.Context, arg SoftDeleteTagParams) (OwnershipTag, error)
+	// 割当数量合計。excludeAllocationIdへ0以外を渡すとその割当を合計から除く。
+	// 数量変更時に「変更後の値」で再計算するために使用する。
+	SumStorageAllocationQuantityByItemID(ctx context.Context, arg SumStorageAllocationQuantityByItemIDParams) (int64, error)
+	// 一括置換で、置換対象の収納単位を除いた他収納単位への割当合計を返す。
+	SumStorageAllocationQuantityByItemIDsExcludingStorageUnit(ctx context.Context, arg SumStorageAllocationQuantityByItemIDsExcludingStorageUnitParams) ([]SumStorageAllocationQuantityByItemIDsExcludingStorageUnitRow, error)
 	TouchAuthSessionLastUsedAt(ctx context.Context, arg TouchAuthSessionLastUsedAtParams) (int64, error)
 	// 使用記録の登録に伴い最終使用日時を更新する。
 	// 既存値より古い使用日時では最終使用日時を後退させない。
 	// 使用記録は追記操作のため expectedVersion を要求しないが、
 	// 見直しスコアの再計算契機となるため version は増加させる。
 	TouchItemLastUsedAt(ctx context.Context, arg TouchItemLastUsedAtParams) (OwnershipItem, error)
+	// 収納割当の追加・変更・削除・一括置換に伴い収納単位のversionを増加させる。
+	// 割当集合全体の競合を収納単位のversionで検知する (設計書 11.7)。
+	TouchStorageUnitVersion(ctx context.Context, arg TouchStorageUnitVersionParams) (int64, error)
 	// 全項目を置き換える。versionが一致しない場合は0件となる。
 	UpdateItem(ctx context.Context, arg UpdateItemParams) (OwnershipItem, error)
+	UpdateStorageAllocationQuantity(ctx context.Context, arg UpdateStorageAllocationQuantityParams) (int64, error)
+	// 全項目を置き換える。versionが一致しない場合は0件となる。
+	UpdateStorageUnit(ctx context.Context, arg UpdateStorageUnitParams) (OwnershipStorageUnit, error)
 	// 楽観ロック (設計書 11.7)。更新件数が0の場合は競合または不存在として扱う。
 	UpdateTag(ctx context.Context, arg UpdateTagParams) (OwnershipTag, error)
 	UpdateUserPasswordAuth(ctx context.Context, arg UpdateUserPasswordAuthParams) (int64, error)

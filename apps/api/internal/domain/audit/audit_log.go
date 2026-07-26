@@ -35,6 +35,22 @@ const (
 	ActionTagCreated               ActionCode = "tag_created"
 	ActionTagUpdated               ActionCode = "tag_updated"
 	ActionTagDeleted               ActionCode = "tag_deleted"
+
+	// Phase 2: 収納単位・収納割当 (設計書 22章 "storage allocation変更")。
+	ActionStorageUnitCreated         ActionCode = "storage_unit_created"
+	ActionStorageUnitUpdated         ActionCode = "storage_unit_updated"
+	ActionStorageUnitArchived        ActionCode = "storage_unit_archived"
+	ActionStorageUnitRestored        ActionCode = "storage_unit_restored"
+	ActionStorageAllocationCreated   ActionCode = "storage_allocation_created"
+	ActionStorageAllocationUpdated   ActionCode = "storage_allocation_updated"
+	ActionStorageAllocationDeleted   ActionCode = "storage_allocation_deleted"
+	ActionStorageAllocationsReplaced ActionCode = "storage_allocations_replaced"
+
+	// ActionVersionConflictDetected は楽観ロック競合の検知を表す。
+	//
+	// 競合時は業務transactionがrollbackするため、本記録だけを
+	// 別transactionで残す。競合の頻度は同時編集の運用問題を示す。
+	ActionVersionConflictDetected ActionCode = "version_conflict_detected"
 )
 
 // String はcodeを返す。
@@ -45,9 +61,11 @@ type TargetTypeCode string
 
 // TargetTypeCodeの値。
 const (
-	TargetTypeItem     TargetTypeCode = "item"
-	TargetTypeTag      TargetTypeCode = "tag"
-	TargetTypeCategory TargetTypeCode = "category"
+	TargetTypeItem              TargetTypeCode = "item"
+	TargetTypeTag               TargetTypeCode = "tag"
+	TargetTypeCategory          TargetTypeCode = "category"
+	TargetTypeStorageUnit       TargetTypeCode = "storage_unit"
+	TargetTypeStorageAllocation TargetTypeCode = "storage_allocation"
 )
 
 // String はcodeを返す。

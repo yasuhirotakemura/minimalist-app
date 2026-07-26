@@ -55,6 +55,8 @@ func toItemResponse(result applicationitem.ItemResult) openapi.ItemResponse {
 		IsConfirmed:           result.IsConfirmed,
 		ConfirmedAt:           utcTimePointer(result.ConfirmedAt),
 		Tags:                  toTagReferenceResponses(result.Tags),
+		StorageAllocations:    toItemStorageAllocationResponses(result.StorageAllocations),
+		UnassignedQuantity:    result.UnassignedQuantity,
 		IsArchived:            result.IsArchived,
 		ArchivedAt:            utcTimePointer(result.ArchivedAt),
 		Version:               result.Version,
@@ -218,4 +220,27 @@ func toUUIDs(values *[]openapitypes.UUID) []uuid.UUID {
 		converted = append(converted, uuid.UUID(value))
 	}
 	return converted
+}
+
+// toItemStorageAllocationResponses は収納割当をresponse DTOへ変換する (Phase 2)。
+//
+// 同一アイテムを複数収納単位へ分割割当できるため配列で返す。
+func toItemStorageAllocationResponses(
+	sources []applicationitem.StorageAllocationSummaryResult,
+) []openapi.ItemStorageAllocationResponse {
+	allocations := make([]openapi.ItemStorageAllocationResponse, 0, len(sources))
+	for _, source := range sources {
+		allocations = append(allocations, openapi.ItemStorageAllocationResponse{
+			PublicId: openapitypes.UUID(source.PublicID),
+			StorageUnit: openapi.StorageUnitReferenceResponse{
+				PublicId: openapitypes.UUID(source.StorageUnit.PublicID),
+				Name:     source.StorageUnit.Name,
+			},
+			Quantity:  source.Quantity,
+			Version:   source.Version,
+			CreatedAt: source.CreatedAt.UTC(),
+			UpdatedAt: source.UpdatedAt.UTC(),
+		})
+	}
+	return allocations
 }

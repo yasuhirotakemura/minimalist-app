@@ -21,16 +21,60 @@ import (
 	domainauth "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/domain/auth"
 	domaincategory "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/domain/category"
 	domainitem "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/domain/item"
+	domainstorage "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/domain/storage"
 	domaintag "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/domain/tag"
 )
 
 // Dependencies は所持品ユースケースが必要とする依存をまとめる。
 type Dependencies struct {
-	Items         domainitem.ItemRepository
-	UsageRecords  domainitem.ItemUsageRecordRepository
-	Categories    domaincategory.CategoryRepository
-	Tags          domaintag.TagRepository
-	AuditRecorder *applicationaudit.Recorder
+	Items        domainitem.ItemRepository
+	UsageRecords domainitem.ItemUsageRecordRepository
+	Categories   domaincategory.CategoryRepository
+	Tags         domaintag.TagRepository
+	// StorageAllocations は収納割当の読み取りと数量整合性の検証に使用する (Phase 2)。
+	// 所持品の応答は収納情報と未割当数量を含むため、Item Aggregateの外側にある
+	// 収納割当をApplication層で合成する。
+	StorageAllocations domainstorage.StorageAllocationRepository
+	AuditRecorder      *applicationaudit.Recorder
+}
+
+// newItemResultWithStorage は1件の所持品へ収納割当を付与した結果を返す。
+func (d Dependencies) newItemResultWithStorage(
+	ctx context.Context,
+	userID domainauth.UserID,
+	source domainitem.Item,
+) (ItemResult, error) {
+	allocations, err := d.StorageAllocations.ListByItemID(ctx, userID, source.ID())
+	if err != nil {
+		return ItemResult{}, err
+	}
+	return newItemResult(source).withStorageAllocations(allocations), nil
+}
+
+// newItemResultsWithStorage は一覧の所持品へ収納割当をまとめて付与する。
+//
+// 割当は1度のqueryでまとめて取得し、N+1 queryを避ける。
+func (d Dependencies) newItemResultsWithStorage(
+	ctx context.Context,
+	userID domainauth.UserID,
+	sources []domainitem.Item,
+) ([]ItemResult, error) {
+	itemIDs := make([]domainitem.ItemID, 0, len(sources))
+	for _, source := range sources {
+		itemIDs = append(itemIDs, source.ID())
+	}
+
+	allocationsByItemID, err := d.StorageAllocations.ListByItemIDs(ctx, userID, itemIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	results := make([]ItemResult, 0, len(sources))
+	for _, source := range sources {
+		results = append(results,
+			newItemResult(source).withStorageAllocations(allocationsByItemID[source.ID()]))
+	}
+	return results, nil
 }
 
 // AttributesParams は利用者が指定できる所持品の属性。

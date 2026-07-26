@@ -8,6 +8,7 @@ import (
 	domainaudit "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/domain/audit"
 	domainauth "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/domain/auth"
 	domainitem "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/domain/item"
+	domainstorage "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/domain/storage"
 	"github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/platform/clock"
 	"github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/platform/transaction"
 )
@@ -72,6 +73,21 @@ func (s *UpdateItemService) Execute(
 			return err
 		}
 
+		// 所有数量を収納割当数量の合計未満へ変更できない (設計書 7.2 / Phase 2)。
+		// 対象アイテム行をロックしたうえで合計を読み、並行する割当追加と
+		// 競合しても不変条件が破られないようにする (設計書 20章)。
+		if attributes.Quantity < existing.Quantity() {
+			_, allocatedQuantity, err := s.dependencies.StorageAllocations.
+				SumQuantityByItemIDForUpdate(ctx, params.UserID, existing.ID(), 0)
+			if err != nil {
+				return err
+			}
+			if err := domainstorage.EnsureAllocatedQuantityWithinOwned(
+				attributes.Quantity, allocatedQuantity); err != nil {
+				return err
+			}
+		}
+
 		updated, err = s.dependencies.Items.Update(ctx, next, params.ExpectedVersion)
 		if err != nil {
 			return err
@@ -98,5 +114,9 @@ func (s *UpdateItemService) Execute(
 		return UpdateItemResult{}, err
 	}
 
-	return UpdateItemResult{Item: newItemResult(updated)}, nil
+	result, err := s.dependencies.newItemResultWithStorage(ctx, params.UserID, updated)
+	if err != nil {
+		return UpdateItemResult{}, err
+	}
+	return UpdateItemResult{Item: result}, nil
 }

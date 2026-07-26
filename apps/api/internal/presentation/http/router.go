@@ -53,6 +53,7 @@ type RouterDependencies struct {
 //	/api/categories      : 認証必須。
 //	/api/tags            : 認証必須。
 //	/api/items           : 認証必須。
+//	/api/storage-units   : 認証必須。
 //
 // path・query parameterの解釈はOpenAPI生成のServerInterfaceWrapperへ委ね、
 // routeごとのmiddleware適用のためroute登録は明示的に行う。

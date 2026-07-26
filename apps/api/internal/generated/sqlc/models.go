@@ -130,6 +130,47 @@ type OwnershipItemUsageRecord struct {
 	CreatedAt pgtype.Timestamptz
 }
 
+// 所持品が今どの収納単位へ何個入っているかの現在状態。同一所持品を複数の収納単位へ分割でき、所有数量との差が未割当数量となる。
+type OwnershipStorageAllocation struct {
+	ID            int64
+	PublicID      uuid.UUID
+	UserID        int64
+	StorageUnitID int64
+	ItemID        int64
+	// この収納単位へ入れている個数。同一アイテムの全割当の合計は所有数量以下でなければならない。差分は未割当数量として棚卸しの対象になる。
+	Quantity  int32
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
+	// 収納内容編集画面での同時編集を検知するための楽観ロック値。競合時は利用者の入力でserver状態を上書きしない。
+	Version int32
+}
+
+// 所持品の保管場所と移動時の搬送単位を同一概念として表す。リュック・ポーチ・箱・棚・冷蔵庫のいずれもここへ登録し、mobility_class_codeで運び方を決める。
+type OwnershipStorageUnit struct {
+	ID       int64
+	PublicID uuid.UUID
+	UserID   int64
+	// 入れ子の親。ポーチをリュックへ入れるような包含関係を表す。最大3階層で、親のarchiveは子へ波及させない。
+	ParentID        *int64
+	Name            string
+	StorageTypeCode string
+	// 引っ越し・旅行時にこの収納単位ごとどう運ぶかの決定。自力搬送か宅配便か業者搬送かを収納単位単位で確定させ、搬送計画の集計キーとする。
+	MobilityClassCode string
+	// 中身を入れていない状態の重量。総重量から中身の重量を切り分け、持てるかどうかの判断を可能にする。NULLは未計測を表し、集計値を不完全として扱う。
+	TareWeightGram *int32
+	// 持ち運べる上限、または収納具の耐荷重。超過した状態を警告として提示するための判断基準。NULLは上限を管理しないことを表す。
+	MaximumWeightGram *int32
+	// 入りきる上限容積。詰め込み過ぎを事前に検知するための判断基準。NULLは上限を管理しないことを表す。
+	MaximumVolumeMilliliter *int32
+	Description             *string
+	SortOrder               int32
+	CreatedAt               pgtype.Timestamptz
+	UpdatedAt               pgtype.Timestamptz
+	// 使わなくなった収納具をarchiveした日時。誤操作から復元できるようsoft deleteとする。中身と子収納単位が残っている間はarchiveできない。
+	DeletedAt pgtype.Timestamptz
+	Version   int32
+}
+
 type OwnershipTag struct {
 	ID        int64
 	PublicID  uuid.UUID

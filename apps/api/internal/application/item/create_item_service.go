@@ -91,5 +91,9 @@ func (s *CreateItemService) Execute(
 		return CreateItemResult{}, err
 	}
 
-	return CreateItemResult{Item: newItemResult(created)}, nil
+	result, err := s.dependencies.newItemResultWithStorage(ctx, params.UserID, created)
+	if err != nil {
+		return CreateItemResult{}, err
+	}
+	return CreateItemResult{Item: result}, nil
 }

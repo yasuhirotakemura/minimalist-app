@@ -125,9 +125,14 @@ func (s *RecordItemUsageService) Execute(
 		return RecordItemUsageResult{}, err
 	}
 
+	item, err := s.dependencies.newItemResultWithStorage(ctx, params.UserID, updatedItem)
+	if err != nil {
+		return RecordItemUsageResult{}, err
+	}
+
 	return RecordItemUsageResult{
 		UsageRecord: newUsageRecordResult(createdRecord),
-		Item:        newItemResult(updatedItem),
+		Item:        item,
 	}, nil
 }
 

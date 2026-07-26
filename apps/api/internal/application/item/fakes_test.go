@@ -14,6 +14,7 @@ import (
 	domainauth "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/domain/auth"
 	domaincategory "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/domain/category"
 	domainitem "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/domain/item"
+	domainstorage "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/domain/storage"
 	domaintag "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/domain/tag"
 )
 
@@ -544,3 +545,147 @@ func (r *fakeAuditLogRepository) recorded() []domainaudit.AuditLog {
 }
 
 var _ domainaudit.AuditLogRepository = (*fakeAuditLogRepository)(nil)
+
+// fakeStorageAllocationRepository は収納割当repositoryの最小実装。
+//
+// 所持品のユースケースは収納割当を読み取り専用で使う (収納情報の表示と
+// 所有数量の下限検証)。書き込み系のmethodは収納側のtestで検証するため、
+// ここでは呼ばれないことを前提に未実装のerrorを返す。
+type fakeStorageAllocationRepository struct {
+	mutex sync.Mutex
+	// allocationsByItemID はアイテムごとの割当。testが直接組み立てる。
+	allocationsByItemID map[domainitem.ItemID][]domainstorage.StorageAllocation
+	// ownedQuantities は SELECT FOR UPDATE で読む所有数量。
+	ownedQuantities map[domainitem.ItemID]int32
+}
+
+func newFakeStorageAllocationRepository() *fakeStorageAllocationRepository {
+	return &fakeStorageAllocationRepository{
+		allocationsByItemID: map[domainitem.ItemID][]domainstorage.StorageAllocation{},
+		ownedQuantities:     map[domainitem.ItemID]int32{},
+	}
+}
+
+var _ domainstorage.StorageAllocationRepository = (*fakeStorageAllocationRepository)(nil)
+
+// assign はtestから割当を用意する。
+func (r *fakeStorageAllocationRepository) assign(
+	itemID domainitem.ItemID,
+	ownedQuantity int32,
+	allocations ...domainstorage.StorageAllocation,
+) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
+	r.allocationsByItemID[itemID] = allocations
+	r.ownedQuantities[itemID] = ownedQuantity
+}
+
+func (r *fakeStorageAllocationRepository) ListByItemID(
+	_ context.Context, _ domainauth.UserID, itemID domainitem.ItemID,
+) ([]domainstorage.StorageAllocation, error) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
+	return r.allocationsByItemID[itemID], nil
+}
+
+func (r *fakeStorageAllocationRepository) ListByItemIDs(
+	_ context.Context, _ domainauth.UserID, itemIDs []domainitem.ItemID,
+) (map[domainitem.ItemID][]domainstorage.StorageAllocation, error) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
+	result := make(map[domainitem.ItemID][]domainstorage.StorageAllocation, len(itemIDs))
+	for _, itemID := range itemIDs {
+		if allocations, ok := r.allocationsByItemID[itemID]; ok {
+			result[itemID] = allocations
+		}
+	}
+	return result, nil
+}
+
+func (r *fakeStorageAllocationRepository) SumQuantityByItemIDForUpdate(
+	_ context.Context,
+	_ domainauth.UserID,
+	itemID domainitem.ItemID,
+	excludeAllocationID domainstorage.AllocationID,
+) (int32, int64, error) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
+	var total int64
+	for _, allocation := range r.allocationsByItemID[itemID] {
+		if allocation.ID() == excludeAllocationID && excludeAllocationID != 0 {
+			continue
+		}
+		total += int64(allocation.Quantity())
+	}
+	return r.ownedQuantities[itemID], total, nil
+}
+
+func (r *fakeStorageAllocationRepository) Create(
+	context.Context, domainstorage.StorageAllocation,
+) (domainstorage.StorageAllocation, error) {
+	return domainstorage.StorageAllocation{}, errRepository
+}
+
+func (r *fakeStorageAllocationRepository) FindByPublicID(
+	context.Context, domainauth.UserID, uuid.UUID,
+) (domainstorage.StorageAllocation, error) {
+	return domainstorage.StorageAllocation{}, errRepository
+}
+
+func (r *fakeStorageAllocationRepository) UpdateQuantity(
+	context.Context, domainstorage.StorageAllocation, int32,
+) (domainstorage.StorageAllocation, error) {
+	return domainstorage.StorageAllocation{}, errRepository
+}
+
+func (r *fakeStorageAllocationRepository) Delete(
+	context.Context, domainauth.UserID, uuid.UUID, int32,
+) error {
+	return errRepository
+}
+
+func (r *fakeStorageAllocationRepository) DeleteByStorageUnitID(
+	context.Context, domainauth.UserID, domainstorage.StorageUnitID,
+) error {
+	return errRepository
+}
+
+func (r *fakeStorageAllocationRepository) ListByStorageUnitID(
+	context.Context, domainauth.UserID, domainstorage.StorageUnitID,
+) ([]domainstorage.StorageAllocation, error) {
+	return nil, errRepository
+}
+
+func (r *fakeStorageAllocationRepository) ListByStorageUnitIDs(
+	context.Context, domainauth.UserID, []domainstorage.StorageUnitID,
+) (map[domainstorage.StorageUnitID][]domainstorage.StorageAllocation, error) {
+	return nil, errRepository
+}
+
+func (r *fakeStorageAllocationRepository) CountByStorageUnitID(
+	context.Context, domainauth.UserID, domainstorage.StorageUnitID,
+) (int64, error) {
+	return 0, errRepository
+}
+
+func (r *fakeStorageAllocationRepository) LockItemsForUpdate(
+	context.Context, domainauth.UserID, []domainitem.ItemID,
+) (map[domainitem.ItemID]int32, error) {
+	return nil, errRepository
+}
+
+func (r *fakeStorageAllocationRepository) FindAllocatedItemByPublicID(
+	context.Context, domainauth.UserID, uuid.UUID,
+) (domainstorage.AllocatedItem, error) {
+	return domainstorage.AllocatedItem{}, errRepository
+}
+
+func (r *fakeStorageAllocationRepository) ResolveAllocatedItems(
+	context.Context, domainauth.UserID, []uuid.UUID,
+) ([]domainstorage.AllocatedItem, error) {
+	return nil, errRepository
+}

@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 
 	domainitem "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/domain/item"
+	domainstorage "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/domain/storage"
 )
 
 // CategoryReferenceResult は所持品に紐づくカテゴリーの表現。
@@ -18,6 +19,24 @@ type CategoryReferenceResult struct {
 type TagReferenceResult struct {
 	PublicID uuid.UUID
 	Name     string
+}
+
+// StorageUnitReferenceResult は割当先の収納単位の最小表現 (Phase 2)。
+type StorageUnitReferenceResult struct {
+	PublicID uuid.UUID
+	Name     string
+}
+
+// StorageAllocationSummaryResult はアイテム側から見た収納割当1件 (Phase 2)。
+//
+// 同一アイテムを複数収納単位へ分割割当できるため、ItemResultは本型の配列を持つ。
+type StorageAllocationSummaryResult struct {
+	PublicID    uuid.UUID
+	StorageUnit StorageUnitReferenceResult
+	Quantity    int32
+	Version     int32
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 // ItemResult はユースケースが返す所持品の表現。
@@ -60,11 +79,15 @@ type ItemResult struct {
 	IsConfirmed           bool
 	ConfirmedAt           *time.Time
 	Tags                  []TagReferenceResult
-	IsArchived            bool
-	ArchivedAt            *time.Time
-	Version               int32
-	CreatedAt             time.Time
-	UpdatedAt             time.Time
+	// StorageAllocations は本アイテムがどの収納単位へ何個入っているか (Phase 2)。
+	StorageAllocations []StorageAllocationSummaryResult
+	// UnassignedQuantity は quantity - 割当数量合計。DBへ保存せず算出する。
+	UnassignedQuantity int32
+	IsArchived         bool
+	ArchivedAt         *time.Time
+	Version            int32
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
 }
 
 // PaginationResult はoffset paginationの結果。
@@ -138,6 +161,8 @@ func newItemResult(source domainitem.Item) ItemResult {
 		IsConfirmed:           source.IsConfirmed(),
 		ConfirmedAt:           source.ConfirmedAt(),
 		Tags:                  newTagReferenceResults(source),
+		StorageAllocations:    []StorageAllocationSummaryResult{},
+		UnassignedQuantity:    attributes.Quantity,
 		IsArchived:            source.IsArchived(),
 		ArchivedAt:            source.ArchivedAt(),
 		Version:               source.Version(),
@@ -176,4 +201,32 @@ func newPaginationResult(limit, offset int32, totalCount int64) PaginationResult
 		TotalCount: totalCount,
 		HasNext:    int64(offset)+int64(limit) < totalCount,
 	}
+}
+
+// withStorageAllocations は収納割当と未割当数量を付与した複製を返す (Phase 2)。
+//
+// 未割当数量はDBへ重複保存せず、取得時に算出する。
+func (r ItemResult) withStorageAllocations(
+	allocations []domainstorage.StorageAllocation,
+) ItemResult {
+	summaries := make([]StorageAllocationSummaryResult, 0, len(allocations))
+	var assignedQuantity int64
+	for _, allocation := range allocations {
+		assignedQuantity += int64(allocation.Quantity())
+		summaries = append(summaries, StorageAllocationSummaryResult{
+			PublicID: allocation.PublicID(),
+			StorageUnit: StorageUnitReferenceResult{
+				PublicID: allocation.StorageUnit().PublicID,
+				Name:     allocation.StorageUnit().Name,
+			},
+			Quantity:  allocation.Quantity(),
+			Version:   allocation.Version(),
+			CreatedAt: allocation.CreatedAt(),
+			UpdatedAt: allocation.UpdatedAt(),
+		})
+	}
+
+	r.StorageAllocations = summaries
+	r.UnassignedQuantity = domainstorage.UnassignedQuantity(r.Quantity, assignedQuantity)
+	return r
 }

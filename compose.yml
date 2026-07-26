@@ -75,6 +75,8 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+    # /health/live はGETのみを受け付けるため、HEADを送る --spider は使用しない。
+    # --spider ではMethod Not Allowedとなり、healthcheckが常に失敗する。
     healthcheck:
       test:
         [
@@ -82,7 +84,7 @@ services:
           "wget",
           "--quiet",
           "--tries=1",
-          "--spider",
+          "--output-document=/dev/null",
           "http://127.0.0.1:${API_PORT:-8081}/health/live",
         ]
       interval: 5s

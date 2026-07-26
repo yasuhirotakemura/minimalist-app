@@ -272,18 +272,20 @@ func (r *PostgresqlItemRepository) List(
 	criteria domainitem.ListCriteria,
 ) ([]domainitem.Item, error) {
 	rows, err := r.queries(ctx).ListItems(ctx, sqlc.ListItemsParams{
-		UserID:             userID.Int64(),
-		IncludeDeleted:     criteria.IncludeArchived,
-		KeywordPattern:     likePattern(criteria.Keyword),
-		CategoryPublicID:   criteria.CategoryPublicID,
-		NecessityLevelCode: optionalCode(criteria.NecessityLevel),
-		UsageFrequencyCode: optionalCode(criteria.UsageFrequency),
-		MobilityClassCode:  optionalCode(criteria.MobilityClass),
-		TagPublicID:        criteria.TagPublicID,
-		SortKey:            sortKeyColumns[criteria.SortKey],
-		Descending:         criteria.Descending,
-		RowLimit:           criteria.Limit,
-		RowOffset:          criteria.Offset,
+		UserID:              userID.Int64(),
+		IncludeDeleted:      criteria.IncludeArchived,
+		KeywordPattern:      likePattern(criteria.Keyword),
+		CategoryPublicID:    criteria.CategoryPublicID,
+		NecessityLevelCode:  optionalCode(criteria.NecessityLevel),
+		UsageFrequencyCode:  optionalCode(criteria.UsageFrequency),
+		MobilityClassCode:   optionalCode(criteria.MobilityClass),
+		TagPublicID:         criteria.TagPublicID,
+		StorageUnitPublicID: criteria.StorageUnitPublicID,
+		UnassignedOnly:      criteria.IsUnassigned,
+		SortKey:             sortKeyColumns[criteria.SortKey],
+		Descending:          criteria.Descending,
+		RowLimit:            criteria.Limit,
+		RowOffset:           criteria.Offset,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("list items: %w", err)
@@ -321,14 +323,16 @@ func (r *PostgresqlItemRepository) Count(
 	criteria domainitem.ListCriteria,
 ) (int64, error) {
 	count, err := r.queries(ctx).CountItems(ctx, sqlc.CountItemsParams{
-		UserID:             userID.Int64(),
-		IncludeDeleted:     criteria.IncludeArchived,
-		KeywordPattern:     likePattern(criteria.Keyword),
-		CategoryPublicID:   criteria.CategoryPublicID,
-		NecessityLevelCode: optionalCode(criteria.NecessityLevel),
-		UsageFrequencyCode: optionalCode(criteria.UsageFrequency),
-		MobilityClassCode:  optionalCode(criteria.MobilityClass),
-		TagPublicID:        criteria.TagPublicID,
+		UserID:              userID.Int64(),
+		IncludeDeleted:      criteria.IncludeArchived,
+		KeywordPattern:      likePattern(criteria.Keyword),
+		CategoryPublicID:    criteria.CategoryPublicID,
+		NecessityLevelCode:  optionalCode(criteria.NecessityLevel),
+		UsageFrequencyCode:  optionalCode(criteria.UsageFrequency),
+		MobilityClassCode:   optionalCode(criteria.MobilityClass),
+		TagPublicID:         criteria.TagPublicID,
+		StorageUnitPublicID: criteria.StorageUnitPublicID,
+		UnassignedOnly:      criteria.IsUnassigned,
 	})
 	if err != nil {
 		return 0, fmt.Errorf("count items: %w", err)

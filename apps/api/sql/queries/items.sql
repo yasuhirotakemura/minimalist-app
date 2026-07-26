@@ -210,6 +210,26 @@ WHERE i.user_id = @user_id
             WHERE it.item_id = i.id
               AND it.user_id = i.user_id
               AND t.public_id = sqlc.narg('tag_public_id')::uuid))
+  -- 指定した収納単位へ直接割当されているアイテムだけを返す (Phase 2)。
+  -- 子収納単位の内容は含めない。
+  AND (sqlc.narg('storage_unit_public_id')::uuid IS NULL
+       OR EXISTS (
+            SELECT 1
+            FROM ownership.storage_allocations sa
+            JOIN ownership.storage_units su
+              ON su.id = sa.storage_unit_id
+             AND su.user_id = sa.user_id
+            WHERE sa.item_id = i.id
+              AND sa.user_id = i.user_id
+              AND su.public_id = sqlc.narg('storage_unit_public_id')::uuid))
+  -- 未割当数量が1以上のアイテムだけを返す (Phase 2)。
+  -- 未割当数量はDBへ保存せず、割当合計との差で判定する。
+  AND (NOT @unassigned_only::boolean
+       OR i.quantity > COALESCE((
+            SELECT SUM(sa.quantity)
+            FROM ownership.storage_allocations sa
+            WHERE sa.item_id = i.id
+              AND sa.user_id = i.user_id), 0))
 ORDER BY
     CASE WHEN @sort_key::text = 'name' AND NOT @descending::boolean
          THEN i.name END ASC,
@@ -263,7 +283,23 @@ WHERE i.user_id = @user_id
              AND t.deleted_at IS NULL
             WHERE it.item_id = i.id
               AND it.user_id = i.user_id
-              AND t.public_id = sqlc.narg('tag_public_id')::uuid));
+              AND t.public_id = sqlc.narg('tag_public_id')::uuid))
+  AND (sqlc.narg('storage_unit_public_id')::uuid IS NULL
+       OR EXISTS (
+            SELECT 1
+            FROM ownership.storage_allocations sa
+            JOIN ownership.storage_units su
+              ON su.id = sa.storage_unit_id
+             AND su.user_id = sa.user_id
+            WHERE sa.item_id = i.id
+              AND sa.user_id = i.user_id
+              AND su.public_id = sqlc.narg('storage_unit_public_id')::uuid))
+  AND (NOT @unassigned_only::boolean
+       OR i.quantity > COALESCE((
+            SELECT SUM(sa.quantity)
+            FROM ownership.storage_allocations sa
+            WHERE sa.item_id = i.id
+              AND sa.user_id = i.user_id), 0));
 
 -- 一覧のN+1を避けるため、pageに含まれるアイテムのタグをまとめて取得する。
 -- name: ListItemTagsByItemIDs :many

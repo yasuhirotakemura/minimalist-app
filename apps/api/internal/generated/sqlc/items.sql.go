@@ -114,17 +114,35 @@ WHERE i.user_id = $1
             WHERE it.item_id = i.id
               AND it.user_id = i.user_id
               AND t.public_id = $8::uuid))
+  AND ($9::uuid IS NULL
+       OR EXISTS (
+            SELECT 1
+            FROM ownership.storage_allocations sa
+            JOIN ownership.storage_units su
+              ON su.id = sa.storage_unit_id
+             AND su.user_id = sa.user_id
+            WHERE sa.item_id = i.id
+              AND sa.user_id = i.user_id
+              AND su.public_id = $9::uuid))
+  AND (NOT $10::boolean
+       OR i.quantity > COALESCE((
+            SELECT SUM(sa.quantity)
+            FROM ownership.storage_allocations sa
+            WHERE sa.item_id = i.id
+              AND sa.user_id = i.user_id), 0))
 `
 
 type CountItemsParams struct {
-	UserID             int64
-	IncludeDeleted     bool
-	KeywordPattern     *string
-	CategoryPublicID   *uuid.UUID
-	NecessityLevelCode *string
-	UsageFrequencyCode *string
-	MobilityClassCode  *string
-	TagPublicID        *uuid.UUID
+	UserID              int64
+	IncludeDeleted      bool
+	KeywordPattern      *string
+	CategoryPublicID    *uuid.UUID
+	NecessityLevelCode  *string
+	UsageFrequencyCode  *string
+	MobilityClassCode   *string
+	TagPublicID         *uuid.UUID
+	StorageUnitPublicID *uuid.UUID
+	UnassignedOnly      bool
 }
 
 // ListItemsと同一の絞り込み条件で総件数を返す。
@@ -138,6 +156,8 @@ func (q *Queries) CountItems(ctx context.Context, arg CountItemsParams) (int64, 
 		arg.UsageFrequencyCode,
 		arg.MobilityClassCode,
 		arg.TagPublicID,
+		arg.StorageUnitPublicID,
+		arg.UnassignedOnly,
 	)
 	var count int64
 	err := row.Scan(&count)
@@ -540,41 +560,63 @@ WHERE i.user_id = $1
             WHERE it.item_id = i.id
               AND it.user_id = i.user_id
               AND t.public_id = $8::uuid))
+  -- 指定した収納単位へ直接割当されているアイテムだけを返す (Phase 2)。
+  -- 子収納単位の内容は含めない。
+  AND ($9::uuid IS NULL
+       OR EXISTS (
+            SELECT 1
+            FROM ownership.storage_allocations sa
+            JOIN ownership.storage_units su
+              ON su.id = sa.storage_unit_id
+             AND su.user_id = sa.user_id
+            WHERE sa.item_id = i.id
+              AND sa.user_id = i.user_id
+              AND su.public_id = $9::uuid))
+  -- 未割当数量が1以上のアイテムだけを返す (Phase 2)。
+  -- 未割当数量はDBへ保存せず、割当合計との差で判定する。
+  AND (NOT $10::boolean
+       OR i.quantity > COALESCE((
+            SELECT SUM(sa.quantity)
+            FROM ownership.storage_allocations sa
+            WHERE sa.item_id = i.id
+              AND sa.user_id = i.user_id), 0))
 ORDER BY
-    CASE WHEN $9::text = 'name' AND NOT $10::boolean
+    CASE WHEN $11::text = 'name' AND NOT $12::boolean
          THEN i.name END ASC,
-    CASE WHEN $9::text = 'name' AND $10::boolean
+    CASE WHEN $11::text = 'name' AND $12::boolean
          THEN i.name END DESC,
-    CASE WHEN $9::text = 'quantity' AND NOT $10::boolean
+    CASE WHEN $11::text = 'quantity' AND NOT $12::boolean
          THEN i.quantity END ASC,
-    CASE WHEN $9::text = 'quantity' AND $10::boolean
+    CASE WHEN $11::text = 'quantity' AND $12::boolean
          THEN i.quantity END DESC,
-    CASE WHEN $9::text = 'last_used_at' AND NOT $10::boolean
+    CASE WHEN $11::text = 'last_used_at' AND NOT $12::boolean
          THEN i.last_used_at END ASC NULLS LAST,
-    CASE WHEN $9::text = 'last_used_at' AND $10::boolean
+    CASE WHEN $11::text = 'last_used_at' AND $12::boolean
          THEN i.last_used_at END DESC NULLS LAST,
-    CASE WHEN $9::text = 'updated_at' AND NOT $10::boolean
+    CASE WHEN $11::text = 'updated_at' AND NOT $12::boolean
          THEN i.updated_at END ASC,
-    CASE WHEN $9::text = 'updated_at' AND $10::boolean
+    CASE WHEN $11::text = 'updated_at' AND $12::boolean
          THEN i.updated_at END DESC,
     i.id DESC
-LIMIT $12
-OFFSET $11
+LIMIT $14
+OFFSET $13
 `
 
 type ListItemsParams struct {
-	UserID             int64
-	IncludeDeleted     bool
-	KeywordPattern     *string
-	CategoryPublicID   *uuid.UUID
-	NecessityLevelCode *string
-	UsageFrequencyCode *string
-	MobilityClassCode  *string
-	TagPublicID        *uuid.UUID
-	SortKey            string
-	Descending         bool
-	RowOffset          int32
-	RowLimit           int32
+	UserID              int64
+	IncludeDeleted      bool
+	KeywordPattern      *string
+	CategoryPublicID    *uuid.UUID
+	NecessityLevelCode  *string
+	UsageFrequencyCode  *string
+	MobilityClassCode   *string
+	TagPublicID         *uuid.UUID
+	StorageUnitPublicID *uuid.UUID
+	UnassignedOnly      bool
+	SortKey             string
+	Descending          bool
+	RowOffset           int32
+	RowLimit            int32
 }
 
 type ListItemsRow struct {
@@ -598,6 +640,8 @@ func (q *Queries) ListItems(ctx context.Context, arg ListItemsParams) ([]ListIte
 		arg.UsageFrequencyCode,
 		arg.MobilityClassCode,
 		arg.TagPublicID,
+		arg.StorageUnitPublicID,
+		arg.UnassignedOnly,
 		arg.SortKey,
 		arg.Descending,
 		arg.RowOffset,

@@ -44,6 +44,8 @@ type fixture struct {
 	recordItemUsage      *applicationitem.RecordItemUsageService
 	listItemUsageRecords *applicationitem.ListItemUsageRecordsService
 
+	storageAllocations *fakeStorageAllocationRepository
+
 	ownerCategory domaincategory.Category
 	ownerTag      domaintag.Tag
 }
@@ -60,11 +62,14 @@ func newFixture(t *testing.T) *fixture {
 	publicIDGenerator := &sequentialPublicIDGenerator{}
 	transactionManager := transaction.NewPassthroughManager()
 
+	storageAllocations := newFakeStorageAllocationRepository()
+
 	dependencies := applicationitem.Dependencies{
-		Items:        items,
-		UsageRecords: usageRecords,
-		Categories:   categories,
-		Tags:         tags,
+		Items:              items,
+		UsageRecords:       usageRecords,
+		Categories:         categories,
+		Tags:               tags,
+		StorageAllocations: storageAllocations,
 		AuditRecorder: applicationaudit.NewRecorder(
 			auditLogs, publicIDGenerator, systemClock),
 	}
@@ -78,12 +83,13 @@ func newFixture(t *testing.T) *fixture {
 	tags.add(ownerTag)
 
 	return &fixture{
-		items:        items,
-		usageRecords: usageRecords,
-		categories:   categories,
-		tags:         tags,
-		auditLogs:    auditLogs,
-		clock:        systemClock,
+		items:              items,
+		usageRecords:       usageRecords,
+		categories:         categories,
+		tags:               tags,
+		auditLogs:          auditLogs,
+		clock:              systemClock,
+		storageAllocations: storageAllocations,
 		createItem: applicationitem.NewCreateItemService(
 			dependencies, publicIDGenerator, systemClock, transactionManager),
 		updateItem: applicationitem.NewUpdateItemService(

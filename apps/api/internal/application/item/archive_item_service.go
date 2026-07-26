@@ -85,5 +85,9 @@ func (s *ArchiveItemService) Execute(
 		return ArchiveItemResult{}, err
 	}
 
-	return ArchiveItemResult{Item: newItemResult(archived)}, nil
+	result, err := s.dependencies.newItemResultWithStorage(ctx, params.UserID, archived)
+	if err != nil {
+		return ArchiveItemResult{}, err
+	}
+	return ArchiveItemResult{Item: result}, nil
 }

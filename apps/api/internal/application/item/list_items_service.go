@@ -46,9 +46,9 @@ func (s *ListItemsService) Execute(
 		return ListItemsResult{}, err
 	}
 
-	results := make([]ItemResult, 0, len(found))
-	for _, source := range found {
-		results = append(results, newItemResult(source))
+	results, err := s.dependencies.newItemResultsWithStorage(ctx, params.UserID, found)
+	if err != nil {
+		return ListItemsResult{}, err
 	}
 
 	return ListItemsResult{

@@ -41,5 +41,9 @@ func (s *GetItemService) Execute(
 	if err != nil {
 		return GetItemResult{}, err
 	}
-	return GetItemResult{Item: newItemResult(found)}, nil
+	result, err := s.dependencies.newItemResultWithStorage(ctx, params.UserID, found)
+	if err != nil {
+		return GetItemResult{}, err
+	}
+	return GetItemResult{Item: result}, nil
 }
