@@ -27,6 +27,10 @@ export interface ItemListFilters {
   necessityLevelCode: string
   usageFrequencyCode: string
   mobilityClassCode: string
+  /** 指定した収納単位へ直接収納されているアイテムに絞る (Phase 2)。 */
+  storageUnitPublicId: string
+  /** 未割当数量が1以上のアイテムに絞る (Phase 2)。 */
+  isUnassigned: boolean
   includeDeleted: boolean
   sort: ItemSortKey
   order: SortOrder
@@ -59,6 +63,8 @@ export function useItemList() {
     necessityLevelCode: singleValue(route.query.necessityLevelCode),
     usageFrequencyCode: singleValue(route.query.usageFrequencyCode),
     mobilityClassCode: singleValue(route.query.mobilityClassCode),
+    storageUnitPublicId: singleValue(route.query.storageUnitPublicId),
+    isUnassigned: singleValue(route.query.isUnassigned) === 'true',
     includeDeleted: singleValue(route.query.includeDeleted) === 'true',
     sort: (singleValue(route.query.sort) || DEFAULT_SORT) as ItemSortKey,
     order: (singleValue(route.query.order) || DEFAULT_ORDER) as SortOrder,
@@ -87,6 +93,8 @@ export function useItemList() {
     if (current.mobilityClassCode) {
       query.mobilityClassCode = current.mobilityClassCode as MobilityClassCode
     }
+    if (current.storageUnitPublicId) query.storageUnitPublicId = current.storageUnitPublicId
+    if (current.isUnassigned) query.isUnassigned = true
     if (current.includeDeleted) query.includeDeleted = true
 
     return query
@@ -115,6 +123,8 @@ export function useItemList() {
       current.necessityLevelCode ||
       current.usageFrequencyCode ||
       current.mobilityClassCode ||
+      current.storageUnitPublicId ||
+      current.isUnassigned ||
       current.includeDeleted,
     )
   })
@@ -139,6 +149,10 @@ export function useItemList() {
       queryParameters.usageFrequencyCode = merged.usageFrequencyCode
     }
     if (merged.mobilityClassCode) queryParameters.mobilityClassCode = merged.mobilityClassCode
+    if (merged.storageUnitPublicId) {
+      queryParameters.storageUnitPublicId = merged.storageUnitPublicId
+    }
+    if (merged.isUnassigned) queryParameters.isUnassigned = 'true'
     if (merged.includeDeleted) queryParameters.includeDeleted = 'true'
     if (merged.sort !== DEFAULT_SORT) queryParameters.sort = merged.sort
     if (merged.order !== DEFAULT_ORDER) queryParameters.order = merged.order

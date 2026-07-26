@@ -993,14 +993,14 @@ func TestStorageUnitAPI_一覧のfilterとsortとpagination(t *testing.T) {
 		query     string
 		wantCount int
 	}{
-		"絞り込みなし":           {query: "", wantCount: 3},
-		"rootOnly":         {query: "?rootOnly=true", wantCount: 1},
-		"親で絞り込む":           {query: "?parentStorageUnitPublicId=" + root.PublicID, wantCount: 1},
-		"storageTypeCode":  {query: "?storageTypeCode=pouch", wantCount: 1},
+		"絞り込みなし":            {query: "", wantCount: 3},
+		"rootOnly":          {query: "?rootOnly=true", wantCount: 1},
+		"親で絞り込む":            {query: "?parentStorageUnitPublicId=" + root.PublicID, wantCount: 1},
+		"storageTypeCode":   {query: "?storageTypeCode=pouch", wantCount: 1},
 		"mobilityClassCode": {query: "?mobilityClassCode=fixed", wantCount: 1},
-		"keyword_名前":       {query: "?keyword=リュック", wantCount: 1},
-		"keyword_説明":       {query: "?keyword=通勤", wantCount: 1},
-		"該当なし":             {query: "?keyword=存在しない", wantCount: 0},
+		"keyword_名前":        {query: "?keyword=リュック", wantCount: 1},
+		"keyword_説明":        {query: "?keyword=通勤", wantCount: 1},
+		"該当なし":              {query: "?keyword=存在しない", wantCount: 0},
 	}
 
 	for name, testCase := range testCases {

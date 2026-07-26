@@ -31,6 +31,11 @@ function renderLoginPage() {
     history: createMemoryHistory(),
     routes: [
       { path: '/', name: 'root', component: { template: '<div />' } },
+      {
+        path: '/storage-units',
+        name: 'storageUnits',
+        component: { template: '<div>storage</div>' },
+      },
       { path: '/login', name: 'login', component: LoginPage },
       { path: '/register', name: 'register', component: { template: '<div>register</div>' } },
       { path: '/dashboard', name: 'dashboard', component: { template: '<div>dashboard</div>' } },

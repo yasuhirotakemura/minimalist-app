@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 import BaseAlert from '@/components/base/BaseAlert.vue'
 import BaseButton from '@/components/base/BaseButton.vue'
+import ItemStorageAllocationList from '@/components/storage/ItemStorageAllocationList.vue'
 import { useItemDetail } from '@/composables/useItemDetail'
 import AppShell from '@/layouts/AppShell.vue'
 import {
@@ -18,8 +19,8 @@ import {
  * アイテム詳細 (設計書 9.5)。
  *
  * 危険操作 (アーカイブ) は画面下部へ配置し、確認を挟む (設計書 9.5 / 10.6)。
- * 収納・移動・関連アイテム・利用シナリオ・操作履歴のsectionは
- * Phase 2以降のスコープのため設けない。
+ * 収納割当はPhase 2で追加した。関連アイテム・利用シナリオ・操作履歴の
+ * sectionはPhase 3以降のスコープのため設けない。
  */
 const route = useRoute()
 const router = useRouter()
@@ -224,6 +225,25 @@ async function handleRestore(): Promise<void> {
             <dd class="text-sm break-all text-slate-900">{{ formatText(item.sourceUrl) }}</dd>
           </div>
         </dl>
+      </section>
+
+      <section class="mt-4 rounded-lg border border-slate-200 bg-white p-5">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <h2 class="text-sm font-medium text-slate-600">収納状況</h2>
+          <BaseButton variant="secondary" @click="router.push({ name: 'storageUnits' })">
+            収納単位を見る
+          </BaseButton>
+        </div>
+
+        <div class="mt-3">
+          <ItemStorageAllocationList
+            :allocations="item.storageAllocations"
+            :quantity="item.quantity"
+            :assigned-quantity="item.quantity - item.unassignedQuantity"
+            :unassigned-quantity="item.unassignedQuantity"
+            :unit-name="item.unitName"
+          />
+        </div>
       </section>
 
       <section class="mt-4 rounded-lg border border-slate-200 bg-white p-5">

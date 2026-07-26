@@ -5,8 +5,9 @@ import { useAuthSessionStore } from '@/stores/authSession'
 /**
  * route定義 (設計書 9.1)。
  *
- * 現在のスコープは認証 (Phase 0) と所持品・タグ (Phase 1) とする。
- * 収納単位・見直し・シナリオ等はPhase 2以降で追加する。
+ * 現在のスコープは認証 (Phase 0)、所持品・タグ (Phase 1)、
+ * 収納単位・収納割当 (Phase 2) とする。
+ * 見直し・シナリオ等はPhase 3以降で追加する。
  */
 export const routes: RouteRecordRaw[] = [
   {
@@ -55,6 +56,36 @@ export const routes: RouteRecordRaw[] = [
     name: 'itemEdit',
     component: () => import('@/pages/item-edit.vue'),
     meta: { requiresAuth: true, title: 'アイテムを編集' },
+  },
+  {
+    path: '/storage-units',
+    name: 'storageUnits',
+    component: () => import('@/pages/storage-units.vue'),
+    meta: { requiresAuth: true, title: '収納単位' },
+  },
+  {
+    path: '/storage-units/new',
+    name: 'storageUnitNew',
+    component: () => import('@/pages/storage-unit-new.vue'),
+    meta: { requiresAuth: true, title: '収納単位を追加' },
+  },
+  {
+    path: '/storage-units/:publicId',
+    name: 'storageUnitDetail',
+    component: () => import('@/pages/storage-unit-detail.vue'),
+    meta: { requiresAuth: true, title: '収納単位詳細' },
+  },
+  {
+    path: '/storage-units/:publicId/edit',
+    name: 'storageUnitEdit',
+    component: () => import('@/pages/storage-unit-edit.vue'),
+    meta: { requiresAuth: true, title: '収納単位を編集' },
+  },
+  {
+    path: '/storage-units/:publicId/contents',
+    name: 'storageUnitContents',
+    component: () => import('@/pages/storage-unit-contents.vue'),
+    meta: { requiresAuth: true, title: '収納内容を編集' },
   },
   {
     path: '/tags',

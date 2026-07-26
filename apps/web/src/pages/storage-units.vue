@@ -2,25 +2,24 @@
 import BaseAlert from '@/components/base/BaseAlert.vue'
 import BaseButton from '@/components/base/BaseButton.vue'
 import BaseEmptyState from '@/components/base/BaseEmptyState.vue'
-import ItemList from '@/components/item/ItemList.vue'
-import ItemListFilters from '@/components/item/ItemListFilters.vue'
-import { useItemFormOptions } from '@/composables/useItemFormOptions'
-import { useItemList } from '@/composables/useItemList'
-import { useStorageUnitOptions } from '@/composables/useStorageUnitOptions'
+import StorageUnitList from '@/components/storage/StorageUnitList.vue'
+import StorageUnitListFilters from '@/components/storage/StorageUnitListFilters.vue'
+import { useStorageUnits } from '@/composables/useStorageUnits'
 import AppShell from '@/layouts/AppShell.vue'
 
 /**
- * 所持品一覧 (設計書 9.4)。
+ * 収納単位一覧 (F-008)。
  *
  * loading / error / empty / success の4状態を明示する (設計書 10.7)。
  * 検索条件はURL query parameterが保持する。
  */
 const {
   filters,
-  items,
+  storageUnits,
   pagination,
   totalPages,
   hasActiveFilters,
+  hasExceededUnit,
   isLoading,
   isError,
   isEmpty,
@@ -28,28 +27,18 @@ const {
   applyFilters,
   resetFilters,
   goToPage,
-} = useItemList()
-
-const { categories, tags } = useItemFormOptions()
-const { storageUnits } = useStorageUnitOptions()
+} = useStorageUnits()
 </script>
 
 <template>
   <AppShell>
     <div class="flex flex-wrap items-center justify-between gap-3">
-      <h1 class="text-2xl font-semibold tracking-tight">所持品</h1>
-      <BaseButton @click="$router.push({ name: 'itemNew' })">アイテムを追加</BaseButton>
+      <h1 class="text-2xl font-semibold tracking-tight">収納単位</h1>
+      <BaseButton @click="$router.push({ name: 'storageUnitNew' })">収納単位を追加</BaseButton>
     </div>
 
     <div class="mt-6">
-      <ItemListFilters
-        :filters="filters"
-        :categories="categories"
-        :tags="tags"
-        :storage-units="storageUnits"
-        @apply="applyFilters"
-        @reset="resetFilters"
-      />
+      <StorageUnitListFilters :filters="filters" @apply="applyFilters" @reset="resetFilters" />
     </div>
 
     <!-- loading -->
@@ -58,7 +47,7 @@ const { storageUnits } = useStorageUnitOptions()
     <!-- error -->
     <div v-else-if="isError" class="mt-6">
       <BaseAlert variant="error">
-        <p>所持品を取得できませんでした。</p>
+        <p>収納単位を取得できませんでした。</p>
         <BaseButton variant="secondary" class="mt-3" @click="refetch()">再試行</BaseButton>
       </BaseAlert>
     </div>
@@ -67,30 +56,36 @@ const { storageUnits } = useStorageUnitOptions()
     <div v-else-if="isEmpty" class="mt-6">
       <BaseEmptyState
         v-if="hasActiveFilters"
-        title="条件に一致するアイテムがありません。"
+        title="条件に一致する収納単位がありません。"
         description="絞り込み条件を変更してください。"
       >
         <BaseButton variant="secondary" @click="resetFilters()">条件をクリア</BaseButton>
       </BaseEmptyState>
       <BaseEmptyState
         v-else
-        title="アイテムがありません。"
-        description="持ち物を1つずつ登録して、所有の判断材料を作ります。"
+        title="収納単位がありません。"
+        description="リュックや箱を登録すると、持ち物を「どこに入っているか」で管理できます。"
       >
-        <BaseButton @click="$router.push({ name: 'itemNew' })">最初のアイテムを追加</BaseButton>
+        <BaseButton @click="$router.push({ name: 'storageUnitNew' })">
+          最初の収納単位を追加
+        </BaseButton>
       </BaseEmptyState>
     </div>
 
     <!-- success -->
     <div v-else class="mt-6">
-      <p class="text-sm text-slate-600" role="status">
+      <BaseAlert v-if="hasExceededUnit" variant="error" title="容量超過の収納単位があります">
+        <p>最大重量または最大容積を超えている収納単位があります。中身を見直してください。</p>
+      </BaseAlert>
+
+      <p class="mt-3 text-sm text-slate-600" role="status">
         {{ pagination?.totalCount ?? 0 }}件中 {{ (pagination?.offset ?? 0) + 1 }}–{{
-          (pagination?.offset ?? 0) + items.length
+          (pagination?.offset ?? 0) + storageUnits.length
         }}件を表示
       </p>
 
       <div class="mt-3">
-        <ItemList :items="items" />
+        <StorageUnitList :storage-units="storageUnits" />
       </div>
 
       <nav

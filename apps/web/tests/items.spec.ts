@@ -24,6 +24,7 @@ const tagsApiMocks = vi.hoisted(() => ({
   updateTag: vi.fn(),
   deleteTag: vi.fn(),
 }))
+const storageApiMocks = vi.hoisted(() => ({ listStorageUnits: vi.fn() }))
 const authApiMocks = vi.hoisted(() => ({
   fetchAuthenticatedUserContext: vi.fn(),
   loginUser: vi.fn(),
@@ -34,6 +35,7 @@ const authApiMocks = vi.hoisted(() => ({
 vi.mock('@/api/items', () => itemsApiMocks)
 vi.mock('@/api/categories', () => categoriesApiMocks)
 vi.mock('@/api/tags', () => tagsApiMocks)
+vi.mock('@/api/storageUnits', () => storageApiMocks)
 vi.mock('@/api/auth', () => authApiMocks)
 
 function listResponse(
@@ -57,6 +59,10 @@ describe('所持品一覧画面', () => {
     vi.clearAllMocks()
     categoriesApiMocks.listCategories.mockResolvedValue({ items: [testCategory()] })
     tagsApiMocks.listTags.mockResolvedValue({ items: [testTag()] })
+    storageApiMocks.listStorageUnits.mockResolvedValue({
+      items: [],
+      pagination: { limit: 100, offset: 0, totalCount: 0, hasNext: false },
+    })
     authApiMocks.fetchAuthenticatedUserContext.mockRejectedValue(
       new ApiError(401, {
         code: 'UNAUTHENTICATED',
@@ -229,5 +235,58 @@ describe('所持品一覧画面', () => {
     await renderPage(ItemsPage, { initialPath: '/items?includeDeleted=true' })
 
     expect((await screen.findAllByText('アーカイブ済み')).length).toBeGreaterThan(0)
+  })
+})
+
+describe('所持品一覧の収納絞り込み (Phase 2)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    categoriesApiMocks.listCategories.mockResolvedValue({ items: [testCategory()] })
+    tagsApiMocks.listTags.mockResolvedValue({ items: [testTag()] })
+    storageApiMocks.listStorageUnits.mockResolvedValue({
+      items: [],
+      pagination: { limit: 100, offset: 0, totalCount: 0, hasNext: false },
+    })
+    authApiMocks.fetchAuthenticatedUserContext.mockRejectedValue(
+      new ApiError(401, {
+        code: 'UNAUTHENTICATED',
+        message: 'ログインが必要です。',
+        fieldErrors: [],
+        requestId: 'req_test',
+      }),
+    )
+  })
+
+  it('未割当のみの条件をURLとAPIへ反映する', async () => {
+    itemsApiMocks.listItems.mockResolvedValue(listResponse([testItem()]))
+
+    const user = userEvent.setup()
+    const { router } = await renderPage(ItemsPage)
+
+    await screen.findAllByText('折りたたみ傘')
+    await user.click(screen.getByTestId('filter-unassigned'))
+
+    await waitFor(() => {
+      expect(router.currentRoute.value.query.isUnassigned).toBe('true')
+    })
+    await waitFor(() => {
+      expect(itemsApiMocks.listItems).toHaveBeenCalledWith(
+        expect.objectContaining({ isUnassigned: true }),
+      )
+    })
+  })
+
+  it('収納単位の絞り込みをAPIへ渡す', async () => {
+    itemsApiMocks.listItems.mockResolvedValue(listResponse([testItem()]))
+
+    await renderPage(ItemsPage, {
+      initialPath: '/items?storageUnitPublicId=unit-1',
+    })
+
+    await waitFor(() => {
+      expect(itemsApiMocks.listItems).toHaveBeenCalledWith(
+        expect.objectContaining({ storageUnitPublicId: 'unit-1' }),
+      )
+    })
   })
 })

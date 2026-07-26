@@ -39,6 +39,16 @@ async function renderDetailPage(item: ItemResponse) {
       },
       { path: '/tags', name: 'tags', component: { template: '<div>tags</div>' } },
       { path: '/', name: 'dashboard', component: { template: '<div>home</div>' } },
+      {
+        path: '/storage-units',
+        name: 'storageUnits',
+        component: { template: '<div>storage</div>' },
+      },
+      {
+        path: '/storage-units/:publicId',
+        name: 'storageUnitDetail',
+        component: { template: '<div>storage detail</div>' },
+      },
       { path: '/login', name: 'login', component: { template: '<div>login</div>' } },
     ],
     initialPath: `/items/${item.publicId}`,
@@ -216,5 +226,58 @@ describe('アイテム詳細画面', () => {
     await user.click(screen.getByRole('button', { name: '使用した' }))
 
     expect(await screen.findByText('アーカイブ済みのアイテムは操作できません。')).toBeTruthy()
+  })
+})
+
+describe('アイテム詳細の収納状況 (Phase 2)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    itemsApiMocks.listItemUsageRecords.mockResolvedValue({
+      items: [],
+      pagination: { limit: 20, offset: 0, totalCount: 0, hasNext: false },
+    })
+    authApiMocks.fetchAuthenticatedUserContext.mockRejectedValue(
+      new ApiError(401, {
+        code: 'UNAUTHENTICATED',
+        message: 'ログインが必要です。',
+        fieldErrors: [],
+        requestId: 'req_test',
+      }),
+    )
+  })
+
+  it('収納割当と未割当数量を表示する', async () => {
+    itemsApiMocks.fetchItem.mockResolvedValue(
+      testItem({
+        quantity: 3,
+        unassignedQuantity: 1,
+        storageAllocations: [
+          {
+            publicId: 'alloc-1',
+            storageUnit: { publicId: 'unit-1', name: '衣服圧縮バッグ' },
+            quantity: 2,
+            version: 1,
+            createdAt: '2026-07-26T00:00:00Z',
+            updatedAt: '2026-07-26T00:00:00Z',
+          },
+        ],
+      }),
+    )
+
+    await renderDetailPage(testItem())
+
+    expect(await screen.findByTestId('item-storage-allocations')).toBeTruthy()
+    expect(screen.getByText('衣服圧縮バッグ')).toBeTruthy()
+    expect(screen.getByTestId('item-unassigned-quantity').textContent).toContain('1本')
+  })
+
+  it('どこにも入っていない場合はその旨を示す', async () => {
+    itemsApiMocks.fetchItem.mockResolvedValue(
+      testItem({ storageAllocations: [], unassignedQuantity: 1 }),
+    )
+
+    await renderDetailPage(testItem())
+
+    expect(await screen.findByText('どの収納単位にも入っていません。')).toBeTruthy()
   })
 })

@@ -568,19 +568,6 @@ func newFakeStorageAllocationRepository() *fakeStorageAllocationRepository {
 
 var _ domainstorage.StorageAllocationRepository = (*fakeStorageAllocationRepository)(nil)
 
-// assign はtestから割当を用意する。
-func (r *fakeStorageAllocationRepository) assign(
-	itemID domainitem.ItemID,
-	ownedQuantity int32,
-	allocations ...domainstorage.StorageAllocation,
-) {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
-
-	r.allocationsByItemID[itemID] = allocations
-	r.ownedQuantities[itemID] = ownedQuantity
-}
-
 func (r *fakeStorageAllocationRepository) ListByItemID(
 	_ context.Context, _ domainauth.UserID, itemID domainitem.ItemID,
 ) ([]domainstorage.StorageAllocation, error) {

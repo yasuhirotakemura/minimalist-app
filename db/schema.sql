@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict saO1Q2RN463Taw6Q1WAUPyBe59Iaqg7wfhqS1dfNGSNBpaMCAMFqSPhz8H1vOqs
+\restrict mf48AmzKhgSqvrlD3D5WYCSSjfDP1qyUKK8Wana0wMCKNld1ba1W6kq6JHaAjqr
 
 -- Dumped from database version 17.10
 -- Dumped by pg_dump version 17.10
@@ -355,6 +355,89 @@ ALTER TABLE ownership.items ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
+-- Name: storage_allocations; Type: TABLE; Schema: ownership; Owner: -
+--
+
+CREATE TABLE ownership.storage_allocations (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id bigint NOT NULL,
+    storage_unit_id bigint NOT NULL,
+    item_id bigint NOT NULL,
+    quantity integer NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    version integer DEFAULT 1 NOT NULL,
+    CONSTRAINT ck_storage_allocations__quantity_positive CHECK ((quantity > 0)),
+    CONSTRAINT ck_storage_allocations__quantity_upper_bound CHECK ((quantity <= 1000000)),
+    CONSTRAINT ck_storage_allocations__version_positive CHECK ((version > 0))
+);
+
+
+--
+-- Name: storage_allocations_id_seq; Type: SEQUENCE; Schema: ownership; Owner: -
+--
+
+ALTER TABLE ownership.storage_allocations ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME ownership.storage_allocations_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: storage_units; Type: TABLE; Schema: ownership; Owner: -
+--
+
+CREATE TABLE ownership.storage_units (
+    id bigint NOT NULL,
+    public_id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id bigint NOT NULL,
+    parent_id bigint,
+    name text NOT NULL,
+    storage_type_code text NOT NULL,
+    mobility_class_code text NOT NULL,
+    tare_weight_gram integer,
+    maximum_weight_gram integer,
+    maximum_volume_milliliter integer,
+    description text,
+    sort_order integer DEFAULT 0 NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    deleted_at timestamp with time zone,
+    version integer DEFAULT 1 NOT NULL,
+    CONSTRAINT ck_storage_units__description_length CHECK ((char_length(description) <= 500)),
+    CONSTRAINT ck_storage_units__maximum_volume_milliliter_not_negative CHECK (((maximum_volume_milliliter IS NULL) OR (maximum_volume_milliliter >= 0))),
+    CONSTRAINT ck_storage_units__maximum_weight_gram_not_negative CHECK (((maximum_weight_gram IS NULL) OR (maximum_weight_gram >= 0))),
+    CONSTRAINT ck_storage_units__mobility_class_code_allowed CHECK ((mobility_class_code = ANY (ARRAY['worn'::text, 'pocket'::text, 'daily_bag'::text, 'on_demand'::text, 'self_carry'::text, 'parcel'::text, 'mover'::text, 'dispose_rebuy'::text, 'fixed'::text]))),
+    CONSTRAINT ck_storage_units__name_length CHECK (((char_length(name) >= 1) AND (char_length(name) <= 100))),
+    CONSTRAINT ck_storage_units__name_not_blank CHECK ((btrim(name) <> ''::text)),
+    CONSTRAINT ck_storage_units__parent_is_not_self CHECK (((parent_id IS NULL) OR (parent_id <> id))),
+    CONSTRAINT ck_storage_units__sort_order_not_negative CHECK ((sort_order >= 0)),
+    CONSTRAINT ck_storage_units__storage_type_code_allowed CHECK ((storage_type_code = ANY (ARRAY['bag'::text, 'pouch'::text, 'box'::text, 'shelf'::text, 'room'::text, 'appliance'::text, 'other'::text]))),
+    CONSTRAINT ck_storage_units__tare_weight_gram_not_negative CHECK (((tare_weight_gram IS NULL) OR (tare_weight_gram >= 0))),
+    CONSTRAINT ck_storage_units__version_positive CHECK ((version > 0))
+);
+
+
+--
+-- Name: storage_units_id_seq; Type: SEQUENCE; Schema: ownership; Owner: -
+--
+
+ALTER TABLE ownership.storage_units ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME ownership.storage_units_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: tags; Type: TABLE; Schema: ownership; Owner: -
 --
 
@@ -518,6 +601,22 @@ ALTER TABLE ONLY ownership.items
 
 
 --
+-- Name: storage_allocations pk_storage_allocations; Type: CONSTRAINT; Schema: ownership; Owner: -
+--
+
+ALTER TABLE ONLY ownership.storage_allocations
+    ADD CONSTRAINT pk_storage_allocations PRIMARY KEY (id);
+
+
+--
+-- Name: storage_units pk_storage_units; Type: CONSTRAINT; Schema: ownership; Owner: -
+--
+
+ALTER TABLE ONLY ownership.storage_units
+    ADD CONSTRAINT pk_storage_units PRIMARY KEY (id);
+
+
+--
 -- Name: tags pk_tags; Type: CONSTRAINT; Schema: ownership; Owner: -
 --
 
@@ -563,6 +662,38 @@ ALTER TABLE ONLY ownership.items
 
 ALTER TABLE ONLY ownership.items
     ADD CONSTRAINT uq_items__user_id_id UNIQUE (user_id, id);
+
+
+--
+-- Name: storage_allocations uq_storage_allocations__public_id; Type: CONSTRAINT; Schema: ownership; Owner: -
+--
+
+ALTER TABLE ONLY ownership.storage_allocations
+    ADD CONSTRAINT uq_storage_allocations__public_id UNIQUE (public_id);
+
+
+--
+-- Name: storage_allocations uq_storage_allocations__storage_unit_id_item_id; Type: CONSTRAINT; Schema: ownership; Owner: -
+--
+
+ALTER TABLE ONLY ownership.storage_allocations
+    ADD CONSTRAINT uq_storage_allocations__storage_unit_id_item_id UNIQUE (storage_unit_id, item_id);
+
+
+--
+-- Name: storage_units uq_storage_units__public_id; Type: CONSTRAINT; Schema: ownership; Owner: -
+--
+
+ALTER TABLE ONLY ownership.storage_units
+    ADD CONSTRAINT uq_storage_units__public_id UNIQUE (public_id);
+
+
+--
+-- Name: storage_units uq_storage_units__user_id_id; Type: CONSTRAINT; Schema: ownership; Owner: -
+--
+
+ALTER TABLE ONLY ownership.storage_units
+    ADD CONSTRAINT uq_storage_units__user_id_id UNIQUE (user_id, id);
 
 
 --
@@ -667,6 +798,41 @@ CREATE INDEX idx_items__user_id_updated_at ON ownership.items USING btree (user_
 
 
 --
+-- Name: idx_storage_allocations__item_id; Type: INDEX; Schema: ownership; Owner: -
+--
+
+CREATE INDEX idx_storage_allocations__item_id ON ownership.storage_allocations USING btree (item_id);
+
+
+--
+-- Name: idx_storage_allocations__user_id_storage_unit_id; Type: INDEX; Schema: ownership; Owner: -
+--
+
+CREATE INDEX idx_storage_allocations__user_id_storage_unit_id ON ownership.storage_allocations USING btree (user_id, storage_unit_id);
+
+
+--
+-- Name: idx_storage_units__user_id_parent_id; Type: INDEX; Schema: ownership; Owner: -
+--
+
+CREATE INDEX idx_storage_units__user_id_parent_id ON ownership.storage_units USING btree (user_id, parent_id) WHERE (deleted_at IS NULL);
+
+
+--
+-- Name: idx_storage_units__user_id_sort_order; Type: INDEX; Schema: ownership; Owner: -
+--
+
+CREATE INDEX idx_storage_units__user_id_sort_order ON ownership.storage_units USING btree (user_id, sort_order, id) WHERE (deleted_at IS NULL);
+
+
+--
+-- Name: idx_storage_units__user_id_updated_at; Type: INDEX; Schema: ownership; Owner: -
+--
+
+CREATE INDEX idx_storage_units__user_id_updated_at ON ownership.storage_units USING btree (user_id, updated_at DESC) WHERE (deleted_at IS NULL);
+
+
+--
 -- Name: idx_tags__user_id_name; Type: INDEX; Schema: ownership; Owner: -
 --
 
@@ -760,6 +926,38 @@ ALTER TABLE ONLY ownership.items
 
 
 --
+-- Name: storage_allocations fk_storage_allocations__user_id_item_id; Type: FK CONSTRAINT; Schema: ownership; Owner: -
+--
+
+ALTER TABLE ONLY ownership.storage_allocations
+    ADD CONSTRAINT fk_storage_allocations__user_id_item_id FOREIGN KEY (user_id, item_id) REFERENCES ownership.items(user_id, id) ON DELETE CASCADE;
+
+
+--
+-- Name: storage_allocations fk_storage_allocations__user_id_storage_unit_id; Type: FK CONSTRAINT; Schema: ownership; Owner: -
+--
+
+ALTER TABLE ONLY ownership.storage_allocations
+    ADD CONSTRAINT fk_storage_allocations__user_id_storage_unit_id FOREIGN KEY (user_id, storage_unit_id) REFERENCES ownership.storage_units(user_id, id) ON DELETE CASCADE;
+
+
+--
+-- Name: storage_units fk_storage_units__user_id; Type: FK CONSTRAINT; Schema: ownership; Owner: -
+--
+
+ALTER TABLE ONLY ownership.storage_units
+    ADD CONSTRAINT fk_storage_units__user_id FOREIGN KEY (user_id) REFERENCES identity.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: storage_units fk_storage_units__user_id_parent_id; Type: FK CONSTRAINT; Schema: ownership; Owner: -
+--
+
+ALTER TABLE ONLY ownership.storage_units
+    ADD CONSTRAINT fk_storage_units__user_id_parent_id FOREIGN KEY (user_id, parent_id) REFERENCES ownership.storage_units(user_id, id);
+
+
+--
 -- Name: tags fk_tags__user_id; Type: FK CONSTRAINT; Schema: ownership; Owner: -
 --
 
@@ -771,5 +969,5 @@ ALTER TABLE ONLY ownership.tags
 -- PostgreSQL database dump complete
 --
 
-\unrestrict saO1Q2RN463Taw6Q1WAUPyBe59Iaqg7wfhqS1dfNGSNBpaMCAMFqSPhz8H1vOqs
+\unrestrict mf48AmzKhgSqvrlD3D5WYCSSjfDP1qyUKK8Wana0wMCKNld1ba1W6kq6JHaAjqr
 

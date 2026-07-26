@@ -29,6 +29,11 @@ async function renderTagsPage() {
       { path: '/tags', name: 'tags', component: TagsPage },
       { path: '/items', name: 'items', component: { template: '<div>list</div>' } },
       { path: '/', name: 'dashboard', component: { template: '<div>home</div>' } },
+      {
+        path: '/storage-units',
+        name: 'storageUnits',
+        component: { template: '<div>storage</div>' },
+      },
       { path: '/login', name: 'login', component: { template: '<div>login</div>' } },
     ],
     initialPath: '/tags',

@@ -4,1502 +4,2693 @@
  */
 
 export interface paths {
-  '/auth/register': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * ユーザーを登録する
-     * @description 新しいユーザーを登録する。
-     *     本endpointはsessionを発行しない。登録後は `POST /auth/login` でloginする。
-     */
-    post: operations['registerUser']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/auth/login': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * loginする
-     * @description email と password を検証し、session tokenをhttpOnly Cookieへ設定する。
-     *     認証失敗時は、emailの存在有無を区別せず 401 を返す。
-     */
-    post: operations['loginUser']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/auth/logout': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * logoutする
-     * @description 現在のsessionを失効させ、session Cookieを削除する。
-     *     未認証状態で呼び出した場合も 204 を返す (冪等)。
-     */
-    post: operations['logoutUser']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/auth/context': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * 認証contextを取得する
-     * @description 現在のsessionに紐づくユーザー情報を返す。
-     *     Web起動時に呼び出すことで、CSRF token Cookieの発行も同時に行われる。
-     */
-    get: operations['getAuthenticatedUserContext']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/categories': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * カテゴリー一覧を取得する
-     * @description 認証ユーザーのカテゴリーをsortOrder昇順で返す。
-     *     カテゴリーはユーザー登録時に既定値が作成される。
-     *     件数が少なく画面側で全件を保持するため、paginationを行わない。
-     */
-    get: operations['listCategories']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/tags': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * タグ一覧を取得する
-     * @description 認証ユーザーのタグを名称昇順で返す。
-     */
-    get: operations['listTags']
-    put?: never
-    /** タグを登録する */
-    post: operations['createTag']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/tags/{publicId}': {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
-        publicId: components['parameters']['PublicIdPathParameter']
-      }
-      cookie?: never
-    }
-    get?: never
-    /**
-     * タグを更新する
-     * @description 設計書 12.4 のendpoint一覧には含まれないが、
-     *     タグ名の修正を行えるようにするため追加した。
-     */
-    put: operations['updateTag']
-    post?: never
-    /**
-     * タグを削除する
-     * @description soft deleteする (設計書 1.4)。アイテムへの付与情報は保持したまま
-     *     一覧・アイテムresponseから除外する。
-     *     bodyを持たないmethodのため `expectedVersion` はquery parameterで受け取る。
-     */
-    delete: operations['deleteTag']
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/items': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * 所持品一覧を取得する
-     * @description 認証ユーザーの所持品を検索・絞り込み・並び替えして返す (設計書 9.4)。
-     *     archive済みのアイテムは既定で除外し、`includeDeleted=true` の場合のみ含める。
-     */
-    get: operations['listItems']
-    put?: never
-    /** 所持品を登録する */
-    post: operations['createItem']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/items/{publicId}': {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
-        publicId: components['parameters']['PublicIdPathParameter']
-      }
-      cookie?: never
-    }
-    /**
-     * 所持品を取得する
-     * @description 他ユーザーのpublicIdを指定した場合も 404 を返し、
-     *     存在有無を公開しない (設計書 18.3)。
-     */
-    get: operations['getItemByPublicId']
-    /**
-     * 所持品を更新する
-     * @description 全項目を置き換える。省略した任意項目はNULLへ更新される。
-     *     `expectedVersion` が現在versionと一致しない場合は 409 を返す。
-     */
-    put: operations['updateItem']
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/items/{publicId}/archive': {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
-        publicId: components['parameters']['PublicIdPathParameter']
-      }
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * 所持品をarchiveする
-     * @description soft deleteとして `archivedAt` を設定する (設計書 1.4)。
-     *     archive済みのアイテムは既定の一覧から除外され、使用記録を追加できない。
-     */
-    post: operations['archiveItem']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/items/{publicId}/restore': {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
-        publicId: components['parameters']['PublicIdPathParameter']
-      }
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /** archive済みの所持品を復元する */
-    post: operations['restoreItem']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/items/{publicId}/usage-records': {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
-        publicId: components['parameters']['PublicIdPathParameter']
-      }
-      cookie?: never
-    }
-    /**
-     * 使用記録の履歴を取得する
-     * @description 使用日時の降順で返す。
-     */
-    get: operations['listItemUsageRecords']
-    put?: never
-    /**
-     * 使用記録を登録する
-     * @description 登録と同時にアイテムの最終使用日時を更新する。
-     *     既存の最終使用日時より古い記録では更新しない。
-     *     archive済みのアイテムへは登録できず 422 を返す (設計書 7.2)。
-     */
-    post: operations['createItemUsageRecord']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
+    "/auth/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * ユーザーを登録する
+         * @description 新しいユーザーを登録する。
+         *     本endpointはsessionを発行しない。登録後は `POST /auth/login` でloginする。
+         */
+        post: operations["registerUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * loginする
+         * @description email と password を検証し、session tokenをhttpOnly Cookieへ設定する。
+         *     認証失敗時は、emailの存在有無を区別せず 401 を返す。
+         */
+        post: operations["loginUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * logoutする
+         * @description 現在のsessionを失効させ、session Cookieを削除する。
+         *     未認証状態で呼び出した場合も 204 を返す (冪等)。
+         */
+        post: operations["logoutUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 認証contextを取得する
+         * @description 現在のsessionに紐づくユーザー情報を返す。
+         *     Web起動時に呼び出すことで、CSRF token Cookieの発行も同時に行われる。
+         */
+        get: operations["getAuthenticatedUserContext"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * カテゴリー一覧を取得する
+         * @description 認証ユーザーのカテゴリーをsortOrder昇順で返す。
+         *     カテゴリーはユーザー登録時に既定値が作成される。
+         *     件数が少なく画面側で全件を保持するため、paginationを行わない。
+         */
+        get: operations["listCategories"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * タグ一覧を取得する
+         * @description 認証ユーザーのタグを名称昇順で返す。
+         */
+        get: operations["listTags"];
+        put?: never;
+        /** タグを登録する */
+        post: operations["createTag"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tags/{publicId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+                publicId: components["parameters"]["PublicIdPathParameter"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * タグを更新する
+         * @description 設計書 12.4 のendpoint一覧には含まれないが、
+         *     タグ名の修正を行えるようにするため追加した。
+         */
+        put: operations["updateTag"];
+        post?: never;
+        /**
+         * タグを削除する
+         * @description soft deleteする (設計書 1.4)。アイテムへの付与情報は保持したまま
+         *     一覧・アイテムresponseから除外する。
+         *     bodyを持たないmethodのため `expectedVersion` はquery parameterで受け取る。
+         */
+        delete: operations["deleteTag"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 所持品一覧を取得する
+         * @description 認証ユーザーの所持品を検索・絞り込み・並び替えして返す (設計書 9.4)。
+         *     archive済みのアイテムは既定で除外し、`includeDeleted=true` の場合のみ含める。
+         */
+        get: operations["listItems"];
+        put?: never;
+        /** 所持品を登録する */
+        post: operations["createItem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/items/{publicId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+                publicId: components["parameters"]["PublicIdPathParameter"];
+            };
+            cookie?: never;
+        };
+        /**
+         * 所持品を取得する
+         * @description 他ユーザーのpublicIdを指定した場合も 404 を返し、
+         *     存在有無を公開しない (設計書 18.3)。
+         */
+        get: operations["getItemByPublicId"];
+        /**
+         * 所持品を更新する
+         * @description 全項目を置き換える。省略した任意項目はNULLへ更新される。
+         *     `expectedVersion` が現在versionと一致しない場合は 409 を返す。
+         */
+        put: operations["updateItem"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/items/{publicId}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+                publicId: components["parameters"]["PublicIdPathParameter"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 所持品をarchiveする
+         * @description soft deleteとして `archivedAt` を設定する (設計書 1.4)。
+         *     archive済みのアイテムは既定の一覧から除外され、使用記録を追加できない。
+         */
+        post: operations["archiveItem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/items/{publicId}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+                publicId: components["parameters"]["PublicIdPathParameter"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** archive済みの所持品を復元する */
+        post: operations["restoreItem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/items/{publicId}/usage-records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+                publicId: components["parameters"]["PublicIdPathParameter"];
+            };
+            cookie?: never;
+        };
+        /**
+         * 使用記録の履歴を取得する
+         * @description 使用日時の降順で返す。
+         */
+        get: operations["listItemUsageRecords"];
+        put?: never;
+        /**
+         * 使用記録を登録する
+         * @description 登録と同時にアイテムの最終使用日時を更新する。
+         *     既存の最終使用日時より古い記録では更新しない。
+         *     archive済みのアイテムへは登録できず 422 を返す (設計書 7.2)。
+         */
+        post: operations["createItemUsageRecord"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/items/{publicId}/storage-allocations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+                publicId: components["parameters"]["PublicIdPathParameter"];
+            };
+            cookie?: never;
+        };
+        /**
+         * 所持品の収納割当を取得する
+         * @description 1つのアイテムがどの収納単位へ何個ずつ入っているかを返す。
+         *     同一アイテムを複数収納単位へ分割割当できるため複数件になる (F-009)。
+         *
+         *     1アイテムの割当件数は収納単位数で上限が決まり少数であるため、
+         *     paginationを行わず全件を返す。
+         *     `unassignedQuantity` はDBへ保存せず取得時に算出する。
+         */
+        get: operations["listItemStorageAllocations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/storage-units": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 収納単位一覧を取得する
+         * @description 認証ユーザーの収納単位を検索・絞り込み・並び替えして返す (F-008)。
+         *     archive済みは既定で除外し、`includeArchived=true` の場合のみ含める。
+         *
+         *     各要素は `capacity` に重量・容積の集計と超過判定を含む。
+         *     集計は子孫収納単位を含むため、pageに含まれない収納単位も
+         *     server側で階層をたどって計算する。
+         */
+        get: operations["listStorageUnits"];
+        put?: never;
+        /** 収納単位を登録する */
+        post: operations["createStorageUnit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/storage-units/{publicId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+                publicId: components["parameters"]["PublicIdPathParameter"];
+            };
+            cookie?: never;
+        };
+        /**
+         * 収納単位を取得する
+         * @description 他ユーザーのpublicIdを指定した場合も 404 を返し、
+         *     存在有無を公開しない (設計書 18.3)。
+         */
+        get: operations["getStorageUnitByPublicId"];
+        /**
+         * 収納単位を更新する
+         * @description 全項目を置き換える。省略した任意項目はNULLへ更新される。
+         *     `expectedVersion` が現在versionと一致しない場合は 409 を返す。
+         *
+         *     `parentStorageUnitPublicId` の変更で階層が移動する。
+         *     自分自身・子孫を親に指定した場合、および移動後の階層が3を超える場合は
+         *     422 を返す。
+         */
+        put: operations["updateStorageUnit"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/storage-units/{publicId}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+                publicId: components["parameters"]["PublicIdPathParameter"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 収納単位をarchiveする
+         * @description soft deleteとして `archivedAt` を設定する (設計書 1.4)。
+         *
+         *     以下の場合は 422 を返し、親のarchiveで子を暗黙にarchiveしない。
+         *       - archive前の子収納単位が残っている (`STORAGE_UNIT_HAS_CHILDREN`)
+         *       - 収納割当が残っている (`STORAGE_UNIT_HAS_ALLOCATIONS`)
+         *
+         *     いずれも利用者へ「子を先にarchiveする」「中身を先に出す」ことを求める。
+         *     暗黙のcascadeを行わないことで、復元時の状態を予測可能にする。
+         */
+        post: operations["archiveStorageUnit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/storage-units/{publicId}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+                publicId: components["parameters"]["PublicIdPathParameter"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * archive済みの収納単位を復元する
+         * @description 親がarchive済みの場合は 422 を返す (`STORAGE_UNIT_PARENT_ARCHIVED`)。
+         *     階層の不整合を作らないため、親から順に復元させる。
+         */
+        post: operations["restoreStorageUnit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/storage-units/{publicId}/capacity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+                publicId: components["parameters"]["PublicIdPathParameter"];
+            };
+            cookie?: never;
+        };
+        /**
+         * 収納単位の重量・容積を取得する
+         * @description 設計書 16.2 の使用量と 16.3 の超過警告を返す。
+         *
+         *     収納済みアイテムの一部に重量または容積が未設定の場合、
+         *     既知分だけを合計し `hasUnknownWeight` / `hasUnknownVolume` を trueとする。
+         *     未設定値を0として完全な値に見せない。
+         */
+        get: operations["getStorageUnitCapacity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/storage-units/{publicId}/contents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+                publicId: components["parameters"]["PublicIdPathParameter"];
+            };
+            cookie?: never;
+        };
+        /**
+         * 収納単位の内容を取得する
+         * @description 直接割当されているアイテム、直接の子収納単位、容量集計をまとめて返す。
+         *     収納内容編集画面が1requestで必要な情報を得られるようにする。
+         *
+         *     1収納単位の割当件数は実運用で少数に収まるためpaginationを行わない。
+         */
+        get: operations["getStorageUnitContents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/storage-units/{publicId}/allocations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+                publicId: components["parameters"]["PublicIdPathParameter"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * 収納単位の割当を一括置換する
+         * @description 設計書 12.4 の `setStorageUnitAllocations`。
+         *     指定した割当集合へ置き換える。含まれない既存割当は削除する。
+         *
+         *     `expectedStorageUnitVersion` で割当集合全体の競合を検知する。
+         *     競合時はクライアント入力でserver状態を上書きせず 409 を返す。
+         *
+         *     単一transactionで実行し、対象アイテム行を `SELECT FOR UPDATE` で
+         *     ロックしてから割当数量合計を検証する (設計書 20章)。
+         */
+        put: operations["setStorageUnitAllocations"];
+        /**
+         * 所持品を収納単位へ割り当てる
+         * @description 数量付きで割り当てる (F-009)。
+         *
+         *     制約:
+         *       - 割当数量は1以上
+         *       - 同一収納単位と同一アイテムの組み合わせは1件 (409)
+         *       - 同一アイテムの割当数量合計は所有数量以下 (422)
+         *       - archive済みアイテム・archive済み収納単位へは割当できない (422)
+         *
+         *     割当集合の競合を検知するため `expectedStorageUnitVersion` を要求し、
+         *     成功時に収納単位のversionを1増加させる。
+         *     responseは更新後の収納内容全体を返す。
+         */
+        post: operations["createStorageAllocation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/storage-units/{publicId}/allocations/{allocationPublicId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+                publicId: components["parameters"]["PublicIdPathParameter"];
+                /** @description 収納割当の外部公開ID。 */
+                allocationPublicId: components["parameters"]["AllocationPublicIdPathParameter"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * 収納割当の数量を変更する
+         * @description 割当自身の `expectedVersion` と収納単位の
+         *     `expectedStorageUnitVersion` の双方を検証する。
+         *     成功時は割当と収納単位の両方のversionを1増加させる。
+         */
+        put: operations["updateStorageAllocation"];
+        post?: never;
+        /**
+         * 収納割当を削除する
+         * @description 物理削除する。割当は「今どこに入っているか」を表す現在状態であり、
+         *     取り出した履歴を保持する要件が無いためsoft deleteとしない。
+         *
+         *     bodyを持たないmethodのため、version値はquery parameterで受け取る
+         *     (`deleteTag` と同じ方針)。
+         *
+         *     更新後の収納単位versionをクライアントへ返す必要があるため、
+         *     204ではなく 200 で収納内容を返す。
+         */
+        delete: operations["deleteStorageAllocation"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
-export type webhooks = Record<string, never>
+export type webhooks = Record<string, never>;
 export interface components {
-  schemas: {
-    /** @description 全endpointで共通のerror形式 (設計書 12.3) */
-    ErrorResponse: {
-      /**
-       * @description 機械判定用のerror code (SCREAMING_SNAKE_CASE)
-       * @example EMAIL_ALREADY_REGISTERED
-       */
-      code: string
-      /** @description 利用者向けmessage。内部stack traceを含めない。 */
-      message: string
-      /** @description 入力項目単位のerror */
-      fieldErrors: components['schemas']['FieldError'][]
-      /** @description server logと突き合わせるためのrequest ID */
-      requestId: string
-    }
-    FieldError: {
-      /**
-       * @description requestBodyのfield名 (camelCase)
-       * @example password
-       */
-      field: string
-      /** @example TOO_SHORT */
-      code: string
-      /** @example パスワードは12文字以上で入力してください。 */
-      message: string
-    }
-    RegisterUserRequest: {
-      /**
-       * Format: email
-       * @description 大文字小文字を区別せず一意とする。
-       *     x-go-typeでGo側をstringとし、形式検証はDomainのEmail ValueObjectへ集約する。
-       *     これによりfieldErrorsへ `email` を含むresponseを返せる。
-       * @example user@example.com
-       */
-      email: string
-      /**
-       * Format: password
-       * @description Argon2idでhash化して保存する。平文は保存・log出力しない。
-       * @example correct-horse-battery
-       */
-      password: string
-      /** @example 山田太郎 */
-      displayName: string
-      /**
-       * @description IANA timezone名。未指定時はserverがAsia/Tokyoを適用する。
-       *     既定値の適用はserverの責務のため、schemaへdefaultを記述しない。
-       * @example Asia/Tokyo
-       */
-      timezone?: string
-      /**
-       * @description 未指定時はserverがja-JPを適用する。
-       * @example ja-JP
-       */
-      locale?: string
-    }
-    LoginUserRequest: {
-      /**
-       * Format: email
-       * @example user@example.com
-       */
-      email: string
-      /**
-       * Format: password
-       * @example correct-horse-battery
-       */
-      password: string
-    }
-    /** @description 内部IDを含めない (設計書 12.1) */
-    UserResponse: {
-      /**
-       * Format: uuid
-       * @example 018f8d0a-1c2b-7a3d-9e4f-5a6b7c8d9e0f
-       */
-      publicId: string
-      /**
-       * Format: email
-       * @example user@example.com
-       */
-      email: string
-      /** @example 山田太郎 */
-      displayName: string
-      /** @example Asia/Tokyo */
-      timezone: string
-      /** @example ja-JP */
-      locale: string
-      /**
-       * Format: date-time
-       * @example 2026-07-25T00:00:00Z
-       */
-      createdAt: string
-      /**
-       * Format: date-time
-       * @example 2026-07-25T00:00:00Z
-       */
-      updatedAt: string
-    }
-    /**
-     * @description 認証済みユーザーのcontext。
-     *     将来の設定値追加に備えてuserをnestした形とする。
-     */
-    AuthenticatedUserContextResponse: {
-      user: components['schemas']['UserResponse']
-    }
-    /**
-     * @description アイテム種別。設計書 13.7 は種別の存在のみを定め、値集合を定義していない。
-     *     12.5 の例 `durable` を基に、耐久品と消耗品の2値で開始する。
-     * @example durable
-     * @enum {string}
-     */
-    ItemKindCode: 'durable' | 'consumable'
-    /**
-     * @description 必要度 (設計書 14.5)
-     * @example essential
-     * @enum {string}
-     */
-    NecessityLevelCode: 'essential' | 'important' | 'optional' | 'undecided' | 'unnecessary'
-    /**
-     * @description 使用頻度 (設計書 14.3)
-     * @example monthly
-     * @enum {string}
-     */
-    UsageFrequencyCode: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly' | 'rarely' | 'never'
-    /**
-     * @description 代替可能性 (設計書 14.4)
-     * @example none
-     * @enum {string}
-     */
-    SubstitutabilityCode: 'none' | 'partial' | 'full' | 'unknown'
-    /**
-     * @description 携行区分 (設計書 16.1)
-     * @example daily_bag
-     * @enum {string}
-     */
-    MobilityClassCode:
-      | 'worn'
-      | 'pocket'
-      | 'daily_bag'
-      | 'on_demand'
-      | 'self_carry'
-      | 'parcel'
-      | 'mover'
-      | 'dispose_rebuy'
-      | 'fixed'
-    /**
-     * @description 所持品一覧の並び替えkey
-     * @example updatedAt
-     * @enum {string}
-     */
-    ItemSortKey: 'name' | 'quantity' | 'lastUsedAt' | 'updatedAt'
-    /**
-     * @example desc
-     * @enum {string}
-     */
-    SortOrder: 'asc' | 'desc'
-    /** @description offset paginationの結果 (本file冒頭の注記を参照)。 */
-    PaginationResponse: {
-      /**
-       * Format: int32
-       * @example 50
-       */
-      limit: number
-      /**
-       * Format: int32
-       * @example 0
-       */
-      offset: number
-      /**
-       * Format: int64
-       * @description 絞り込み条件に一致する総件数
-       * @example 128
-       */
-      totalCount: number
-      /**
-       * @description 次のpageが存在するか
-       * @example true
-       */
-      hasNext: boolean
-    }
-    /** @description 他resourceから参照する際の最小表現 */
-    CategoryReferenceResponse: {
-      /** Format: uuid */
-      publicId: string
-      /** @example 外出・携行品 */
-      name: string
-    }
-    CategoryResponse: {
-      /** Format: uuid */
-      publicId: string
-      /** @example 外出・携行品 */
-      name: string
-      /** @example 外出時に持ち出す物 */
-      description: string | null
-      /**
-       * Format: int32
-       * @description 画面の表示順。小さい順に表示する。
-       * @example 10
-       */
-      sortOrder: number
-      /**
-       * Format: int32
-       * @example 1
-       */
-      version: number
-      /** Format: date-time */
-      createdAt: string
-      /** Format: date-time */
-      updatedAt: string
-    }
-    CategoryListResponse: {
-      items: components['schemas']['CategoryResponse'][]
-    }
-    TagReferenceResponse: {
-      /** Format: uuid */
-      publicId: string
-      /** @example 防災 */
-      name: string
-    }
-    TagResponse: {
-      /** Format: uuid */
-      publicId: string
-      /** @example 防災 */
-      name: string
-      /**
-       * Format: int64
-       * @description 本タグが付与されているarchive前アイテムの件数
-       * @example 3
-       */
-      itemCount: number
-      /**
-       * Format: int32
-       * @example 1
-       */
-      version: number
-      /** Format: date-time */
-      createdAt: string
-      /** Format: date-time */
-      updatedAt: string
-    }
-    TagListResponse: {
-      items: components['schemas']['TagResponse'][]
-    }
-    CreateTagRequest: {
-      /**
-       * @description 同一ユーザー内で一意とする。
-       * @example 防災
-       */
-      name: string
-    }
-    UpdateTagRequest: {
-      /** @example 防災用品 */
-      name: string
-      /**
-       * Format: int32
-       * @description 楽観ロック用の現在version (設計書 11.7)
-       * @example 1
-       */
-      expectedVersion: number
-    }
-    /**
-     * @description 所持品 (設計書 12.6 / 13.7)。内部IDを含めない。
-     *     一覧と詳細で同一の表現を使用する。
-     *
-     *     `review` (見直しスコア) と `storageUnits` (収納割当) は
-     *     それぞれPhase 3 / Phase 2のスコープのため含めない。
-     */
-    ItemResponse: {
-      /** Format: uuid */
-      publicId: string
-      /** @example 折りたたみ傘 */
-      name: string
-      category: components['schemas']['CategoryReferenceResponse']
-      itemKindCode: components['schemas']['ItemKindCode']
-      /** @example 耐久品 */
-      itemKindLabel: string
-      /**
-       * Format: int32
-       * @example 1
-       */
-      quantity: number
-      /**
-       * Format: int32
-       * @description 希望上限数量。未設定の場合はnull。
-       * @example 1
-       */
-      desiredQuantity: number | null
-      /** @example 本 */
-      unitName: string
-      necessityLevelCode: components['schemas']['NecessityLevelCode']
-      /** @example 必須 */
-      necessityLevelLabel: string
-      usageFrequencyCode: components['schemas']['UsageFrequencyCode']
-      /** @example 月に1回程度 */
-      usageFrequencyLabel: string
-      substitutabilityCode: components['schemas']['SubstitutabilityCode']
-      /** @example 代替不可 */
-      substitutabilityLabel: string
-      mobilityClassCode: components['schemas']['MobilityClassCode']
-      /** @example 常時リュック */
-      mobilityClassLabel: string
-      /** @example 突然の雨に対応するため */
-      ownershipReason: string | null
-      /** @example 破損して修理不能になった場合 */
-      disposalCondition: string | null
-      /** Format: date-time */
-      lastUsedAt: string | null
-      /** Format: date */
-      purchasedOn: string | null
-      /**
-       * Format: int64
-       * @description 購入金額 (円)。丸め誤差を避けるため整数で扱う (設計書 11章)。
-       */
-      purchaseAmount: number | null
-      /** Format: int64 */
-      replacementAmount: number | null
-      /** Format: int64 */
-      resaleAmount: number | null
-      /** Format: int32 */
-      weightGram: number | null
-      /** Format: int32 */
-      volumeMilliliter: number | null
-      isFragile: boolean
-      isValuable: boolean
-      isSentimental: boolean
-      requiresMaintenance: boolean
-      /** Format: date */
-      expiresOn: string | null
-      /** Format: uri */
-      sourceUrl: string | null
-      notes: string | null
-      /**
-       * @description 棚卸し確認済みか (設計書 13.7)。
-       *     確認操作 (`confirmItem`) はPhase 1のスコープ外のため、常にfalseとなる。
-       */
-      isConfirmed: boolean
-      /** Format: date-time */
-      confirmedAt: string | null
-      tags: components['schemas']['TagReferenceResponse'][]
-      /** @description archive (soft delete) 済みか */
-      isArchived: boolean
-      /**
-       * Format: date-time
-       * @description archive日時。DBの `deleted_at` に対応する。
-       */
-      archivedAt: string | null
-      /**
-       * Format: int32
-       * @description 楽観ロック用のversion (設計書 11.7)
-       * @example 3
-       */
-      version: number
-      /** Format: date-time */
-      createdAt: string
-      /** Format: date-time */
-      updatedAt: string
-    }
-    ItemListResponse: {
-      items: components['schemas']['ItemResponse'][]
-      pagination: components['schemas']['PaginationResponse']
-    }
-    /** @description 設計書 12.5 に対応する。 */
-    CreateItemRequest: {
-      /** @example 折りたたみ傘 */
-      name: string
-      /** Format: uuid */
-      categoryPublicId: string
-      /** @description 未指定時はserverが `durable` を適用する。 */
-      itemKindCode?: components['schemas']['ItemKindCode']
-      /**
-       * Format: int32
-       * @example 1
-       */
-      quantity: number
-      /**
-       * Format: int32
-       * @example 1
-       */
-      desiredQuantity?: number | null
-      /**
-       * @description 未指定時はserverが `個` を適用する。
-       * @example 本
-       */
-      unitName?: string
-      necessityLevelCode: components['schemas']['NecessityLevelCode']
-      usageFrequencyCode: components['schemas']['UsageFrequencyCode']
-      substitutabilityCode: components['schemas']['SubstitutabilityCode']
-      mobilityClassCode: components['schemas']['MobilityClassCode']
-      ownershipReason?: string | null
-      disposalCondition?: string | null
-      /** Format: date-time */
-      lastUsedAt?: string | null
-      /** Format: date */
-      purchasedOn?: string | null
-      /** Format: int64 */
-      purchaseAmount?: number | null
-      /** Format: int64 */
-      replacementAmount?: number | null
-      /** Format: int64 */
-      resaleAmount?: number | null
-      /** Format: int32 */
-      weightGram?: number | null
-      /** Format: int32 */
-      volumeMilliliter?: number | null
-      /** @description 未指定時はfalse。 */
-      isFragile?: boolean
-      /** @description 未指定時はfalse。 */
-      isValuable?: boolean
-      /** @description 未指定時はfalse。 */
-      isSentimental?: boolean
-      /** @description 未指定時はfalse。 */
-      requiresMaintenance?: boolean
-      /** Format: date */
-      expiresOn?: string | null
-      /** @description httpまたはhttpsのみを許可する (設計書 24.15)。 */
-      sourceUrl?: string | null
-      notes?: string | null
-      tagPublicIds?: string[]
-    }
-    /**
-     * @description 全項目を置き換える。CreateItemRequestと同じ項目に `expectedVersion` を加える。
-     *     allOfで合成せず明示的に列挙し、`additionalProperties: false` を正しく機能させる。
-     */
-    UpdateItemRequest: {
-      name: string
-      /** Format: uuid */
-      categoryPublicId: string
-      /** @description 未指定時はserverが `durable` を適用する。 */
-      itemKindCode?: components['schemas']['ItemKindCode']
-      /** Format: int32 */
-      quantity: number
-      /** Format: int32 */
-      desiredQuantity?: number | null
-      /** @description 未指定時はserverが `個` を適用する。 */
-      unitName?: string
-      necessityLevelCode: components['schemas']['NecessityLevelCode']
-      usageFrequencyCode: components['schemas']['UsageFrequencyCode']
-      substitutabilityCode: components['schemas']['SubstitutabilityCode']
-      mobilityClassCode: components['schemas']['MobilityClassCode']
-      ownershipReason?: string | null
-      disposalCondition?: string | null
-      /** Format: date-time */
-      lastUsedAt?: string | null
-      /** Format: date */
-      purchasedOn?: string | null
-      /** Format: int64 */
-      purchaseAmount?: number | null
-      /** Format: int64 */
-      replacementAmount?: number | null
-      /** Format: int64 */
-      resaleAmount?: number | null
-      /** Format: int32 */
-      weightGram?: number | null
-      /** Format: int32 */
-      volumeMilliliter?: number | null
-      isFragile?: boolean
-      isValuable?: boolean
-      isSentimental?: boolean
-      requiresMaintenance?: boolean
-      /** Format: date */
-      expiresOn?: string | null
-      sourceUrl?: string | null
-      notes?: string | null
-      tagPublicIds?: string[]
-      /**
-       * Format: int32
-       * @description 楽観ロック用の現在version (設計書 11.7)
-       */
-      expectedVersion: number
-    }
-    /** @description archive・restoreのように追加入力を持たない操作で使用する。 */
-    ItemVersionRequest: {
-      /**
-       * Format: int32
-       * @description 楽観ロック用の現在version (設計書 11.7)
-       */
-      expectedVersion: number
-    }
-    ItemUsageRecordResponse: {
-      /** Format: uuid */
-      publicId: string
-      /** Format: date-time */
-      usedAt: string
-      /**
-       * Format: int32
-       * @description 使用した数量。
-       * @example 1
-       */
-      quantity: number
-      /** @example 通勤時に使用 */
-      note: string | null
-      /** Format: date-time */
-      createdAt: string
-    }
-    ItemUsageRecordListResponse: {
-      items: components['schemas']['ItemUsageRecordResponse'][]
-      pagination: components['schemas']['PaginationResponse']
-    }
-    CreateItemUsageRecordRequest: {
-      /**
-       * Format: date-time
-       * @description 使用日時。未指定時はserverの現在時刻を使用する。未来日時は許可しない。
-       */
-      usedAt?: string
-      /**
-       * Format: int32
-       * @description 使用した数量。未指定時は1。
-       */
-      quantity?: number
-      note?: string | null
-    }
-  }
-  responses: {
-    /** @description request形式が不正である */
-    BadRequest: {
-      headers: {
-        [name: string]: unknown
-      }
-      content: {
+    schemas: {
+        /** @description 全endpointで共通のerror形式 (設計書 12.3) */
+        ErrorResponse: {
+            /**
+             * @description 機械判定用のerror code (SCREAMING_SNAKE_CASE)
+             * @example EMAIL_ALREADY_REGISTERED
+             */
+            code: string;
+            /** @description 利用者向けmessage。内部stack traceを含めない。 */
+            message: string;
+            /** @description 入力項目単位のerror */
+            fieldErrors: components["schemas"]["FieldError"][];
+            /** @description server logと突き合わせるためのrequest ID */
+            requestId: string;
+        };
+        FieldError: {
+            /**
+             * @description requestBodyのfield名 (camelCase)
+             * @example password
+             */
+            field: string;
+            /** @example TOO_SHORT */
+            code: string;
+            /** @example パスワードは12文字以上で入力してください。 */
+            message: string;
+        };
+        RegisterUserRequest: {
+            /**
+             * Format: email
+             * @description 大文字小文字を区別せず一意とする。
+             *     x-go-typeでGo側をstringとし、形式検証はDomainのEmail ValueObjectへ集約する。
+             *     これによりfieldErrorsへ `email` を含むresponseを返せる。
+             * @example user@example.com
+             */
+            email: string;
+            /**
+             * Format: password
+             * @description Argon2idでhash化して保存する。平文は保存・log出力しない。
+             * @example correct-horse-battery
+             */
+            password: string;
+            /** @example 山田太郎 */
+            displayName: string;
+            /**
+             * @description IANA timezone名。未指定時はserverがAsia/Tokyoを適用する。
+             *     既定値の適用はserverの責務のため、schemaへdefaultを記述しない。
+             * @example Asia/Tokyo
+             */
+            timezone?: string;
+            /**
+             * @description 未指定時はserverがja-JPを適用する。
+             * @example ja-JP
+             */
+            locale?: string;
+        };
+        LoginUserRequest: {
+            /**
+             * Format: email
+             * @example user@example.com
+             */
+            email: string;
+            /**
+             * Format: password
+             * @example correct-horse-battery
+             */
+            password: string;
+        };
+        /** @description 内部IDを含めない (設計書 12.1) */
+        UserResponse: {
+            /**
+             * Format: uuid
+             * @example 018f8d0a-1c2b-7a3d-9e4f-5a6b7c8d9e0f
+             */
+            publicId: string;
+            /**
+             * Format: email
+             * @example user@example.com
+             */
+            email: string;
+            /** @example 山田太郎 */
+            displayName: string;
+            /** @example Asia/Tokyo */
+            timezone: string;
+            /** @example ja-JP */
+            locale: string;
+            /**
+             * Format: date-time
+             * @example 2026-07-25T00:00:00Z
+             */
+            createdAt: string;
+            /**
+             * Format: date-time
+             * @example 2026-07-25T00:00:00Z
+             */
+            updatedAt: string;
+        };
         /**
-         * @example {
-         *       "code": "BAD_REQUEST",
-         *       "message": "リクエストの形式が正しくありません。",
-         *       "fieldErrors": [
-         *         {
-         *           "field": "email",
-         *           "code": "INVALID_FORMAT",
-         *           "message": "メールアドレスの形式が正しくありません。"
-         *         }
-         *       ],
-         *       "requestId": "req_01JQ0000000000000000000000"
-         *     }
+         * @description 認証済みユーザーのcontext。
+         *     将来の設定値追加に備えてuserをnestした形とする。
          */
-        'application/json': components['schemas']['ErrorResponse']
-      }
-    }
-    /** @description 未認証である */
-    Unauthorized: {
-      headers: {
-        [name: string]: unknown
-      }
-      content: {
+        AuthenticatedUserContextResponse: {
+            user: components["schemas"]["UserResponse"];
+        };
         /**
-         * @example {
-         *       "code": "UNAUTHENTICATED",
-         *       "message": "ログインが必要です。",
-         *       "fieldErrors": [],
-         *       "requestId": "req_01JQ0000000000000000000000"
-         *     }
+         * @description アイテム種別。設計書 13.7 は種別の存在のみを定め、値集合を定義していない。
+         *     12.5 の例 `durable` を基に、耐久品と消耗品の2値で開始する。
+         * @example durable
+         * @enum {string}
          */
-        'application/json': components['schemas']['ErrorResponse']
-      }
-    }
-    /** @description CSRF検証に失敗した、または操作が許可されていない */
-    Forbidden: {
-      headers: {
-        [name: string]: unknown
-      }
-      content: {
+        ItemKindCode: "durable" | "consumable";
         /**
-         * @example {
-         *       "code": "CSRF_TOKEN_INVALID",
-         *       "message": "セキュリティトークンが無効です。画面を再読み込みしてください。",
-         *       "fieldErrors": [],
-         *       "requestId": "req_01JQ0000000000000000000000"
-         *     }
+         * @description 必要度 (設計書 14.5)
+         * @example essential
+         * @enum {string}
          */
-        'application/json': components['schemas']['ErrorResponse']
-      }
-    }
-    /**
-     * @description 対象が存在しない。
-     *     他ユーザーのpublicIdを指定した場合も本statusを返し、存在有無を公開しない (設計書 18.3)。
-     */
-    NotFound: {
-      headers: {
-        [name: string]: unknown
-      }
-      content: {
+        NecessityLevelCode: "essential" | "important" | "optional" | "undecided" | "unnecessary";
         /**
-         * @example {
-         *       "code": "ITEM_NOT_FOUND",
-         *       "message": "アイテムが見つかりません。",
-         *       "fieldErrors": [],
-         *       "requestId": "req_01JQ0000000000000000000000"
-         *     }
+         * @description 使用頻度 (設計書 14.3)
+         * @example monthly
+         * @enum {string}
          */
-        'application/json': components['schemas']['ErrorResponse']
-      }
-    }
-    /** @description version競合、unique競合、状態競合が発生した */
-    Conflict: {
-      headers: {
-        [name: string]: unknown
-      }
-      content: {
+        UsageFrequencyCode: "daily" | "weekly" | "monthly" | "quarterly" | "yearly" | "rarely" | "never";
         /**
-         * @example {
-         *       "code": "ITEM_VERSION_CONFLICT",
-         *       "message": "アイテムが別の操作で更新されています。最新の内容を読み込み直してください。",
-         *       "fieldErrors": [],
-         *       "requestId": "req_01JQ0000000000000000000000"
-         *     }
+         * @description 代替可能性 (設計書 14.4)
+         * @example none
+         * @enum {string}
          */
-        'application/json': components['schemas']['ErrorResponse']
-      }
-    }
-    /** @description 業務ルールに違反している */
-    UnprocessableEntity: {
-      headers: {
-        [name: string]: unknown
-      }
-      content: {
-        'application/json': components['schemas']['ErrorResponse']
-      }
-    }
-    /** @description request回数の上限を超えた */
-    TooManyRequests: {
-      headers: {
-        [name: string]: unknown
-      }
-      content: {
+        SubstitutabilityCode: "none" | "partial" | "full" | "unknown";
         /**
-         * @example {
-         *       "code": "TOO_MANY_REQUESTS",
-         *       "message": "試行回数が多すぎます。しばらく待ってから再度お試しください。",
-         *       "fieldErrors": [],
-         *       "requestId": "req_01JQ0000000000000000000000"
-         *     }
+         * @description 携行区分 (設計書 16.1)
+         * @example daily_bag
+         * @enum {string}
          */
-        'application/json': components['schemas']['ErrorResponse']
-      }
-    }
-    /** @description 予期しないerrorが発生した */
-    InternalServerError: {
-      headers: {
-        [name: string]: unknown
-      }
-      content: {
+        MobilityClassCode: "worn" | "pocket" | "daily_bag" | "on_demand" | "self_carry" | "parcel" | "mover" | "dispose_rebuy" | "fixed";
         /**
-         * @example {
-         *       "code": "INTERNAL_SERVER_ERROR",
-         *       "message": "サーバーでエラーが発生しました。",
-         *       "fieldErrors": [],
-         *       "requestId": "req_01JQ0000000000000000000000"
-         *     }
+         * @description 収納単位の種別。設計書 13.8 は `bag、pouch、box等` と例示のみで
+         *     値集合を定義していないため、実運用で必要な7値で開始する。
+         * @example bag
+         * @enum {string}
          */
-        'application/json': components['schemas']['ErrorResponse']
-      }
-    }
-  }
-  parameters: {
-    /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
-    PublicIdPathParameter: string
-    /** @description 取得件数。未指定時は50。 */
-    LimitQueryParameter: number
-    /** @description 読み飛ばす件数。未指定時は0。 */
-    OffsetQueryParameter: number
-  }
-  requestBodies: never
-  headers: never
-  pathItems: never
+        StorageTypeCode: "bag" | "pouch" | "box" | "shelf" | "room" | "appliance" | "other";
+        /**
+         * @description 所持品一覧の並び替えkey
+         * @example updatedAt
+         * @enum {string}
+         */
+        ItemSortKey: "name" | "quantity" | "lastUsedAt" | "updatedAt";
+        /**
+         * @description 収納単位一覧の並び替えkey。
+         *     `totalWeightGram` はDBへ保存しない集計値のためsort keyへ含めない。
+         * @example sortOrder
+         * @enum {string}
+         */
+        StorageUnitSortKey: "name" | "sortOrder" | "updatedAt";
+        /**
+         * @example desc
+         * @enum {string}
+         */
+        SortOrder: "asc" | "desc";
+        /** @description offset paginationの結果 (本file冒頭の注記を参照)。 */
+        PaginationResponse: {
+            /**
+             * Format: int32
+             * @example 50
+             */
+            limit: number;
+            /**
+             * Format: int32
+             * @example 0
+             */
+            offset: number;
+            /**
+             * Format: int64
+             * @description 絞り込み条件に一致する総件数
+             * @example 128
+             */
+            totalCount: number;
+            /**
+             * @description 次のpageが存在するか
+             * @example true
+             */
+            hasNext: boolean;
+        };
+        /** @description 他resourceから参照する際の最小表現 */
+        CategoryReferenceResponse: {
+            /** Format: uuid */
+            publicId: string;
+            /** @example 外出・携行品 */
+            name: string;
+        };
+        CategoryResponse: {
+            /** Format: uuid */
+            publicId: string;
+            /** @example 外出・携行品 */
+            name: string;
+            /** @example 外出時に持ち出す物 */
+            description: string | null;
+            /**
+             * Format: int32
+             * @description 画面の表示順。小さい順に表示する。
+             * @example 10
+             */
+            sortOrder: number;
+            /**
+             * Format: int32
+             * @example 1
+             */
+            version: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        CategoryListResponse: {
+            items: components["schemas"]["CategoryResponse"][];
+        };
+        TagReferenceResponse: {
+            /** Format: uuid */
+            publicId: string;
+            /** @example 防災 */
+            name: string;
+        };
+        TagResponse: {
+            /** Format: uuid */
+            publicId: string;
+            /** @example 防災 */
+            name: string;
+            /**
+             * Format: int64
+             * @description 本タグが付与されているarchive前アイテムの件数
+             * @example 3
+             */
+            itemCount: number;
+            /**
+             * Format: int32
+             * @example 1
+             */
+            version: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        TagListResponse: {
+            items: components["schemas"]["TagResponse"][];
+        };
+        CreateTagRequest: {
+            /**
+             * @description 同一ユーザー内で一意とする。
+             * @example 防災
+             */
+            name: string;
+        };
+        UpdateTagRequest: {
+            /** @example 防災用品 */
+            name: string;
+            /**
+             * Format: int32
+             * @description 楽観ロック用の現在version (設計書 11.7)
+             * @example 1
+             */
+            expectedVersion: number;
+        };
+        /**
+         * @description 所持品 (設計書 12.6 / 13.7)。内部IDを含めない。
+         *     一覧と詳細で同一の表現を使用する。
+         *
+         *     `review` (見直しスコア) はPhase 3のスコープのため含めない。
+         */
+        ItemResponse: {
+            /** Format: uuid */
+            publicId: string;
+            /** @example 折りたたみ傘 */
+            name: string;
+            category: components["schemas"]["CategoryReferenceResponse"];
+            itemKindCode: components["schemas"]["ItemKindCode"];
+            /** @example 耐久品 */
+            itemKindLabel: string;
+            /**
+             * Format: int32
+             * @example 1
+             */
+            quantity: number;
+            /**
+             * Format: int32
+             * @description 希望上限数量。未設定の場合はnull。
+             * @example 1
+             */
+            desiredQuantity: number | null;
+            /** @example 本 */
+            unitName: string;
+            necessityLevelCode: components["schemas"]["NecessityLevelCode"];
+            /** @example 必須 */
+            necessityLevelLabel: string;
+            usageFrequencyCode: components["schemas"]["UsageFrequencyCode"];
+            /** @example 月に1回程度 */
+            usageFrequencyLabel: string;
+            substitutabilityCode: components["schemas"]["SubstitutabilityCode"];
+            /** @example 代替不可 */
+            substitutabilityLabel: string;
+            mobilityClassCode: components["schemas"]["MobilityClassCode"];
+            /** @example 常時リュック */
+            mobilityClassLabel: string;
+            /** @example 突然の雨に対応するため */
+            ownershipReason: string | null;
+            /** @example 破損して修理不能になった場合 */
+            disposalCondition: string | null;
+            /** Format: date-time */
+            lastUsedAt: string | null;
+            /** Format: date */
+            purchasedOn: string | null;
+            /**
+             * Format: int64
+             * @description 購入金額 (円)。丸め誤差を避けるため整数で扱う (設計書 11章)。
+             */
+            purchaseAmount: number | null;
+            /** Format: int64 */
+            replacementAmount: number | null;
+            /** Format: int64 */
+            resaleAmount: number | null;
+            /** Format: int32 */
+            weightGram: number | null;
+            /** Format: int32 */
+            volumeMilliliter: number | null;
+            isFragile: boolean;
+            isValuable: boolean;
+            isSentimental: boolean;
+            requiresMaintenance: boolean;
+            /** Format: date */
+            expiresOn: string | null;
+            /** Format: uri */
+            sourceUrl: string | null;
+            notes: string | null;
+            /**
+             * @description 棚卸し確認済みか (設計書 13.7)。
+             *     確認操作 (`confirmItem`) はPhase 1のスコープ外のため、常にfalseとなる。
+             */
+            isConfirmed: boolean;
+            /** Format: date-time */
+            confirmedAt: string | null;
+            tags: components["schemas"]["TagReferenceResponse"][];
+            /**
+             * @description 本アイテムがどの収納単位へ何個入っているか (F-009)。
+             *     同一アイテムを複数収納単位へ分割割当できるため配列とする。
+             */
+            storageAllocations: components["schemas"]["ItemStorageAllocationResponse"][];
+            /**
+             * Format: int32
+             * @description 未割当数量。`quantity - sum(storageAllocations[].quantity)` で算出する。
+             *     DBへ重複保存せず取得時に算出する。
+             * @example 0
+             */
+            unassignedQuantity: number;
+            /** @description archive (soft delete) 済みか */
+            isArchived: boolean;
+            /**
+             * Format: date-time
+             * @description archive日時。DBの `deleted_at` に対応する。
+             */
+            archivedAt: string | null;
+            /**
+             * Format: int32
+             * @description 楽観ロック用のversion (設計書 11.7)
+             * @example 3
+             */
+            version: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        ItemListResponse: {
+            items: components["schemas"]["ItemResponse"][];
+            pagination: components["schemas"]["PaginationResponse"];
+        };
+        /** @description 設計書 12.5 に対応する。 */
+        CreateItemRequest: {
+            /** @example 折りたたみ傘 */
+            name: string;
+            /** Format: uuid */
+            categoryPublicId: string;
+            /** @description 未指定時はserverが `durable` を適用する。 */
+            itemKindCode?: components["schemas"]["ItemKindCode"];
+            /**
+             * Format: int32
+             * @example 1
+             */
+            quantity: number;
+            /**
+             * Format: int32
+             * @example 1
+             */
+            desiredQuantity?: number | null;
+            /**
+             * @description 未指定時はserverが `個` を適用する。
+             * @example 本
+             */
+            unitName?: string;
+            necessityLevelCode: components["schemas"]["NecessityLevelCode"];
+            usageFrequencyCode: components["schemas"]["UsageFrequencyCode"];
+            substitutabilityCode: components["schemas"]["SubstitutabilityCode"];
+            mobilityClassCode: components["schemas"]["MobilityClassCode"];
+            ownershipReason?: string | null;
+            disposalCondition?: string | null;
+            /** Format: date-time */
+            lastUsedAt?: string | null;
+            /** Format: date */
+            purchasedOn?: string | null;
+            /** Format: int64 */
+            purchaseAmount?: number | null;
+            /** Format: int64 */
+            replacementAmount?: number | null;
+            /** Format: int64 */
+            resaleAmount?: number | null;
+            /** Format: int32 */
+            weightGram?: number | null;
+            /** Format: int32 */
+            volumeMilliliter?: number | null;
+            /** @description 未指定時はfalse。 */
+            isFragile?: boolean;
+            /** @description 未指定時はfalse。 */
+            isValuable?: boolean;
+            /** @description 未指定時はfalse。 */
+            isSentimental?: boolean;
+            /** @description 未指定時はfalse。 */
+            requiresMaintenance?: boolean;
+            /** Format: date */
+            expiresOn?: string | null;
+            /** @description httpまたはhttpsのみを許可する (設計書 24.15)。 */
+            sourceUrl?: string | null;
+            notes?: string | null;
+            tagPublicIds?: string[];
+        };
+        /**
+         * @description 全項目を置き換える。CreateItemRequestと同じ項目に `expectedVersion` を加える。
+         *     allOfで合成せず明示的に列挙し、`additionalProperties: false` を正しく機能させる。
+         */
+        UpdateItemRequest: {
+            name: string;
+            /** Format: uuid */
+            categoryPublicId: string;
+            /** @description 未指定時はserverが `durable` を適用する。 */
+            itemKindCode?: components["schemas"]["ItemKindCode"];
+            /** Format: int32 */
+            quantity: number;
+            /** Format: int32 */
+            desiredQuantity?: number | null;
+            /** @description 未指定時はserverが `個` を適用する。 */
+            unitName?: string;
+            necessityLevelCode: components["schemas"]["NecessityLevelCode"];
+            usageFrequencyCode: components["schemas"]["UsageFrequencyCode"];
+            substitutabilityCode: components["schemas"]["SubstitutabilityCode"];
+            mobilityClassCode: components["schemas"]["MobilityClassCode"];
+            ownershipReason?: string | null;
+            disposalCondition?: string | null;
+            /** Format: date-time */
+            lastUsedAt?: string | null;
+            /** Format: date */
+            purchasedOn?: string | null;
+            /** Format: int64 */
+            purchaseAmount?: number | null;
+            /** Format: int64 */
+            replacementAmount?: number | null;
+            /** Format: int64 */
+            resaleAmount?: number | null;
+            /** Format: int32 */
+            weightGram?: number | null;
+            /** Format: int32 */
+            volumeMilliliter?: number | null;
+            isFragile?: boolean;
+            isValuable?: boolean;
+            isSentimental?: boolean;
+            requiresMaintenance?: boolean;
+            /** Format: date */
+            expiresOn?: string | null;
+            sourceUrl?: string | null;
+            notes?: string | null;
+            tagPublicIds?: string[];
+            /**
+             * Format: int32
+             * @description 楽観ロック用の現在version (設計書 11.7)
+             */
+            expectedVersion: number;
+        };
+        /** @description archive・restoreのように追加入力を持たない操作で使用する。 */
+        ItemVersionRequest: {
+            /**
+             * Format: int32
+             * @description 楽観ロック用の現在version (設計書 11.7)
+             */
+            expectedVersion: number;
+        };
+        ItemUsageRecordResponse: {
+            /** Format: uuid */
+            publicId: string;
+            /** Format: date-time */
+            usedAt: string;
+            /**
+             * Format: int32
+             * @description 使用した数量。
+             * @example 1
+             */
+            quantity: number;
+            /** @example 通勤時に使用 */
+            note: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        ItemUsageRecordListResponse: {
+            items: components["schemas"]["ItemUsageRecordResponse"][];
+            pagination: components["schemas"]["PaginationResponse"];
+        };
+        CreateItemUsageRecordRequest: {
+            /**
+             * Format: date-time
+             * @description 使用日時。未指定時はserverの現在時刻を使用する。未来日時は許可しない。
+             */
+            usedAt?: string;
+            /**
+             * Format: int32
+             * @description 使用した数量。未指定時は1。
+             */
+            quantity?: number;
+            note?: string | null;
+        };
+        /** @description 他resourceから参照する際の最小表現 */
+        StorageUnitReferenceResponse: {
+            /** Format: uuid */
+            publicId: string;
+            /** @example 日常リュック */
+            name: string;
+        };
+        /**
+         * @description 収納単位の重量・容積の集計と超過判定 (設計書 16.2 / 16.3)。
+         *
+         *     重量の内訳:
+         *       tareWeightGram        : 本収納単位の自重
+         *       itemWeightGram        : 直接割当されたアイテムの重量合計
+         *       descendantWeightGram  : 子孫収納単位の自重と内容物重量の合計
+         *       totalWeightGram       = tareWeightGram + itemWeightGram + descendantWeightGram
+         *
+         *     親と子で同じ重量を二重計上しないため、descendantWeightGramには
+         *     親自身の自重・直接割当分を含めない。
+         *
+         *     重量・容積が未設定のアイテムが含まれる場合、既知分だけを合計し
+         *     hasUnknownWeight / hasUnknownVolume を trueとする。
+         *     未設定を0として扱い、完全な値に見せることはしない。
+         */
+        StorageUnitCapacityResponse: {
+            /**
+             * Format: int32
+             * @description 直接割当されているアイテムの種類数
+             * @example 4
+             */
+            allocatedItemKindCount: number;
+            /**
+             * Format: int64
+             * @description 直接割当されている数量の合計
+             * @example 7
+             */
+            allocatedQuantity: number;
+            /**
+             * Format: int64
+             * @description 本収納単位の自重。未設定の場合は0とし hasUnknownWeight をtrueとする。
+             * @example 900
+             */
+            tareWeightGram: number;
+            /**
+             * Format: int64
+             * @description 直接割当されたアイテムの重量合計 (既知分のみ)
+             * @example 2400
+             */
+            itemWeightGram: number;
+            /**
+             * Format: int64
+             * @description 子孫収納単位の自重と内容物重量の合計 (既知分のみ)
+             * @example 1300
+             */
+            descendantWeightGram: number;
+            /**
+             * Format: int64
+             * @example 4600
+             */
+            totalWeightGram: number;
+            /**
+             * Format: int64
+             * @description 直接割当されたアイテムの容積合計 (既知分のみ)
+             * @example 5200
+             */
+            itemVolumeMilliliter: number;
+            /**
+             * Format: int64
+             * @description 子孫収納単位の内容物容積の合計 (既知分のみ)。
+             *     設計書 13.8 に収納単位自身の外寸容積columnが無いため、
+             *     空の子収納単位が占める容積は含められない。
+             * @example 800
+             */
+            descendantVolumeMilliliter: number;
+            /**
+             * Format: int64
+             * @example 6000
+             */
+            totalVolumeMilliliter: number;
+            /**
+             * Format: int32
+             * @description 最大重量。未設定の場合はnullとし、超過判定を行わない。
+             * @example 8000
+             */
+            maximumWeightGram: number | null;
+            /**
+             * Format: int32
+             * @example 25000
+             */
+            maximumVolumeMilliliter: number | null;
+            /**
+             * Format: int64
+             * @description `maximumWeightGram - totalWeightGram`。
+             *     最大重量が未設定の場合はnull。超過時は負値を返す。
+             * @example 3400
+             */
+            remainingWeightGram: number | null;
+            /**
+             * Format: int64
+             * @example 19000
+             */
+            remainingVolumeMilliliter: number | null;
+            /** @description totalWeightGram が maximumWeightGram を超えたか (設計書 16.3) */
+            isWeightExceeded: boolean;
+            isVolumeExceeded: boolean;
+            /**
+             * @description 自重、または集計対象アイテムのいずれかに重量が未設定のものがあるか。
+             *     trueの場合、合計値は「入力済み分のみ」である (設計書 16.2)。
+             */
+            hasUnknownWeight: boolean;
+            hasUnknownVolume: boolean;
+        };
+        /** @description 収納単位 (設計書 13.8)。内部IDを含めない。 */
+        StorageUnitResponse: {
+            /** Format: uuid */
+            publicId: string;
+            /** @example 日常リュック */
+            name: string;
+            storageTypeCode: components["schemas"]["StorageTypeCode"];
+            /** @example バッグ */
+            storageTypeLabel: string;
+            mobilityClassCode: components["schemas"]["MobilityClassCode"];
+            /** @example 常時リュック */
+            mobilityClassLabel: string;
+            /** @description 直接の親。親を持たない場合はnull。 */
+            parent: components["schemas"]["StorageUnitReferenceResponse"] | null;
+            /**
+             * @description rootから直接の親までの並び。階層のbreadcrumb表示に使用する。
+             *     自身は含めない。
+             */
+            ancestors: components["schemas"]["StorageUnitReferenceResponse"][];
+            /**
+             * Format: int32
+             * @description 階層の深さ。rootは1。最大3 (設計書 7.3)。
+             * @example 1
+             */
+            depth: number;
+            /**
+             * Format: int32
+             * @description archive前の直接の子収納単位の件数
+             * @example 2
+             */
+            childCount: number;
+            /**
+             * Format: int32
+             * @description 収納単位自身の重量 (グラム)。未設定の場合はnull。
+             */
+            tareWeightGram: number | null;
+            /** Format: int32 */
+            maximumWeightGram: number | null;
+            /** Format: int32 */
+            maximumVolumeMilliliter: number | null;
+            description: string | null;
+            /**
+             * Format: int32
+             * @description 画面の表示順。小さい順に表示する。
+             * @example 10
+             */
+            sortOrder: number;
+            capacity: components["schemas"]["StorageUnitCapacityResponse"];
+            isArchived: boolean;
+            /**
+             * Format: date-time
+             * @description archive日時。DBの `deleted_at` に対応する。
+             */
+            archivedAt: string | null;
+            /**
+             * Format: int32
+             * @example 1
+             */
+            version: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        StorageUnitListResponse: {
+            items: components["schemas"]["StorageUnitResponse"][];
+            pagination: components["schemas"]["PaginationResponse"];
+        };
+        CreateStorageUnitRequest: {
+            /** @example 日常リュック */
+            name: string;
+            storageTypeCode: components["schemas"]["StorageTypeCode"];
+            mobilityClassCode: components["schemas"]["MobilityClassCode"];
+            /**
+             * Format: uuid
+             * @description 親収納単位。未指定時はrootとする。
+             *     自身と合わせて階層が3を超える指定は 422 を返す。
+             */
+            parentStorageUnitPublicId?: string | null;
+            /** Format: int32 */
+            tareWeightGram?: number | null;
+            /** Format: int32 */
+            maximumWeightGram?: number | null;
+            /** Format: int32 */
+            maximumVolumeMilliliter?: number | null;
+            description?: string | null;
+            /**
+             * Format: int32
+             * @description 未指定時はserverが0を適用する。
+             */
+            sortOrder?: number | null;
+        };
+        /**
+         * @description 全項目を置き換える。CreateStorageUnitRequestと同じ項目に
+         *     `expectedVersion` を加える。
+         *     allOfで合成せず明示的に列挙し `additionalProperties: false` を機能させる。
+         */
+        UpdateStorageUnitRequest: {
+            name: string;
+            storageTypeCode: components["schemas"]["StorageTypeCode"];
+            mobilityClassCode: components["schemas"]["MobilityClassCode"];
+            /** Format: uuid */
+            parentStorageUnitPublicId?: string | null;
+            /** Format: int32 */
+            tareWeightGram?: number | null;
+            /** Format: int32 */
+            maximumWeightGram?: number | null;
+            /** Format: int32 */
+            maximumVolumeMilliliter?: number | null;
+            description?: string | null;
+            /** Format: int32 */
+            sortOrder?: number | null;
+            /**
+             * Format: int32
+             * @description 楽観ロック用の現在version (設計書 11.7)
+             */
+            expectedVersion: number;
+        };
+        /** @description archive・restoreのように追加入力を持たない操作で使用する。 */
+        StorageUnitVersionRequest: {
+            /**
+             * Format: int32
+             * @description 楽観ロック用の現在version (設計書 11.7)
+             */
+            expectedVersion: number;
+        };
+        /**
+         * @description 収納割当から参照するアイテムの表現。
+         *     収納内容編集画面が整合性表示 (現在数量・他収納への割当数量・未割当数量)
+         *     を行うために必要な項目だけを持つ。
+         */
+        AllocatedItemResponse: {
+            /** Format: uuid */
+            publicId: string;
+            /** @example 半袖シャツ */
+            name: string;
+            /** @example 枚 */
+            unitName: string;
+            /**
+             * Format: int32
+             * @description アイテムの所有数量
+             * @example 3
+             */
+            quantity: number;
+            /**
+             * Format: int32
+             * @description 全収納単位への割当数量の合計
+             * @example 3
+             */
+            assignedQuantity: number;
+            /**
+             * Format: int32
+             * @description quantity - assignedQuantity
+             * @example 0
+             */
+            unassignedQuantity: number;
+            /**
+             * Format: int32
+             * @description nullの場合、収納単位の重量集計は不完全となる。
+             */
+            weightGram: number | null;
+            /** Format: int32 */
+            volumeMilliliter: number | null;
+            /**
+             * @description archive済みのアイテムか。
+             *     archive済みアイテムへ新規割当はできないが、既存割当は保持する。
+             *     archiveは手放しではなく、物理的には収納単位へ入ったままであるため
+             *     容量集計にも含める。手放し時の整合はPhase 3で扱う。
+             */
+            isArchived: boolean;
+        };
+        /** @description 収納単位配下の割当1件。親の収納単位は文脈から明らかなため含めない。 */
+        StorageAllocationResponse: {
+            /** Format: uuid */
+            publicId: string;
+            item: components["schemas"]["AllocatedItemResponse"];
+            /**
+             * Format: int32
+             * @description 本収納単位へ入れている数量。1以上。
+             * @example 2
+             */
+            quantity: number;
+            /**
+             * Format: int32
+             * @example 1
+             */
+            version: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        /** @description アイテム側から見た割当1件。収納単位を参照として持つ。 */
+        ItemStorageAllocationResponse: {
+            /** Format: uuid */
+            publicId: string;
+            storageUnit: components["schemas"]["StorageUnitReferenceResponse"];
+            /**
+             * Format: int32
+             * @example 2
+             */
+            quantity: number;
+            /**
+             * Format: int32
+             * @example 1
+             */
+            version: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        /**
+         * @description 1アイテムの収納割当一覧。
+         *     件数が収納単位数で上限づけられるためpaginationを持たない。
+         */
+        ItemStorageAllocationListResponse: {
+            items: components["schemas"]["ItemStorageAllocationResponse"][];
+            /**
+             * Format: int32
+             * @description アイテムの所有数量
+             * @example 3
+             */
+            quantity: number;
+            /**
+             * Format: int32
+             * @example 3
+             */
+            assignedQuantity: number;
+            /**
+             * Format: int32
+             * @example 0
+             */
+            unassignedQuantity: number;
+        };
+        /**
+         * @description 収納単位の内容。割当の追加・変更・削除・一括置換のresponseにも使用する。
+         *
+         *     更新後のversion (収納単位・各割当)、容量集計、超過判定を1requestで
+         *     返すことで、クライアントが追加requestなしに整合した画面を描ける。
+         */
+        StorageUnitContentsResponse: {
+            storageUnit: components["schemas"]["StorageUnitResponse"];
+            /** @description 直接割当されているアイテム。アイテム名昇順で返す。 */
+            allocations: components["schemas"]["StorageAllocationResponse"][];
+            /** @description 直接の子収納単位。archive済みは含めない。 */
+            childStorageUnits: components["schemas"]["StorageUnitResponse"][];
+        };
+        CreateStorageAllocationRequest: {
+            /** Format: uuid */
+            itemPublicId: string;
+            /**
+             * Format: int32
+             * @example 2
+             */
+            quantity: number;
+            /**
+             * Format: int32
+             * @description 収納単位の現在version。割当集合の競合を検知する (設計書 11.7)。
+             *     成功時に収納単位のversionを1増加させる。
+             */
+            expectedStorageUnitVersion: number;
+        };
+        UpdateStorageAllocationRequest: {
+            /**
+             * Format: int32
+             * @example 3
+             */
+            quantity: number;
+            /**
+             * Format: int32
+             * @description 収納割当の現在version
+             */
+            expectedVersion: number;
+            /**
+             * Format: int32
+             * @description 収納単位の現在version
+             */
+            expectedStorageUnitVersion: number;
+        };
+        /** @description 一括置換で指定する割当1件。 */
+        StorageAllocationInput: {
+            /** Format: uuid */
+            itemPublicId: string;
+            /** Format: int32 */
+            quantity: number;
+        };
+        /**
+         * @description 収納単位の割当集合を指定内容へ置き換える。
+         *     含まれない既存割当は削除する。空配列は「中身を空にする」を意味する。
+         */
+        SetStorageUnitAllocationsRequest: {
+            /** @description 同一アイテムを2件以上含めることはできない (400)。 */
+            allocations: components["schemas"]["StorageAllocationInput"][];
+            /** Format: int32 */
+            expectedStorageUnitVersion: number;
+        };
+    };
+    responses: {
+        /** @description request形式が不正である */
+        BadRequest: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                /**
+                 * @example {
+                 *       "code": "BAD_REQUEST",
+                 *       "message": "リクエストの形式が正しくありません。",
+                 *       "fieldErrors": [
+                 *         {
+                 *           "field": "email",
+                 *           "code": "INVALID_FORMAT",
+                 *           "message": "メールアドレスの形式が正しくありません。"
+                 *         }
+                 *       ],
+                 *       "requestId": "req_01JQ0000000000000000000000"
+                 *     }
+                 */
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+        /** @description 未認証である */
+        Unauthorized: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                /**
+                 * @example {
+                 *       "code": "UNAUTHENTICATED",
+                 *       "message": "ログインが必要です。",
+                 *       "fieldErrors": [],
+                 *       "requestId": "req_01JQ0000000000000000000000"
+                 *     }
+                 */
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+        /** @description CSRF検証に失敗した、または操作が許可されていない */
+        Forbidden: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                /**
+                 * @example {
+                 *       "code": "CSRF_TOKEN_INVALID",
+                 *       "message": "セキュリティトークンが無効です。画面を再読み込みしてください。",
+                 *       "fieldErrors": [],
+                 *       "requestId": "req_01JQ0000000000000000000000"
+                 *     }
+                 */
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+        /**
+         * @description 対象が存在しない。
+         *     他ユーザーのpublicIdを指定した場合も本statusを返し、存在有無を公開しない (設計書 18.3)。
+         */
+        NotFound: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                /**
+                 * @example {
+                 *       "code": "ITEM_NOT_FOUND",
+                 *       "message": "アイテムが見つかりません。",
+                 *       "fieldErrors": [],
+                 *       "requestId": "req_01JQ0000000000000000000000"
+                 *     }
+                 */
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+        /** @description version競合、unique競合、状態競合が発生した */
+        Conflict: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                /**
+                 * @example {
+                 *       "code": "ITEM_VERSION_CONFLICT",
+                 *       "message": "アイテムが別の操作で更新されています。最新の内容を読み込み直してください。",
+                 *       "fieldErrors": [],
+                 *       "requestId": "req_01JQ0000000000000000000000"
+                 *     }
+                 */
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+        /** @description 業務ルールに違反している */
+        UnprocessableEntity: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+        /** @description request回数の上限を超えた */
+        TooManyRequests: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                /**
+                 * @example {
+                 *       "code": "TOO_MANY_REQUESTS",
+                 *       "message": "試行回数が多すぎます。しばらく待ってから再度お試しください。",
+                 *       "fieldErrors": [],
+                 *       "requestId": "req_01JQ0000000000000000000000"
+                 *     }
+                 */
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+        /** @description 予期しないerrorが発生した */
+        InternalServerError: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                /**
+                 * @example {
+                 *       "code": "INTERNAL_SERVER_ERROR",
+                 *       "message": "サーバーでエラーが発生しました。",
+                 *       "fieldErrors": [],
+                 *       "requestId": "req_01JQ0000000000000000000000"
+                 *     }
+                 */
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+    };
+    parameters: {
+        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+        PublicIdPathParameter: string;
+        /** @description 収納割当の外部公開ID。 */
+        AllocationPublicIdPathParameter: string;
+        /** @description 取得件数。未指定時は50。 */
+        LimitQueryParameter: number;
+        /** @description 読み飛ばす件数。未指定時は0。 */
+        OffsetQueryParameter: number;
+    };
+    requestBodies: never;
+    headers: never;
+    pathItems: never;
 }
-export type $defs = Record<string, never>
+export type $defs = Record<string, never>;
 export interface operations {
-  registerUser: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['RegisterUserRequest']
-      }
-    }
-    responses: {
-      /** @description 登録に成功した */
-      201: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['UserResponse']
-        }
-      }
-      400: components['responses']['BadRequest']
-      403: components['responses']['Forbidden']
-      /** @description 同一emailのユーザーが既に存在する */
-      409: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          /**
-           * @example {
-           *       "code": "EMAIL_ALREADY_REGISTERED",
-           *       "message": "このメールアドレスは既に登録されています。",
-           *       "fieldErrors": [],
-           *       "requestId": "req_01JQ0000000000000000000000"
-           *     }
-           */
-          'application/json': components['schemas']['ErrorResponse']
-        }
-      }
-      422: components['responses']['UnprocessableEntity']
-      429: components['responses']['TooManyRequests']
-      500: components['responses']['InternalServerError']
-    }
-  }
-  loginUser: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['LoginUserRequest']
-      }
-    }
-    responses: {
-      /** @description loginに成功した */
-      200: {
-        headers: {
-          /** @description session Cookie (HttpOnly, SameSite=Lax) とCSRF token Cookie */
-          'Set-Cookie'?: string
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['AuthenticatedUserContextResponse']
-        }
-      }
-      400: components['responses']['BadRequest']
-      /** @description emailまたはpasswordが正しくない */
-      401: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          /**
-           * @example {
-           *       "code": "INVALID_CREDENTIALS",
-           *       "message": "メールアドレスまたはパスワードが正しくありません。",
-           *       "fieldErrors": [],
-           *       "requestId": "req_01JQ0000000000000000000000"
-           *     }
-           */
-          'application/json': components['schemas']['ErrorResponse']
-        }
-      }
-      403: components['responses']['Forbidden']
-      429: components['responses']['TooManyRequests']
-      500: components['responses']['InternalServerError']
-    }
-  }
-  logoutUser: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description logoutに成功した */
-      204: {
-        headers: {
-          /** @description 失効させたsession Cookie */
-          'Set-Cookie'?: string
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      403: components['responses']['Forbidden']
-      500: components['responses']['InternalServerError']
-    }
-  }
-  getAuthenticatedUserContext: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description 認証済みである */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['AuthenticatedUserContextResponse']
-        }
-      }
-      401: components['responses']['Unauthorized']
-      500: components['responses']['InternalServerError']
-    }
-  }
-  listCategories: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description 取得に成功した */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['CategoryListResponse']
-        }
-      }
-      401: components['responses']['Unauthorized']
-      500: components['responses']['InternalServerError']
-    }
-  }
-  listTags: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description 取得に成功した */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['TagListResponse']
-        }
-      }
-      401: components['responses']['Unauthorized']
-      500: components['responses']['InternalServerError']
-    }
-  }
-  createTag: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['CreateTagRequest']
-      }
-    }
-    responses: {
-      /** @description 登録に成功した */
-      201: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['TagResponse']
-        }
-      }
-      400: components['responses']['BadRequest']
-      401: components['responses']['Unauthorized']
-      403: components['responses']['Forbidden']
-      409: components['responses']['Conflict']
-      500: components['responses']['InternalServerError']
-    }
-  }
-  updateTag: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
-        publicId: components['parameters']['PublicIdPathParameter']
-      }
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['UpdateTagRequest']
-      }
-    }
-    responses: {
-      /** @description 更新に成功した */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['TagResponse']
-        }
-      }
-      400: components['responses']['BadRequest']
-      401: components['responses']['Unauthorized']
-      403: components['responses']['Forbidden']
-      404: components['responses']['NotFound']
-      409: components['responses']['Conflict']
-      500: components['responses']['InternalServerError']
-    }
-  }
-  deleteTag: {
-    parameters: {
-      query: {
-        /** @description 楽観ロック用の現在version (設計書 11.7) */
-        expectedVersion: number
-      }
-      header?: never
-      path: {
-        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
-        publicId: components['parameters']['PublicIdPathParameter']
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description 削除に成功した */
-      204: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      400: components['responses']['BadRequest']
-      401: components['responses']['Unauthorized']
-      403: components['responses']['Forbidden']
-      404: components['responses']['NotFound']
-      409: components['responses']['Conflict']
-      500: components['responses']['InternalServerError']
-    }
-  }
-  listItems: {
-    parameters: {
-      query?: {
-        /** @description アイテム名またはメモの部分一致 (大文字小文字を区別しない) */
-        keyword?: string
-        /** @description カテゴリーで絞り込む */
-        categoryPublicId?: string
-        /** @description タグで絞り込む */
-        tagPublicId?: string
-        necessityLevelCode?: components['schemas']['NecessityLevelCode']
-        usageFrequencyCode?: components['schemas']['UsageFrequencyCode']
-        mobilityClassCode?: components['schemas']['MobilityClassCode']
-        /** @description archive済みのアイテムを含めるか。未指定時はfalse。 */
-        includeDeleted?: boolean
-        /** @description 並び替えkey。未指定時は updatedAt。 */
-        sort?: components['schemas']['ItemSortKey']
-        /** @description 並び順。未指定時は desc。 */
-        order?: components['schemas']['SortOrder']
-        /** @description 取得件数。未指定時は50。 */
-        limit?: components['parameters']['LimitQueryParameter']
-        /** @description 読み飛ばす件数。未指定時は0。 */
-        offset?: components['parameters']['OffsetQueryParameter']
-      }
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description 取得に成功した */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['ItemListResponse']
-        }
-      }
-      400: components['responses']['BadRequest']
-      401: components['responses']['Unauthorized']
-      500: components['responses']['InternalServerError']
-    }
-  }
-  createItem: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['CreateItemRequest']
-      }
-    }
-    responses: {
-      /** @description 登録に成功した */
-      201: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['ItemResponse']
-        }
-      }
-      400: components['responses']['BadRequest']
-      401: components['responses']['Unauthorized']
-      403: components['responses']['Forbidden']
-      /**
-       * @description 指定したカテゴリーまたはタグが存在しない。
-       *     他ユーザーのカテゴリー・タグを指定した場合も本statusを返す (設計書 18.3)。
-       */
-      404: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['ErrorResponse']
-        }
-      }
-      422: components['responses']['UnprocessableEntity']
-      500: components['responses']['InternalServerError']
-    }
-  }
-  getItemByPublicId: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
-        publicId: components['parameters']['PublicIdPathParameter']
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description 取得に成功した */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['ItemResponse']
-        }
-      }
-      400: components['responses']['BadRequest']
-      401: components['responses']['Unauthorized']
-      404: components['responses']['NotFound']
-      500: components['responses']['InternalServerError']
-    }
-  }
-  updateItem: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
-        publicId: components['parameters']['PublicIdPathParameter']
-      }
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['UpdateItemRequest']
-      }
-    }
-    responses: {
-      /** @description 更新に成功した */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['ItemResponse']
-        }
-      }
-      400: components['responses']['BadRequest']
-      401: components['responses']['Unauthorized']
-      403: components['responses']['Forbidden']
-      404: components['responses']['NotFound']
-      409: components['responses']['Conflict']
-      422: components['responses']['UnprocessableEntity']
-      500: components['responses']['InternalServerError']
-    }
-  }
-  archiveItem: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
-        publicId: components['parameters']['PublicIdPathParameter']
-      }
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['ItemVersionRequest']
-      }
-    }
-    responses: {
-      /** @description archiveに成功した */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['ItemResponse']
-        }
-      }
-      400: components['responses']['BadRequest']
-      401: components['responses']['Unauthorized']
-      403: components['responses']['Forbidden']
-      404: components['responses']['NotFound']
-      409: components['responses']['Conflict']
-      422: components['responses']['UnprocessableEntity']
-      500: components['responses']['InternalServerError']
-    }
-  }
-  restoreItem: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
-        publicId: components['parameters']['PublicIdPathParameter']
-      }
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['ItemVersionRequest']
-      }
-    }
-    responses: {
-      /** @description 復元に成功した */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['ItemResponse']
-        }
-      }
-      400: components['responses']['BadRequest']
-      401: components['responses']['Unauthorized']
-      403: components['responses']['Forbidden']
-      404: components['responses']['NotFound']
-      409: components['responses']['Conflict']
-      422: components['responses']['UnprocessableEntity']
-      500: components['responses']['InternalServerError']
-    }
-  }
-  listItemUsageRecords: {
-    parameters: {
-      query?: {
-        /** @description 取得件数。未指定時は50。 */
-        limit?: components['parameters']['LimitQueryParameter']
-        /** @description 読み飛ばす件数。未指定時は0。 */
-        offset?: components['parameters']['OffsetQueryParameter']
-      }
-      header?: never
-      path: {
-        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
-        publicId: components['parameters']['PublicIdPathParameter']
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description 取得に成功した */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['ItemUsageRecordListResponse']
-        }
-      }
-      400: components['responses']['BadRequest']
-      401: components['responses']['Unauthorized']
-      404: components['responses']['NotFound']
-      500: components['responses']['InternalServerError']
-    }
-  }
-  createItemUsageRecord: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
-        publicId: components['parameters']['PublicIdPathParameter']
-      }
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['CreateItemUsageRecordRequest']
-      }
-    }
-    responses: {
-      /** @description 登録に成功した */
-      201: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['ItemUsageRecordResponse']
-        }
-      }
-      400: components['responses']['BadRequest']
-      401: components['responses']['Unauthorized']
-      403: components['responses']['Forbidden']
-      404: components['responses']['NotFound']
-      422: components['responses']['UnprocessableEntity']
-      500: components['responses']['InternalServerError']
-    }
-  }
+    registerUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterUserRequest"];
+            };
+        };
+        responses: {
+            /** @description 登録に成功した */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            /** @description 同一emailのユーザーが既に存在する */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "code": "EMAIL_ALREADY_REGISTERED",
+                     *       "message": "このメールアドレスは既に登録されています。",
+                     *       "fieldErrors": [],
+                     *       "requestId": "req_01JQ0000000000000000000000"
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    loginUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginUserRequest"];
+            };
+        };
+        responses: {
+            /** @description loginに成功した */
+            200: {
+                headers: {
+                    /** @description session Cookie (HttpOnly, SameSite=Lax) とCSRF token Cookie */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthenticatedUserContextResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /** @description emailまたはpasswordが正しくない */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "code": "INVALID_CREDENTIALS",
+                     *       "message": "メールアドレスまたはパスワードが正しくありません。",
+                     *       "fieldErrors": [],
+                     *       "requestId": "req_01JQ0000000000000000000000"
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    logoutUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description logoutに成功した */
+            204: {
+                headers: {
+                    /** @description 失効させたsession Cookie */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getAuthenticatedUserContext: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 認証済みである */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthenticatedUserContextResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    listCategories: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 取得に成功した */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategoryListResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    listTags: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 取得に成功した */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TagListResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    createTag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTagRequest"];
+            };
+        };
+        responses: {
+            /** @description 登録に成功した */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TagResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    updateTag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+                publicId: components["parameters"]["PublicIdPathParameter"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateTagRequest"];
+            };
+        };
+        responses: {
+            /** @description 更新に成功した */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TagResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    deleteTag: {
+        parameters: {
+            query: {
+                /** @description 楽観ロック用の現在version (設計書 11.7) */
+                expectedVersion: number;
+            };
+            header?: never;
+            path: {
+                /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+                publicId: components["parameters"]["PublicIdPathParameter"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 削除に成功した */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    listItems: {
+        parameters: {
+            query?: {
+                /** @description アイテム名またはメモの部分一致 (大文字小文字を区別しない) */
+                keyword?: string;
+                /** @description カテゴリーで絞り込む */
+                categoryPublicId?: string;
+                /** @description タグで絞り込む */
+                tagPublicId?: string;
+                necessityLevelCode?: components["schemas"]["NecessityLevelCode"];
+                usageFrequencyCode?: components["schemas"]["UsageFrequencyCode"];
+                mobilityClassCode?: components["schemas"]["MobilityClassCode"];
+                /**
+                 * @description 指定した収納単位へ直接割当されているアイテムだけを返す (設計書 9.4)。
+                 *     子収納単位の内容は含めない。
+                 */
+                storageUnitPublicId?: string;
+                /**
+                 * @description trueの場合、未割当数量が1以上のアイテムだけを返す (設計書 9.4)。
+                 *     未割当数量 = quantity - 収納割当数量の合計。
+                 */
+                isUnassigned?: boolean;
+                /** @description archive済みのアイテムを含めるか。未指定時はfalse。 */
+                includeDeleted?: boolean;
+                /** @description 並び替えkey。未指定時は updatedAt。 */
+                sort?: components["schemas"]["ItemSortKey"];
+                /** @description 並び順。未指定時は desc。 */
+                order?: components["schemas"]["SortOrder"];
+                /** @description 取得件数。未指定時は50。 */
+                limit?: components["parameters"]["LimitQueryParameter"];
+                /** @description 読み飛ばす件数。未指定時は0。 */
+                offset?: components["parameters"]["OffsetQueryParameter"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 取得に成功した */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemListResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    createItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateItemRequest"];
+            };
+        };
+        responses: {
+            /** @description 登録に成功した */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /**
+             * @description 指定したカテゴリーまたはタグが存在しない。
+             *     他ユーザーのカテゴリー・タグを指定した場合も本statusを返す (設計書 18.3)。
+             */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: components["responses"]["UnprocessableEntity"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getItemByPublicId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+                publicId: components["parameters"]["PublicIdPathParameter"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 取得に成功した */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    updateItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+                publicId: components["parameters"]["PublicIdPathParameter"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateItemRequest"];
+            };
+        };
+        responses: {
+            /** @description 更新に成功した */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    archiveItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+                publicId: components["parameters"]["PublicIdPathParameter"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ItemVersionRequest"];
+            };
+        };
+        responses: {
+            /** @description archiveに成功した */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    restoreItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+                publicId: components["parameters"]["PublicIdPathParameter"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ItemVersionRequest"];
+            };
+        };
+        responses: {
+            /** @description 復元に成功した */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    listItemUsageRecords: {
+        parameters: {
+            query?: {
+                /** @description 取得件数。未指定時は50。 */
+                limit?: components["parameters"]["LimitQueryParameter"];
+                /** @description 読み飛ばす件数。未指定時は0。 */
+                offset?: components["parameters"]["OffsetQueryParameter"];
+            };
+            header?: never;
+            path: {
+                /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+                publicId: components["parameters"]["PublicIdPathParameter"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 取得に成功した */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemUsageRecordListResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    createItemUsageRecord: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+                publicId: components["parameters"]["PublicIdPathParameter"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateItemUsageRecordRequest"];
+            };
+        };
+        responses: {
+            /** @description 登録に成功した */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemUsageRecordResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    listItemStorageAllocations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+                publicId: components["parameters"]["PublicIdPathParameter"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 取得に成功した */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemStorageAllocationListResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    listStorageUnits: {
+        parameters: {
+            query?: {
+                /** @description 収納単位名または説明の部分一致 (大文字小文字を区別しない) */
+                keyword?: string;
+                storageTypeCode?: components["schemas"]["StorageTypeCode"];
+                mobilityClassCode?: components["schemas"]["MobilityClassCode"];
+                /** @description 指定した収納単位の直接の子だけを返す。 */
+                parentStorageUnitPublicId?: string;
+                /**
+                 * @description trueの場合、親を持たない収納単位だけを返す。
+                 *     `parentStorageUnitPublicId` と同時に指定した場合は 400 を返す。
+                 */
+                rootOnly?: boolean;
+                /**
+                 * @description archive済みの収納単位を含めるか。未指定時はfalse。
+                 *     Itemの `includeDeleted` と役割は同じだが、収納単位はarchiveのみを
+                 *     利用者へ見せるため名称を `includeArchived` とした。
+                 */
+                includeArchived?: boolean;
+                /** @description 並び替えkey。未指定時は sortOrder。 */
+                sort?: components["schemas"]["StorageUnitSortKey"];
+                /** @description 並び順。未指定時は asc (sortOrder) / desc (updatedAt) ではなく常に指定値を使う。未指定時は asc。 */
+                order?: components["schemas"]["SortOrder"];
+                /** @description 取得件数。未指定時は50。 */
+                limit?: components["parameters"]["LimitQueryParameter"];
+                /** @description 読み飛ばす件数。未指定時は0。 */
+                offset?: components["parameters"]["OffsetQueryParameter"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 取得に成功した */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageUnitListResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    createStorageUnit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateStorageUnitRequest"];
+            };
+        };
+        responses: {
+            /** @description 登録に成功した */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageUnitResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /**
+             * @description 指定した親収納単位が存在しない。
+             *     他ユーザーの収納単位を指定した場合も本statusを返す (設計書 18.3)。
+             */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /**
+             * @description 業務ルール違反。以下を含む。
+             *       - 階層が3を超える (`STORAGE_HIERARCHY_TOO_DEEP`)
+             *       - archive済みの収納単位を親に指定した (`STORAGE_UNIT_PARENT_ARCHIVED`)
+             */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getStorageUnitByPublicId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+                publicId: components["parameters"]["PublicIdPathParameter"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 取得に成功した */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageUnitResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    updateStorageUnit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+                publicId: components["parameters"]["PublicIdPathParameter"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateStorageUnitRequest"];
+            };
+        };
+        responses: {
+            /** @description 更新に成功した */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageUnitResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /**
+             * @description 業務ルール違反。以下を含む。
+             *       - 自分自身を親に指定した (`STORAGE_UNIT_SELF_PARENT`)
+             *       - 子孫を親に指定した (`STORAGE_UNIT_CIRCULAR_PARENT`)
+             *       - 階層が3を超える (`STORAGE_HIERARCHY_TOO_DEEP`)
+             *       - archive済みの収納単位を親に指定した (`STORAGE_UNIT_PARENT_ARCHIVED`)
+             *       - archive済みの収納単位を編集した (`STORAGE_UNIT_ARCHIVED`)
+             */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    archiveStorageUnit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+                publicId: components["parameters"]["PublicIdPathParameter"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StorageUnitVersionRequest"];
+            };
+        };
+        responses: {
+            /** @description archiveに成功した */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageUnitResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    restoreStorageUnit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+                publicId: components["parameters"]["PublicIdPathParameter"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StorageUnitVersionRequest"];
+            };
+        };
+        responses: {
+            /** @description 復元に成功した */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageUnitResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getStorageUnitCapacity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+                publicId: components["parameters"]["PublicIdPathParameter"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 取得に成功した */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageUnitCapacityResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getStorageUnitContents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+                publicId: components["parameters"]["PublicIdPathParameter"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 取得に成功した */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageUnitContentsResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    setStorageUnitAllocations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+                publicId: components["parameters"]["PublicIdPathParameter"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetStorageUnitAllocationsRequest"];
+            };
+        };
+        responses: {
+            /** @description 置換に成功した */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageUnitContentsResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    createStorageAllocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+                publicId: components["parameters"]["PublicIdPathParameter"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateStorageAllocationRequest"];
+            };
+        };
+        responses: {
+            /** @description 割当に成功した */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageUnitContentsResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /**
+             * @description version競合、または同一アイテムが既に本収納単位へ割当済みである
+             *     (`STORAGE_ALLOCATION_ALREADY_EXISTS`)。
+             */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: components["responses"]["UnprocessableEntity"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    updateStorageAllocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+                publicId: components["parameters"]["PublicIdPathParameter"];
+                /** @description 収納割当の外部公開ID。 */
+                allocationPublicId: components["parameters"]["AllocationPublicIdPathParameter"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateStorageAllocationRequest"];
+            };
+        };
+        responses: {
+            /** @description 変更に成功した */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageUnitContentsResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    deleteStorageAllocation: {
+        parameters: {
+            query: {
+                /** @description 収納割当の現在version (設計書 11.7) */
+                expectedVersion: number;
+                /** @description 収納単位の現在version。割当集合の競合を検知する。 */
+                expectedStorageUnitVersion: number;
+            };
+            header?: never;
+            path: {
+                /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
+                publicId: components["parameters"]["PublicIdPathParameter"];
+                /** @description 収納割当の外部公開ID。 */
+                allocationPublicId: components["parameters"]["AllocationPublicIdPathParameter"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 削除に成功した */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageUnitContentsResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
 }

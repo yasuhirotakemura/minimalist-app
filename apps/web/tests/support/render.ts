@@ -8,6 +8,10 @@ import type {
   CategoryResponse,
   ItemResponse,
   ItemUsageRecordResponse,
+  StorageAllocationResponse,
+  StorageUnitCapacityResponse,
+  StorageUnitContentsResponse,
+  StorageUnitResponse,
   TagResponse,
 } from '@/api/client'
 
@@ -34,6 +38,31 @@ export async function renderPage(
       path: '/items/:publicId/edit',
       name: 'itemEdit',
       component: { template: '<div>edit</div>' },
+    },
+    {
+      path: '/storage-units',
+      name: 'storageUnits',
+      component: { template: '<div>storage units</div>' },
+    },
+    {
+      path: '/storage-units/new',
+      name: 'storageUnitNew',
+      component: { template: '<div>new</div>' },
+    },
+    {
+      path: '/storage-units/:publicId',
+      name: 'storageUnitDetail',
+      component: { template: '<div>detail</div>' },
+    },
+    {
+      path: '/storage-units/:publicId/edit',
+      name: 'storageUnitEdit',
+      component: { template: '<div>edit</div>' },
+    },
+    {
+      path: '/storage-units/:publicId/contents',
+      name: 'storageUnitContents',
+      component: { template: '<div>contents</div>' },
     },
     { path: '/tags', name: 'tags', component: { template: '<div>tags</div>' } },
     { path: '/login', name: 'login', component: { template: '<div>login</div>' } },
@@ -129,6 +158,8 @@ export function testItem(overrides: Partial<ItemResponse> = {}): ItemResponse {
     isConfirmed: false,
     confirmedAt: null,
     tags: [],
+    storageAllocations: [],
+    unassignedQuantity: 1,
     isArchived: false,
     archivedAt: null,
     version: 1,
@@ -148,6 +179,97 @@ export function testUsageRecord(
     quantity: 1,
     note: null,
     createdAt: '2026-07-20T09:00:00Z',
+    ...overrides,
+  }
+}
+
+/** testで使用する容量集計。既定は超過なし・未設定なしとする。 */
+export function testCapacity(
+  overrides: Partial<StorageUnitCapacityResponse> = {},
+): StorageUnitCapacityResponse {
+  return {
+    allocatedItemKindCount: 0,
+    allocatedQuantity: 0,
+    tareWeightGram: 900,
+    itemWeightGram: 0,
+    descendantWeightGram: 0,
+    totalWeightGram: 900,
+    itemVolumeMilliliter: 0,
+    descendantVolumeMilliliter: 0,
+    totalVolumeMilliliter: 0,
+    maximumWeightGram: 8000,
+    maximumVolumeMilliliter: 25000,
+    remainingWeightGram: 7100,
+    remainingVolumeMilliliter: 25000,
+    isWeightExceeded: false,
+    isVolumeExceeded: false,
+    hasUnknownWeight: false,
+    hasUnknownVolume: false,
+    ...overrides,
+  }
+}
+
+/** testで使用する収納単位。 */
+export function testStorageUnit(overrides: Partial<StorageUnitResponse> = {}): StorageUnitResponse {
+  return {
+    publicId: '018f8d0a-1c2b-7a3d-9e4f-000000000030',
+    name: '日常リュック',
+    storageTypeCode: 'bag',
+    storageTypeLabel: 'バッグ',
+    mobilityClassCode: 'daily_bag',
+    mobilityClassLabel: '常時リュック',
+    parent: null,
+    ancestors: [],
+    depth: 1,
+    childCount: 0,
+    tareWeightGram: 900,
+    maximumWeightGram: 8000,
+    maximumVolumeMilliliter: 25000,
+    description: null,
+    sortOrder: 10,
+    capacity: testCapacity(),
+    isArchived: false,
+    archivedAt: null,
+    version: 1,
+    createdAt: '2026-07-26T00:00:00Z',
+    updatedAt: '2026-07-26T00:00:00Z',
+    ...overrides,
+  }
+}
+
+/** testで使用する収納割当。 */
+export function testStorageAllocation(
+  overrides: Partial<StorageAllocationResponse> = {},
+): StorageAllocationResponse {
+  return {
+    publicId: '018f8d0a-1c2b-7a3d-9e4f-000000000040',
+    item: {
+      publicId: testItem().publicId,
+      name: testItem().name,
+      unitName: '本',
+      quantity: 3,
+      assignedQuantity: 2,
+      unassignedQuantity: 1,
+      weightGram: 220,
+      volumeMilliliter: null,
+      isArchived: false,
+    },
+    quantity: 2,
+    version: 1,
+    createdAt: '2026-07-26T00:00:00Z',
+    updatedAt: '2026-07-26T00:00:00Z',
+    ...overrides,
+  }
+}
+
+/** testで使用する収納内容。 */
+export function testStorageUnitContents(
+  overrides: Partial<StorageUnitContentsResponse> = {},
+): StorageUnitContentsResponse {
+  return {
+    storageUnit: testStorageUnit(),
+    allocations: [],
+    childStorageUnits: [],
     ...overrides,
   }
 }

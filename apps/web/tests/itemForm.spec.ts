@@ -59,6 +59,11 @@ async function renderNewPage() {
       },
       { path: '/tags', name: 'tags', component: { template: '<div>tags</div>' } },
       { path: '/', name: 'dashboard', component: { template: '<div>home</div>' } },
+      {
+        path: '/storage-units',
+        name: 'storageUnits',
+        component: { template: '<div>storage</div>' },
+      },
       { path: '/login', name: 'login', component: { template: '<div>login</div>' } },
     ],
     initialPath: '/items/new',
@@ -77,6 +82,11 @@ async function renderEditPage(item: ItemResponse) {
       { path: '/items/:publicId/edit', name: 'itemEdit', component: ItemEditPage },
       { path: '/tags', name: 'tags', component: { template: '<div>tags</div>' } },
       { path: '/', name: 'dashboard', component: { template: '<div>home</div>' } },
+      {
+        path: '/storage-units',
+        name: 'storageUnits',
+        component: { template: '<div>storage</div>' },
+      },
       { path: '/login', name: 'login', component: { template: '<div>login</div>' } },
     ],
     initialPath: `/items/${item.publicId}/edit`,
