@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	domainauth "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/domain/auth"
+	domaincategory "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/domain/category"
 )
 
 // errRepository はrepositoryの技術的失敗を模したerror。
@@ -358,3 +359,68 @@ func (g *sequentialPublicIDGenerator) NewPublicID() (uuid.UUID, error) {
 	generated[8] = 0x80
 	return generated, nil
 }
+
+// fakeCategoryRepository はmemory上でCategoryRepositoryを実装する。
+//
+// ユーザー登録時の既定カテゴリー作成 (設計書 28章 Phase 1) を検証するために使用する。
+type fakeCategoryRepository struct {
+	mutex            sync.Mutex
+	categoriesByUser map[domainauth.UserID][]domaincategory.Category
+	nextID           int64
+	failOnCreateAll  bool
+}
+
+func newFakeCategoryRepository() *fakeCategoryRepository {
+	return &fakeCategoryRepository{
+		categoriesByUser: make(map[domainauth.UserID][]domaincategory.Category),
+		nextID:           1,
+	}
+}
+
+func (r *fakeCategoryRepository) CreateAll(
+	_ context.Context,
+	categories []domaincategory.Category,
+) ([]domaincategory.Category, error) {
+	if r.failOnCreateAll {
+		return nil, errRepository
+	}
+
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
+	created := make([]domaincategory.Category, 0, len(categories))
+	for _, category := range categories {
+		stored := category.WithID(domaincategory.CategoryID(r.nextID))
+		r.nextID++
+		r.categoriesByUser[category.UserID()] = append(r.categoriesByUser[category.UserID()], stored)
+		created = append(created, stored)
+	}
+	return created, nil
+}
+
+func (r *fakeCategoryRepository) ListActiveByUserID(
+	_ context.Context,
+	userID domainauth.UserID,
+) ([]domaincategory.Category, error) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+	return r.categoriesByUser[userID], nil
+}
+
+func (r *fakeCategoryRepository) FindActiveByPublicID(
+	_ context.Context,
+	userID domainauth.UserID,
+	publicID uuid.UUID,
+) (domaincategory.Category, error) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
+	for _, category := range r.categoriesByUser[userID] {
+		if category.PublicID() == publicID {
+			return category, nil
+		}
+	}
+	return domaincategory.Category{}, domaincategory.ErrCategoryNotFound
+}
+
+var _ domaincategory.CategoryRepository = (*fakeCategoryRepository)(nil)

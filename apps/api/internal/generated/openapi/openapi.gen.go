@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"compress/flate"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -16,14 +17,319 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/go-chi/chi/v5"
+	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
+
+// Defines values for ItemKindCode.
+const (
+	Consumable ItemKindCode = "consumable"
+	Durable    ItemKindCode = "durable"
+)
+
+// Valid indicates whether the value is a known member of the ItemKindCode enum.
+func (e ItemKindCode) Valid() bool {
+	switch e {
+	case Consumable:
+		return true
+	case Durable:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ItemSortKey.
+const (
+	LastUsedAt ItemSortKey = "lastUsedAt"
+	Name       ItemSortKey = "name"
+	Quantity   ItemSortKey = "quantity"
+	UpdatedAt  ItemSortKey = "updatedAt"
+)
+
+// Valid indicates whether the value is a known member of the ItemSortKey enum.
+func (e ItemSortKey) Valid() bool {
+	switch e {
+	case LastUsedAt:
+		return true
+	case Name:
+		return true
+	case Quantity:
+		return true
+	case UpdatedAt:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MobilityClassCode.
+const (
+	DailyBag     MobilityClassCode = "daily_bag"
+	DisposeRebuy MobilityClassCode = "dispose_rebuy"
+	Fixed        MobilityClassCode = "fixed"
+	Mover        MobilityClassCode = "mover"
+	OnDemand     MobilityClassCode = "on_demand"
+	Parcel       MobilityClassCode = "parcel"
+	Pocket       MobilityClassCode = "pocket"
+	SelfCarry    MobilityClassCode = "self_carry"
+	Worn         MobilityClassCode = "worn"
+)
+
+// Valid indicates whether the value is a known member of the MobilityClassCode enum.
+func (e MobilityClassCode) Valid() bool {
+	switch e {
+	case DailyBag:
+		return true
+	case DisposeRebuy:
+		return true
+	case Fixed:
+		return true
+	case Mover:
+		return true
+	case OnDemand:
+		return true
+	case Parcel:
+		return true
+	case Pocket:
+		return true
+	case SelfCarry:
+		return true
+	case Worn:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for NecessityLevelCode.
+const (
+	Essential   NecessityLevelCode = "essential"
+	Important   NecessityLevelCode = "important"
+	Optional    NecessityLevelCode = "optional"
+	Undecided   NecessityLevelCode = "undecided"
+	Unnecessary NecessityLevelCode = "unnecessary"
+)
+
+// Valid indicates whether the value is a known member of the NecessityLevelCode enum.
+func (e NecessityLevelCode) Valid() bool {
+	switch e {
+	case Essential:
+		return true
+	case Important:
+		return true
+	case Optional:
+		return true
+	case Undecided:
+		return true
+	case Unnecessary:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SortOrder.
+const (
+	Asc  SortOrder = "asc"
+	Desc SortOrder = "desc"
+)
+
+// Valid indicates whether the value is a known member of the SortOrder enum.
+func (e SortOrder) Valid() bool {
+	switch e {
+	case Asc:
+		return true
+	case Desc:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SubstitutabilityCode.
+const (
+	Full    SubstitutabilityCode = "full"
+	None    SubstitutabilityCode = "none"
+	Partial SubstitutabilityCode = "partial"
+	Unknown SubstitutabilityCode = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the SubstitutabilityCode enum.
+func (e SubstitutabilityCode) Valid() bool {
+	switch e {
+	case Full:
+		return true
+	case None:
+		return true
+	case Partial:
+		return true
+	case Unknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UsageFrequencyCode.
+const (
+	Daily     UsageFrequencyCode = "daily"
+	Monthly   UsageFrequencyCode = "monthly"
+	Never     UsageFrequencyCode = "never"
+	Quarterly UsageFrequencyCode = "quarterly"
+	Rarely    UsageFrequencyCode = "rarely"
+	Weekly    UsageFrequencyCode = "weekly"
+	Yearly    UsageFrequencyCode = "yearly"
+)
+
+// Valid indicates whether the value is a known member of the UsageFrequencyCode enum.
+func (e UsageFrequencyCode) Valid() bool {
+	switch e {
+	case Daily:
+		return true
+	case Monthly:
+		return true
+	case Never:
+		return true
+	case Quarterly:
+		return true
+	case Rarely:
+		return true
+	case Weekly:
+		return true
+	case Yearly:
+		return true
+	default:
+		return false
+	}
+}
 
 // AuthenticatedUserContextResponse 認証済みユーザーのcontext。
 // 将来の設定値追加に備えてuserをnestした形とする。
 type AuthenticatedUserContextResponse struct {
 	// User 内部IDを含めない (設計書 12.1)
 	User UserResponse `json:"user"`
+}
+
+// CategoryListResponse defines model for CategoryListResponse.
+type CategoryListResponse struct {
+	Items []CategoryResponse `json:"items"`
+}
+
+// CategoryReferenceResponse 他resourceから参照する際の最小表現
+type CategoryReferenceResponse struct {
+	// Name Example: 外出・携行品
+	Name     string             `json:"name"`
+	PublicId openapi_types.UUID `json:"publicId"`
+}
+
+// CategoryResponse defines model for CategoryResponse.
+type CategoryResponse struct {
+	CreatedAt time.Time `json:"createdAt"`
+
+	// Description Example: 外出時に持ち出す物
+	Description *string `json:"description"`
+
+	// Name Example: 外出・携行品
+	Name     string             `json:"name"`
+	PublicId openapi_types.UUID `json:"publicId"`
+
+	// SortOrder 画面の表示順。小さい順に表示する。
+	//
+	// Example: 10
+	SortOrder int32     `json:"sortOrder"`
+	UpdatedAt time.Time `json:"updatedAt"`
+
+	// Version Example: 1
+	Version int32 `json:"version"`
+}
+
+// CreateItemRequest 設計書 12.5 に対応する。
+type CreateItemRequest struct {
+	CategoryPublicId openapi_types.UUID `json:"categoryPublicId"`
+
+	// DesiredQuantity Example: 1
+	DesiredQuantity   *int32              `json:"desiredQuantity,omitempty"`
+	DisposalCondition *string             `json:"disposalCondition,omitempty"`
+	ExpiresOn         *openapi_types.Date `json:"expiresOn,omitempty"`
+
+	// IsFragile 未指定時はfalse。
+	IsFragile *bool `json:"isFragile,omitempty"`
+
+	// IsSentimental 未指定時はfalse。
+	IsSentimental *bool `json:"isSentimental,omitempty"`
+
+	// IsValuable 未指定時はfalse。
+	IsValuable *bool `json:"isValuable,omitempty"`
+
+	// ItemKindCode 未指定時はserverが `durable` を適用する。
+	ItemKindCode *ItemKindCode `json:"itemKindCode,omitempty"`
+	LastUsedAt   *time.Time    `json:"lastUsedAt,omitempty"`
+
+	// MobilityClassCode 携行区分 (設計書 16.1)
+	//
+	// Example: daily_bag
+	MobilityClassCode MobilityClassCode `json:"mobilityClassCode"`
+
+	// Name Example: 折りたたみ傘
+	Name string `json:"name"`
+
+	// NecessityLevelCode 必要度 (設計書 14.5)
+	//
+	// Example: essential
+	NecessityLevelCode NecessityLevelCode  `json:"necessityLevelCode"`
+	Notes              *string             `json:"notes,omitempty"`
+	OwnershipReason    *string             `json:"ownershipReason,omitempty"`
+	PurchaseAmount     *int64              `json:"purchaseAmount,omitempty"`
+	PurchasedOn        *openapi_types.Date `json:"purchasedOn,omitempty"`
+
+	// Quantity Example: 1
+	Quantity          int32  `json:"quantity"`
+	ReplacementAmount *int64 `json:"replacementAmount,omitempty"`
+
+	// RequiresMaintenance 未指定時はfalse。
+	RequiresMaintenance *bool  `json:"requiresMaintenance,omitempty"`
+	ResaleAmount        *int64 `json:"resaleAmount,omitempty"`
+
+	// SourceUrl httpまたはhttpsのみを許可する (設計書 24.15)。
+	SourceUrl *string `json:"sourceUrl,omitempty"`
+
+	// SubstitutabilityCode 代替可能性 (設計書 14.4)
+	//
+	// Example: none
+	SubstitutabilityCode SubstitutabilityCode  `json:"substitutabilityCode"`
+	TagPublicIds         *[]openapi_types.UUID `json:"tagPublicIds,omitempty"`
+
+	// UnitName 未指定時はserverが `個` を適用する。
+	//
+	// Example: 本
+	UnitName *string `json:"unitName,omitempty"`
+
+	// UsageFrequencyCode 使用頻度 (設計書 14.3)
+	//
+	// Example: monthly
+	UsageFrequencyCode UsageFrequencyCode `json:"usageFrequencyCode"`
+	VolumeMilliliter   *int32             `json:"volumeMilliliter,omitempty"`
+	WeightGram         *int32             `json:"weightGram,omitempty"`
+}
+
+// CreateItemUsageRecordRequest defines model for CreateItemUsageRecordRequest.
+type CreateItemUsageRecordRequest struct {
+	Note *string `json:"note,omitempty"`
+
+	// Quantity 使用した数量。未指定時は1。
+	Quantity *int32 `json:"quantity,omitempty"`
+
+	// UsedAt 使用日時。未指定時はserverの現在時刻を使用する。未来日時は許可しない。
+	UsedAt *time.Time `json:"usedAt,omitempty"`
+}
+
+// CreateTagRequest defines model for CreateTagRequest.
+type CreateTagRequest struct {
+	// Name 同一ユーザー内で一意とする。
+	//
+	// Example: 防災
+	Name string `json:"name"`
 }
 
 // ErrorResponse 全endpointで共通のerror形式 (設計書 12.3)
@@ -57,6 +363,162 @@ type FieldError struct {
 	Message string `json:"message"`
 }
 
+// ItemKindCode アイテム種別。設計書 13.7 は種別の存在のみを定め、値集合を定義していない。
+// 12.5 の例 `durable` を基に、耐久品と消耗品の2値で開始する。
+//
+// Example: durable
+type ItemKindCode string
+
+// ItemListResponse defines model for ItemListResponse.
+type ItemListResponse struct {
+	Items []ItemResponse `json:"items"`
+
+	// Pagination offset paginationの結果 (本file冒頭の注記を参照)。
+	Pagination PaginationResponse `json:"pagination"`
+}
+
+// ItemResponse 所持品 (設計書 12.6 / 13.7)。内部IDを含めない。
+// 一覧と詳細で同一の表現を使用する。
+//
+// `review` (見直しスコア) と `storageUnits` (収納割当) は
+// それぞれPhase 3 / Phase 2のスコープのため含めない。
+type ItemResponse struct {
+	// ArchivedAt archive日時。DBの `deleted_at` に対応する。
+	ArchivedAt *time.Time `json:"archivedAt"`
+
+	// Category 他resourceから参照する際の最小表現
+	Category    CategoryReferenceResponse `json:"category"`
+	ConfirmedAt *time.Time                `json:"confirmedAt"`
+	CreatedAt   time.Time                 `json:"createdAt"`
+
+	// DesiredQuantity 希望上限数量。未設定の場合はnull。
+	//
+	// Example: 1
+	DesiredQuantity *int32 `json:"desiredQuantity"`
+
+	// DisposalCondition Example: 破損して修理不能になった場合
+	DisposalCondition *string             `json:"disposalCondition"`
+	ExpiresOn         *openapi_types.Date `json:"expiresOn"`
+
+	// IsArchived archive (soft delete) 済みか
+	IsArchived bool `json:"isArchived"`
+
+	// IsConfirmed 棚卸し確認済みか (設計書 13.7)。
+	// 確認操作 (`confirmItem`) はPhase 1のスコープ外のため、常にfalseとなる。
+	IsConfirmed   bool `json:"isConfirmed"`
+	IsFragile     bool `json:"isFragile"`
+	IsSentimental bool `json:"isSentimental"`
+	IsValuable    bool `json:"isValuable"`
+
+	// ItemKindCode アイテム種別。設計書 13.7 は種別の存在のみを定め、値集合を定義していない。
+	// 12.5 の例 `durable` を基に、耐久品と消耗品の2値で開始する。
+	//
+	//
+	// Example: durable
+	ItemKindCode ItemKindCode `json:"itemKindCode"`
+
+	// ItemKindLabel Example: 耐久品
+	ItemKindLabel string     `json:"itemKindLabel"`
+	LastUsedAt    *time.Time `json:"lastUsedAt"`
+
+	// MobilityClassCode 携行区分 (設計書 16.1)
+	//
+	// Example: daily_bag
+	MobilityClassCode MobilityClassCode `json:"mobilityClassCode"`
+
+	// MobilityClassLabel Example: 常時リュック
+	MobilityClassLabel string `json:"mobilityClassLabel"`
+
+	// Name Example: 折りたたみ傘
+	Name string `json:"name"`
+
+	// NecessityLevelCode 必要度 (設計書 14.5)
+	//
+	// Example: essential
+	NecessityLevelCode NecessityLevelCode `json:"necessityLevelCode"`
+
+	// NecessityLevelLabel Example: 必須
+	NecessityLevelLabel string  `json:"necessityLevelLabel"`
+	Notes               *string `json:"notes"`
+
+	// OwnershipReason Example: 突然の雨に対応するため
+	OwnershipReason *string            `json:"ownershipReason"`
+	PublicId        openapi_types.UUID `json:"publicId"`
+
+	// PurchaseAmount 購入金額 (円)。丸め誤差を避けるため整数で扱う (設計書 11章)。
+	PurchaseAmount *int64              `json:"purchaseAmount"`
+	PurchasedOn    *openapi_types.Date `json:"purchasedOn"`
+
+	// Quantity Example: 1
+	Quantity            int32   `json:"quantity"`
+	ReplacementAmount   *int64  `json:"replacementAmount"`
+	RequiresMaintenance bool    `json:"requiresMaintenance"`
+	ResaleAmount        *int64  `json:"resaleAmount"`
+	SourceUrl           *string `json:"sourceUrl"`
+
+	// SubstitutabilityCode 代替可能性 (設計書 14.4)
+	//
+	// Example: none
+	SubstitutabilityCode SubstitutabilityCode `json:"substitutabilityCode"`
+
+	// SubstitutabilityLabel Example: 代替不可
+	SubstitutabilityLabel string                 `json:"substitutabilityLabel"`
+	Tags                  []TagReferenceResponse `json:"tags"`
+
+	// UnitName Example: 本
+	UnitName  string    `json:"unitName"`
+	UpdatedAt time.Time `json:"updatedAt"`
+
+	// UsageFrequencyCode 使用頻度 (設計書 14.3)
+	//
+	// Example: monthly
+	UsageFrequencyCode UsageFrequencyCode `json:"usageFrequencyCode"`
+
+	// UsageFrequencyLabel Example: 月に1回程度
+	UsageFrequencyLabel string `json:"usageFrequencyLabel"`
+
+	// Version 楽観ロック用のversion (設計書 11.7)
+	//
+	// Example: 3
+	Version          int32  `json:"version"`
+	VolumeMilliliter *int32 `json:"volumeMilliliter"`
+	WeightGram       *int32 `json:"weightGram"`
+}
+
+// ItemSortKey 所持品一覧の並び替えkey
+//
+// Example: updatedAt
+type ItemSortKey string
+
+// ItemUsageRecordListResponse defines model for ItemUsageRecordListResponse.
+type ItemUsageRecordListResponse struct {
+	Items []ItemUsageRecordResponse `json:"items"`
+
+	// Pagination offset paginationの結果 (本file冒頭の注記を参照)。
+	Pagination PaginationResponse `json:"pagination"`
+}
+
+// ItemUsageRecordResponse defines model for ItemUsageRecordResponse.
+type ItemUsageRecordResponse struct {
+	CreatedAt time.Time `json:"createdAt"`
+
+	// Note Example: 通勤時に使用
+	Note     *string            `json:"note"`
+	PublicId openapi_types.UUID `json:"publicId"`
+
+	// Quantity 使用した数量。
+	//
+	// Example: 1
+	Quantity int32     `json:"quantity"`
+	UsedAt   time.Time `json:"usedAt"`
+}
+
+// ItemVersionRequest archive・restoreのように追加入力を持たない操作で使用する。
+type ItemVersionRequest struct {
+	// ExpectedVersion 楽観ロック用の現在version (設計書 11.7)
+	ExpectedVersion int32 `json:"expectedVersion"`
+}
+
 // LoginUserRequest defines model for LoginUserRequest.
 type LoginUserRequest struct {
 	// Email Example: user@example.com
@@ -64,6 +526,35 @@ type LoginUserRequest struct {
 
 	// Password Example: correct-horse-battery
 	Password string `json:"password"`
+}
+
+// MobilityClassCode 携行区分 (設計書 16.1)
+//
+// Example: daily_bag
+type MobilityClassCode string
+
+// NecessityLevelCode 必要度 (設計書 14.5)
+//
+// Example: essential
+type NecessityLevelCode string
+
+// PaginationResponse offset paginationの結果 (本file冒頭の注記を参照)。
+type PaginationResponse struct {
+	// HasNext 次のpageが存在するか
+	//
+	// Example: true
+	HasNext bool `json:"hasNext"`
+
+	// Limit Example: 50
+	Limit int32 `json:"limit"`
+
+	// Offset Example: 0
+	Offset int32 `json:"offset"`
+
+	// TotalCount 絞り込み条件に一致する総件数
+	//
+	// Example: 128
+	TotalCount int64 `json:"totalCount"`
 }
 
 // RegisterUserRequest defines model for RegisterUserRequest.
@@ -79,7 +570,9 @@ type RegisterUserRequest struct {
 	// Example: user@example.com
 	Email string `json:"email"`
 
-	// Locale Example: ja-JP
+	// Locale 未指定時はserverがja-JPを適用する。
+	//
+	// Example: ja-JP
 	Locale *string `json:"locale,omitempty"`
 
 	// Password Argon2idでhash化して保存する。平文は保存・log出力しない。
@@ -87,11 +580,122 @@ type RegisterUserRequest struct {
 	// Example: correct-horse-battery
 	Password string `json:"password"`
 
-	// Timezone IANA timezone名。未指定時はAsia/Tokyoとする。
+	// Timezone IANA timezone名。未指定時はserverがAsia/Tokyoを適用する。
+	// 既定値の適用はserverの責務のため、schemaへdefaultを記述しない。
+	//
 	//
 	// Example: Asia/Tokyo
 	Timezone *string `json:"timezone,omitempty"`
 }
+
+// SortOrder Example: desc
+type SortOrder string
+
+// SubstitutabilityCode 代替可能性 (設計書 14.4)
+//
+// Example: none
+type SubstitutabilityCode string
+
+// TagListResponse defines model for TagListResponse.
+type TagListResponse struct {
+	Items []TagResponse `json:"items"`
+}
+
+// TagReferenceResponse defines model for TagReferenceResponse.
+type TagReferenceResponse struct {
+	// Name Example: 防災
+	Name     string             `json:"name"`
+	PublicId openapi_types.UUID `json:"publicId"`
+}
+
+// TagResponse defines model for TagResponse.
+type TagResponse struct {
+	CreatedAt time.Time `json:"createdAt"`
+
+	// ItemCount 本タグが付与されているarchive前アイテムの件数
+	//
+	// Example: 3
+	ItemCount int64 `json:"itemCount"`
+
+	// Name Example: 防災
+	Name      string             `json:"name"`
+	PublicId  openapi_types.UUID `json:"publicId"`
+	UpdatedAt time.Time          `json:"updatedAt"`
+
+	// Version Example: 1
+	Version int32 `json:"version"`
+}
+
+// UpdateItemRequest 全項目を置き換える。CreateItemRequestと同じ項目に `expectedVersion` を加える。
+// allOfで合成せず明示的に列挙し、`additionalProperties: false` を正しく機能させる。
+type UpdateItemRequest struct {
+	CategoryPublicId  openapi_types.UUID `json:"categoryPublicId"`
+	DesiredQuantity   *int32             `json:"desiredQuantity,omitempty"`
+	DisposalCondition *string            `json:"disposalCondition,omitempty"`
+
+	// ExpectedVersion 楽観ロック用の現在version (設計書 11.7)
+	ExpectedVersion int32               `json:"expectedVersion"`
+	ExpiresOn       *openapi_types.Date `json:"expiresOn,omitempty"`
+	IsFragile       *bool               `json:"isFragile,omitempty"`
+	IsSentimental   *bool               `json:"isSentimental,omitempty"`
+	IsValuable      *bool               `json:"isValuable,omitempty"`
+
+	// ItemKindCode 未指定時はserverが `durable` を適用する。
+	ItemKindCode *ItemKindCode `json:"itemKindCode,omitempty"`
+	LastUsedAt   *time.Time    `json:"lastUsedAt,omitempty"`
+
+	// MobilityClassCode 携行区分 (設計書 16.1)
+	//
+	// Example: daily_bag
+	MobilityClassCode MobilityClassCode `json:"mobilityClassCode"`
+	Name              string            `json:"name"`
+
+	// NecessityLevelCode 必要度 (設計書 14.5)
+	//
+	// Example: essential
+	NecessityLevelCode  NecessityLevelCode  `json:"necessityLevelCode"`
+	Notes               *string             `json:"notes,omitempty"`
+	OwnershipReason     *string             `json:"ownershipReason,omitempty"`
+	PurchaseAmount      *int64              `json:"purchaseAmount,omitempty"`
+	PurchasedOn         *openapi_types.Date `json:"purchasedOn,omitempty"`
+	Quantity            int32               `json:"quantity"`
+	ReplacementAmount   *int64              `json:"replacementAmount,omitempty"`
+	RequiresMaintenance *bool               `json:"requiresMaintenance,omitempty"`
+	ResaleAmount        *int64              `json:"resaleAmount,omitempty"`
+	SourceUrl           *string             `json:"sourceUrl,omitempty"`
+
+	// SubstitutabilityCode 代替可能性 (設計書 14.4)
+	//
+	// Example: none
+	SubstitutabilityCode SubstitutabilityCode  `json:"substitutabilityCode"`
+	TagPublicIds         *[]openapi_types.UUID `json:"tagPublicIds,omitempty"`
+
+	// UnitName 未指定時はserverが `個` を適用する。
+	UnitName *string `json:"unitName,omitempty"`
+
+	// UsageFrequencyCode 使用頻度 (設計書 14.3)
+	//
+	// Example: monthly
+	UsageFrequencyCode UsageFrequencyCode `json:"usageFrequencyCode"`
+	VolumeMilliliter   *int32             `json:"volumeMilliliter,omitempty"`
+	WeightGram         *int32             `json:"weightGram,omitempty"`
+}
+
+// UpdateTagRequest defines model for UpdateTagRequest.
+type UpdateTagRequest struct {
+	// ExpectedVersion 楽観ロック用の現在version (設計書 11.7)
+	//
+	// Example: 1
+	ExpectedVersion int32 `json:"expectedVersion"`
+
+	// Name Example: 防災用品
+	Name string `json:"name"`
+}
+
+// UsageFrequencyCode 使用頻度 (設計書 14.3)
+//
+// Example: monthly
+type UsageFrequencyCode string
 
 // UserResponse 内部IDを含めない (設計書 12.1)
 type UserResponse struct {
@@ -117,14 +721,29 @@ type UserResponse struct {
 	UpdatedAt time.Time `json:"updatedAt"`
 }
 
+// LimitQueryParameter defines model for LimitQueryParameter.
+type LimitQueryParameter = int32
+
+// OffsetQueryParameter defines model for OffsetQueryParameter.
+type OffsetQueryParameter = int32
+
+// PublicIdPathParameter defines model for PublicIdPathParameter.
+type PublicIdPathParameter = openapi_types.UUID
+
 // BadRequest 全endpointで共通のerror形式 (設計書 12.3)
 type BadRequest = ErrorResponse
+
+// Conflict 全endpointで共通のerror形式 (設計書 12.3)
+type Conflict = ErrorResponse
 
 // Forbidden 全endpointで共通のerror形式 (設計書 12.3)
 type Forbidden = ErrorResponse
 
 // InternalServerError 全endpointで共通のerror形式 (設計書 12.3)
 type InternalServerError = ErrorResponse
+
+// NotFound 全endpointで共通のerror形式 (設計書 12.3)
+type NotFound = ErrorResponse
 
 // TooManyRequests 全endpointで共通のerror形式 (設計書 12.3)
 type TooManyRequests = ErrorResponse
@@ -135,11 +754,77 @@ type Unauthorized = ErrorResponse
 // UnprocessableEntity 全endpointで共通のerror形式 (設計書 12.3)
 type UnprocessableEntity = ErrorResponse
 
+// ListItemsParams defines parameters for ListItems.
+type ListItemsParams struct {
+	// Keyword アイテム名またはメモの部分一致 (大文字小文字を区別しない)
+	Keyword *string `form:"keyword,omitempty" json:"keyword,omitempty"`
+
+	// CategoryPublicId カテゴリーで絞り込む
+	CategoryPublicId *openapi_types.UUID `form:"categoryPublicId,omitempty" json:"categoryPublicId,omitempty"`
+
+	// TagPublicId タグで絞り込む
+	TagPublicId        *openapi_types.UUID `form:"tagPublicId,omitempty" json:"tagPublicId,omitempty"`
+	NecessityLevelCode *NecessityLevelCode `form:"necessityLevelCode,omitempty" json:"necessityLevelCode,omitempty"`
+	UsageFrequencyCode *UsageFrequencyCode `form:"usageFrequencyCode,omitempty" json:"usageFrequencyCode,omitempty"`
+	MobilityClassCode  *MobilityClassCode  `form:"mobilityClassCode,omitempty" json:"mobilityClassCode,omitempty"`
+
+	// IncludeDeleted archive済みのアイテムを含めるか。未指定時はfalse。
+	IncludeDeleted *bool `form:"includeDeleted,omitempty" json:"includeDeleted,omitempty"`
+
+	// Sort 並び替えkey。未指定時は updatedAt。
+	Sort *ItemSortKey `form:"sort,omitempty" json:"sort,omitempty"`
+
+	// Order 並び順。未指定時は desc。
+	Order *SortOrder `form:"order,omitempty" json:"order,omitempty"`
+
+	// Limit 取得件数。未指定時は50。
+	Limit *LimitQueryParameter `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset 読み飛ばす件数。未指定時は0。
+	Offset *OffsetQueryParameter `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// ListItemUsageRecordsParams defines parameters for ListItemUsageRecords.
+type ListItemUsageRecordsParams struct {
+	// Limit 取得件数。未指定時は50。
+	Limit *LimitQueryParameter `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset 読み飛ばす件数。未指定時は0。
+	Offset *OffsetQueryParameter `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// DeleteTagParams defines parameters for DeleteTag.
+type DeleteTagParams struct {
+	// ExpectedVersion 楽観ロック用の現在version (設計書 11.7)
+	ExpectedVersion int32 `form:"expectedVersion" json:"expectedVersion"`
+}
+
 // LoginUserJSONRequestBody defines body for LoginUser for application/json ContentType.
 type LoginUserJSONRequestBody = LoginUserRequest
 
 // RegisterUserJSONRequestBody defines body for RegisterUser for application/json ContentType.
 type RegisterUserJSONRequestBody = RegisterUserRequest
+
+// CreateItemJSONRequestBody defines body for CreateItem for application/json ContentType.
+type CreateItemJSONRequestBody = CreateItemRequest
+
+// UpdateItemJSONRequestBody defines body for UpdateItem for application/json ContentType.
+type UpdateItemJSONRequestBody = UpdateItemRequest
+
+// ArchiveItemJSONRequestBody defines body for ArchiveItem for application/json ContentType.
+type ArchiveItemJSONRequestBody = ItemVersionRequest
+
+// RestoreItemJSONRequestBody defines body for RestoreItem for application/json ContentType.
+type RestoreItemJSONRequestBody = ItemVersionRequest
+
+// CreateItemUsageRecordJSONRequestBody defines body for CreateItemUsageRecord for application/json ContentType.
+type CreateItemUsageRecordJSONRequestBody = CreateItemUsageRecordRequest
+
+// CreateTagJSONRequestBody defines body for CreateTag for application/json ContentType.
+type CreateTagJSONRequestBody = CreateTagRequest
+
+// UpdateTagJSONRequestBody defines body for UpdateTag for application/json ContentType.
+type UpdateTagJSONRequestBody = UpdateTagRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -155,6 +840,45 @@ type ServerInterface interface {
 	// RegisterUser ユーザーを登録する
 	// (POST /auth/register)
 	RegisterUser(w http.ResponseWriter, r *http.Request)
+	// ListCategories カテゴリー一覧を取得する
+	// (GET /categories)
+	ListCategories(w http.ResponseWriter, r *http.Request)
+	// ListItems 所持品一覧を取得する
+	// (GET /items)
+	ListItems(w http.ResponseWriter, r *http.Request, params ListItemsParams)
+	// CreateItem 所持品を登録する
+	// (POST /items)
+	CreateItem(w http.ResponseWriter, r *http.Request)
+	// GetItemByPublicId 所持品を取得する
+	// (GET /items/{publicId})
+	GetItemByPublicId(w http.ResponseWriter, r *http.Request, publicId PublicIdPathParameter)
+	// UpdateItem 所持品を更新する
+	// (PUT /items/{publicId})
+	UpdateItem(w http.ResponseWriter, r *http.Request, publicId PublicIdPathParameter)
+	// ArchiveItem 所持品をarchiveする
+	// (POST /items/{publicId}/archive)
+	ArchiveItem(w http.ResponseWriter, r *http.Request, publicId PublicIdPathParameter)
+	// RestoreItem archive済みの所持品を復元する
+	// (POST /items/{publicId}/restore)
+	RestoreItem(w http.ResponseWriter, r *http.Request, publicId PublicIdPathParameter)
+	// ListItemUsageRecords 使用記録の履歴を取得する
+	// (GET /items/{publicId}/usage-records)
+	ListItemUsageRecords(w http.ResponseWriter, r *http.Request, publicId PublicIdPathParameter, params ListItemUsageRecordsParams)
+	// CreateItemUsageRecord 使用記録を登録する
+	// (POST /items/{publicId}/usage-records)
+	CreateItemUsageRecord(w http.ResponseWriter, r *http.Request, publicId PublicIdPathParameter)
+	// ListTags タグ一覧を取得する
+	// (GET /tags)
+	ListTags(w http.ResponseWriter, r *http.Request)
+	// CreateTag タグを登録する
+	// (POST /tags)
+	CreateTag(w http.ResponseWriter, r *http.Request)
+	// DeleteTag タグを削除する
+	// (DELETE /tags/{publicId})
+	DeleteTag(w http.ResponseWriter, r *http.Request, publicId PublicIdPathParameter, params DeleteTagParams)
+	// UpdateTag タグを更新する
+	// (PUT /tags/{publicId})
+	UpdateTag(w http.ResponseWriter, r *http.Request, publicId PublicIdPathParameter)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -182,6 +906,84 @@ func (_ Unimplemented) LogoutUser(w http.ResponseWriter, r *http.Request) {
 // RegisterUser ユーザーを登録する
 // (POST /auth/register)
 func (_ Unimplemented) RegisterUser(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListCategories カテゴリー一覧を取得する
+// (GET /categories)
+func (_ Unimplemented) ListCategories(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListItems 所持品一覧を取得する
+// (GET /items)
+func (_ Unimplemented) ListItems(w http.ResponseWriter, r *http.Request, params ListItemsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CreateItem 所持品を登録する
+// (POST /items)
+func (_ Unimplemented) CreateItem(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetItemByPublicId 所持品を取得する
+// (GET /items/{publicId})
+func (_ Unimplemented) GetItemByPublicId(w http.ResponseWriter, r *http.Request, publicId PublicIdPathParameter) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpdateItem 所持品を更新する
+// (PUT /items/{publicId})
+func (_ Unimplemented) UpdateItem(w http.ResponseWriter, r *http.Request, publicId PublicIdPathParameter) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ArchiveItem 所持品をarchiveする
+// (POST /items/{publicId}/archive)
+func (_ Unimplemented) ArchiveItem(w http.ResponseWriter, r *http.Request, publicId PublicIdPathParameter) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RestoreItem archive済みの所持品を復元する
+// (POST /items/{publicId}/restore)
+func (_ Unimplemented) RestoreItem(w http.ResponseWriter, r *http.Request, publicId PublicIdPathParameter) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListItemUsageRecords 使用記録の履歴を取得する
+// (GET /items/{publicId}/usage-records)
+func (_ Unimplemented) ListItemUsageRecords(w http.ResponseWriter, r *http.Request, publicId PublicIdPathParameter, params ListItemUsageRecordsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CreateItemUsageRecord 使用記録を登録する
+// (POST /items/{publicId}/usage-records)
+func (_ Unimplemented) CreateItemUsageRecord(w http.ResponseWriter, r *http.Request, publicId PublicIdPathParameter) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListTags タグ一覧を取得する
+// (GET /tags)
+func (_ Unimplemented) ListTags(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CreateTag タグを登録する
+// (POST /tags)
+func (_ Unimplemented) CreateTag(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DeleteTag タグを削除する
+// (DELETE /tags/{publicId})
+func (_ Unimplemented) DeleteTag(w http.ResponseWriter, r *http.Request, publicId PublicIdPathParameter, params DeleteTagParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpdateTag タグを更新する
+// (PUT /tags/{publicId})
+func (_ Unimplemented) UpdateTag(w http.ResponseWriter, r *http.Request, publicId PublicIdPathParameter) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -241,6 +1043,478 @@ func (siw *ServerInterfaceWrapper) RegisterUser(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RegisterUser(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListCategories operation middleware
+func (siw *ServerInterfaceWrapper) ListCategories(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListCategories(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListItems operation middleware
+func (siw *ServerInterfaceWrapper) ListItems(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListItemsParams
+
+	// ------------- Optional query parameter "keyword" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "keyword", r.URL.Query(), &params.Keyword, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "keyword"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "keyword", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "categoryPublicId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "categoryPublicId", r.URL.Query(), &params.CategoryPublicId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "categoryPublicId"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "categoryPublicId", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "tagPublicId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "tagPublicId", r.URL.Query(), &params.TagPublicId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "tagPublicId"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tagPublicId", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "necessityLevelCode" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "necessityLevelCode", r.URL.Query(), &params.NecessityLevelCode, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "necessityLevelCode"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "necessityLevelCode", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "usageFrequencyCode" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "usageFrequencyCode", r.URL.Query(), &params.UsageFrequencyCode, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "usageFrequencyCode"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "usageFrequencyCode", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "mobilityClassCode" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "mobilityClassCode", r.URL.Query(), &params.MobilityClassCode, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "mobilityClassCode"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "mobilityClassCode", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "includeDeleted" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "includeDeleted", r.URL.Query(), &params.IncludeDeleted, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "includeDeleted"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "includeDeleted", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "sort" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "sort", r.URL.Query(), &params.Sort, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "sort"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sort", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "order" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "order", r.URL.Query(), &params.Order, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "order"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "order", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", r.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "offset"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListItems(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateItem operation middleware
+func (siw *ServerInterfaceWrapper) CreateItem(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateItem(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetItemByPublicId operation middleware
+func (siw *ServerInterfaceWrapper) GetItemByPublicId(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "publicId" -------------
+	var publicId PublicIdPathParameter
+
+	err = runtime.BindStyledParameterWithOptions("simple", "publicId", chi.URLParam(r, "publicId"), &publicId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "publicId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetItemByPublicId(w, r, publicId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateItem operation middleware
+func (siw *ServerInterfaceWrapper) UpdateItem(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "publicId" -------------
+	var publicId PublicIdPathParameter
+
+	err = runtime.BindStyledParameterWithOptions("simple", "publicId", chi.URLParam(r, "publicId"), &publicId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "publicId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateItem(w, r, publicId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ArchiveItem operation middleware
+func (siw *ServerInterfaceWrapper) ArchiveItem(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "publicId" -------------
+	var publicId PublicIdPathParameter
+
+	err = runtime.BindStyledParameterWithOptions("simple", "publicId", chi.URLParam(r, "publicId"), &publicId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "publicId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ArchiveItem(w, r, publicId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RestoreItem operation middleware
+func (siw *ServerInterfaceWrapper) RestoreItem(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "publicId" -------------
+	var publicId PublicIdPathParameter
+
+	err = runtime.BindStyledParameterWithOptions("simple", "publicId", chi.URLParam(r, "publicId"), &publicId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "publicId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RestoreItem(w, r, publicId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListItemUsageRecords operation middleware
+func (siw *ServerInterfaceWrapper) ListItemUsageRecords(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "publicId" -------------
+	var publicId PublicIdPathParameter
+
+	err = runtime.BindStyledParameterWithOptions("simple", "publicId", chi.URLParam(r, "publicId"), &publicId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "publicId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListItemUsageRecordsParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", r.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "offset"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListItemUsageRecords(w, r, publicId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateItemUsageRecord operation middleware
+func (siw *ServerInterfaceWrapper) CreateItemUsageRecord(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "publicId" -------------
+	var publicId PublicIdPathParameter
+
+	err = runtime.BindStyledParameterWithOptions("simple", "publicId", chi.URLParam(r, "publicId"), &publicId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "publicId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateItemUsageRecord(w, r, publicId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListTags operation middleware
+func (siw *ServerInterfaceWrapper) ListTags(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListTags(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateTag operation middleware
+func (siw *ServerInterfaceWrapper) CreateTag(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateTag(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteTag operation middleware
+func (siw *ServerInterfaceWrapper) DeleteTag(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "publicId" -------------
+	var publicId PublicIdPathParameter
+
+	err = runtime.BindStyledParameterWithOptions("simple", "publicId", chi.URLParam(r, "publicId"), &publicId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "publicId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteTagParams
+
+	// ------------- Required query parameter "expectedVersion" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "expectedVersion", r.URL.Query(), &params.ExpectedVersion, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "expectedVersion"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "expectedVersion", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteTag(w, r, publicId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateTag operation middleware
+func (siw *ServerInterfaceWrapper) UpdateTag(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "publicId" -------------
+	var publicId PublicIdPathParameter
+
+	err = runtime.BindStyledParameterWithOptions("simple", "publicId", chi.URLParam(r, "publicId"), &publicId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "publicId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateTag(w, r, publicId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -375,6 +1649,45 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/auth/context", wrapper.GetAuthenticatedUserContext)
 	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/categories", wrapper.ListCategories)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/tags", wrapper.ListTags)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/tags", wrapper.CreateTag)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/tags/{publicId}", wrapper.DeleteTag)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/tags/{publicId}", wrapper.UpdateTag)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/items", wrapper.ListItems)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/items", wrapper.CreateItem)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/items/{publicId}", wrapper.GetItemByPublicId)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/items/{publicId}", wrapper.UpdateItem)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/items/{publicId}/archive", wrapper.ArchiveItem)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/items/{publicId}/restore", wrapper.RestoreItem)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/items/{publicId}/usage-records", wrapper.ListItemUsageRecords)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/items/{publicId}/usage-records", wrapper.CreateItemUsageRecord)
+	})
 
 	return r
 }
@@ -384,63 +1697,142 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"KLH/iZqmdx27k0rDh5o8dG3ofwEAAP//",
+	"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",
+	"eGbjV8b/XwAAAP//",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

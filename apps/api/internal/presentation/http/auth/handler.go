@@ -51,9 +51,9 @@ func NewHandler(dependencies HandlerDependencies) *Handler {
 	}
 }
 
-// OpenAPIのServerInterfaceを満たすことをcompile時に確認する。
-// これによりOpenAPIへendpointを追加した際、実装漏れがbuild errorとなる。
-var _ openapi.ServerInterface = (*Handler)(nil)
+// OpenAPI全体のServerInterfaceは、featureごとのHandlerを束ねた
+// presentation/http.APIServer が満たす。
+// 実装漏れのcompile時検出はそちらで行う。
 
 // RegisterUser はユーザーを登録する。
 // POST /api/auth/register

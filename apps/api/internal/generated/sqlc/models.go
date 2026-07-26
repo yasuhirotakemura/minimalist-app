@@ -11,6 +11,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type AuditAuditLog struct {
+	ID             int64
+	PublicID       uuid.UUID
+	UserID         int64
+	ActionCode     string
+	TargetTypeCode string
+	TargetPublicID *uuid.UUID
+	Changes        []byte
+	CreatedAt      pgtype.Timestamptz
+}
+
 type IdentityAuthSession struct {
 	ID         int64
 	PublicID   uuid.UUID
@@ -48,4 +59,84 @@ type IdentityUserPasswordAuth struct {
 	CreatedAt         pgtype.Timestamptz
 	UpdatedAt         pgtype.Timestamptz
 	Version           int32
+}
+
+type OwnershipCategory struct {
+	ID          int64
+	PublicID    uuid.UUID
+	UserID      int64
+	Name        string
+	Description *string
+	SortOrder   int32
+	CreatedAt   pgtype.Timestamptz
+	UpdatedAt   pgtype.Timestamptz
+	DeletedAt   pgtype.Timestamptz
+	Version     int32
+}
+
+type OwnershipItem struct {
+	ID                   int64
+	PublicID             uuid.UUID
+	UserID               int64
+	CategoryID           int64
+	Name                 string
+	ItemKindCode         string
+	Quantity             int32
+	DesiredQuantity      *int32
+	UnitName             string
+	NecessityLevelCode   string
+	UsageFrequencyCode   string
+	SubstitutabilityCode string
+	MobilityClassCode    string
+	OwnershipReason      *string
+	DisposalCondition    *string
+	LastUsedAt           pgtype.Timestamptz
+	PurchasedOn          pgtype.Date
+	PurchaseAmount       *int64
+	ReplacementAmount    *int64
+	ResaleAmount         *int64
+	WeightGram           *int32
+	VolumeMilliliter     *int32
+	IsFragile            bool
+	IsValuable           bool
+	IsSentimental        bool
+	RequiresMaintenance  bool
+	ExpiresOn            pgtype.Date
+	SourceUrl            *string
+	Notes                *string
+	IsConfirmed          bool
+	ConfirmedAt          pgtype.Timestamptz
+	CreatedAt            pgtype.Timestamptz
+	UpdatedAt            pgtype.Timestamptz
+	DeletedAt            pgtype.Timestamptz
+	Version              int32
+}
+
+type OwnershipItemTag struct {
+	UserID    int64
+	ItemID    int64
+	TagID     int64
+	CreatedAt pgtype.Timestamptz
+}
+
+type OwnershipItemUsageRecord struct {
+	ID        int64
+	PublicID  uuid.UUID
+	UserID    int64
+	ItemID    int64
+	UsedAt    pgtype.Timestamptz
+	Quantity  int32
+	Note      *string
+	CreatedAt pgtype.Timestamptz
+}
+
+type OwnershipTag struct {
+	ID        int64
+	PublicID  uuid.UUID
+	UserID    int64
+	Name      string
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
+	DeletedAt pgtype.Timestamptz
+	Version   int32
 }

@@ -40,6 +40,7 @@ func newLoginFixture() loginFixture {
 	dependencies := applicationauth.Dependencies{
 		Users:                 users,
 		Sessions:              sessions,
+		Categories:            newFakeCategoryRepository(),
 		PasswordHasher:        passwordHasher,
 		SessionTokenGenerator: newFixedSessionTokenGenerator(firstTokenValue, secondTokenValue),
 		SessionTTL:            testSessionTTL,

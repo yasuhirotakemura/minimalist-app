@@ -32,7 +32,7 @@ const (
 type RouterDependencies struct {
 	Logger             *slog.Logger
 	Clock              clock.Clock
-	AuthHandler        *authhttp.Handler
+	APIServer          *APIServer
 	Authenticator      *authhttp.Authenticator
 	HealthHandler      *health.Handler
 	CSRFTokenIssuer    *shared.CSRFTokenIssuer
@@ -50,8 +50,15 @@ type RouterDependencies struct {
 //	/api/auth/register   : IP単位のrate limit。
 //	/api/auth/login      : IP単位のrate limit (email単位はhandler内)。
 //	/api/auth/context    : 認証必須。
+//	/api/categories      : 認証必須。
+//	/api/tags            : 認証必須。
+//	/api/items           : 認証必須。
+//
+// path・query parameterの解釈はOpenAPI生成のServerInterfaceWrapperへ委ね、
+// routeごとのmiddleware適用のためroute登録は明示的に行う。
 func NewRouter(dependencies RouterDependencies) http.Handler {
 	router := chi.NewRouter()
+	wrapper := newServerWrapper(dependencies.APIServer)
 
 	router.Use(shared.RequestID())
 	router.Use(shared.InjectLogger(dependencies.Logger))
@@ -76,16 +83,41 @@ func NewRouter(dependencies RouterDependencies) http.Handler {
 		apiRouter.Route("/auth", func(authRouter chi.Router) {
 			authRouter.Group(func(publicRouter chi.Router) {
 				publicRouter.Use(shared.RateLimitByClientIP(ipRateLimiter, authRateLimitScopeIP))
-				publicRouter.Post("/register", dependencies.AuthHandler.RegisterUser)
-				publicRouter.Post("/login", dependencies.AuthHandler.LoginUser)
+				publicRouter.Post("/register", wrapper.RegisterUser)
+				publicRouter.Post("/login", wrapper.LoginUser)
 			})
 
 			// logoutは未認証でも204を返すため、認証middlewareを適用しない。
-			authRouter.Post("/logout", dependencies.AuthHandler.LogoutUser)
+			authRouter.Post("/logout", wrapper.LogoutUser)
 
 			authRouter.Group(func(protectedRouter chi.Router) {
 				protectedRouter.Use(dependencies.Authenticator.RequireAuthenticatedUser())
-				protectedRouter.Get("/context", dependencies.AuthHandler.GetAuthenticatedUserContext)
+				protectedRouter.Get("/context", wrapper.GetAuthenticatedUserContext)
+			})
+		})
+
+		// 所持品・カテゴリー・タグは全て認証必須とする。
+		apiRouter.Group(func(protectedRouter chi.Router) {
+			protectedRouter.Use(dependencies.Authenticator.RequireAuthenticatedUser())
+
+			protectedRouter.Get("/categories", wrapper.ListCategories)
+
+			protectedRouter.Route("/tags", func(tagRouter chi.Router) {
+				tagRouter.Get("/", wrapper.ListTags)
+				tagRouter.Post("/", wrapper.CreateTag)
+				tagRouter.Put("/{publicId}", wrapper.UpdateTag)
+				tagRouter.Delete("/{publicId}", wrapper.DeleteTag)
+			})
+
+			protectedRouter.Route("/items", func(itemRouter chi.Router) {
+				itemRouter.Get("/", wrapper.ListItems)
+				itemRouter.Post("/", wrapper.CreateItem)
+				itemRouter.Get("/{publicId}", wrapper.GetItemByPublicId)
+				itemRouter.Put("/{publicId}", wrapper.UpdateItem)
+				itemRouter.Post("/{publicId}/archive", wrapper.ArchiveItem)
+				itemRouter.Post("/{publicId}/restore", wrapper.RestoreItem)
+				itemRouter.Get("/{publicId}/usage-records", wrapper.ListItemUsageRecords)
+				itemRouter.Post("/{publicId}/usage-records", wrapper.CreateItemUsageRecord)
 			})
 		})
 

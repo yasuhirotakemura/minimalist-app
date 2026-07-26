@@ -11,7 +11,11 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	applicationaudit "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/application/audit"
 	applicationauth "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/application/auth"
+	applicationcategory "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/application/category"
+	applicationitem "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/application/item"
+	applicationtag "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/application/tag"
 	"github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/infrastructure/config"
 	"github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/infrastructure/crypto"
 	infrapostgresql "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/infrastructure/postgresql"
@@ -20,8 +24,11 @@ import (
 	"github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/platform/idgenerator"
 	presentationhttp "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/presentation/http"
 	authhttp "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/presentation/http/auth"
+	categoryhttp "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/presentation/http/category"
 	"github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/presentation/http/health"
+	itemhttp "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/presentation/http/item"
 	"github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/presentation/http/shared"
+	taghttp "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/presentation/http/tag"
 )
 
 // Application は組み立て済みのapplicationを表す。
@@ -79,12 +86,33 @@ func NewHandler(
 		return nil, fmt.Errorf("initialize csrf token issuer: %w", err)
 	}
 
+	categoryRepository := repositories.NewPostgresqlCategoryRepository(pool)
+	tagRepository := repositories.NewPostgresqlTagRepository(pool)
+	itemRepository := repositories.NewPostgresqlItemRepository(pool)
+	usageRecordRepository := repositories.NewPostgresqlItemUsageRecordRepository(pool)
+	auditRecorder := applicationaudit.NewRecorder(
+		repositories.NewPostgresqlAuditLogRepository(pool), publicIDGenerator, systemClock)
+
 	authDependencies := applicationauth.Dependencies{
 		Users:                 repositories.NewPostgresqlUserRepository(pool),
 		Sessions:              repositories.NewPostgresqlAuthSessionRepository(pool),
+		Categories:            categoryRepository,
 		PasswordHasher:        passwordHasher,
 		SessionTokenGenerator: crypto.NewRandomSessionTokenGenerator(),
 		SessionTTL:            cfg.SessionTTL,
+	}
+
+	itemDependencies := applicationitem.Dependencies{
+		Items:         itemRepository,
+		UsageRecords:  usageRecordRepository,
+		Categories:    categoryRepository,
+		Tags:          tagRepository,
+		AuditRecorder: auditRecorder,
+	}
+
+	tagDependencies := applicationtag.Dependencies{
+		Tags:          tagRepository,
+		AuditRecorder: auditRecorder,
 	}
 
 	getAuthenticatedUserContext := applicationauth.NewGetAuthenticatedUserContextService(
@@ -106,10 +134,42 @@ func NewHandler(
 		LoginAttemptLimiter: loginAttemptLimiter,
 	})
 
+	categoryHandler := categoryhttp.NewHandler(categoryhttp.HandlerDependencies{
+		ListCategories: applicationcategory.NewListCategoriesService(
+			applicationcategory.Dependencies{Categories: categoryRepository}),
+	})
+
+	itemHandler := itemhttp.NewHandler(itemhttp.HandlerDependencies{
+		CreateItem: applicationitem.NewCreateItemService(
+			itemDependencies, publicIDGenerator, systemClock, transactionManager),
+		UpdateItem: applicationitem.NewUpdateItemService(
+			itemDependencies, systemClock, transactionManager),
+		GetItem:   applicationitem.NewGetItemService(itemDependencies),
+		ListItems: applicationitem.NewListItemsService(itemDependencies),
+		ArchiveItem: applicationitem.NewArchiveItemService(
+			itemDependencies, systemClock, transactionManager),
+		RestoreItem: applicationitem.NewRestoreItemService(
+			itemDependencies, systemClock, transactionManager),
+		RecordItemUsage: applicationitem.NewRecordItemUsageService(
+			itemDependencies, publicIDGenerator, systemClock, transactionManager),
+		ListItemUsageRecords: applicationitem.NewListItemUsageRecordsService(itemDependencies),
+	})
+
+	tagHandler := taghttp.NewHandler(taghttp.HandlerDependencies{
+		ListTags: applicationtag.NewListTagsService(tagDependencies),
+		CreateTag: applicationtag.NewCreateTagService(
+			tagDependencies, publicIDGenerator, systemClock, transactionManager),
+		UpdateTag: applicationtag.NewUpdateTagService(
+			tagDependencies, systemClock, transactionManager),
+		DeleteTag: applicationtag.NewDeleteTagService(
+			tagDependencies, systemClock, transactionManager),
+	})
+
 	return presentationhttp.NewRouter(presentationhttp.RouterDependencies{
-		Logger:              logger,
-		Clock:               systemClock,
-		AuthHandler:         authHandler,
+		Logger: logger,
+		Clock:  systemClock,
+		APIServer: presentationhttp.NewAPIServer(
+			authHandler, categoryHandler, itemHandler, tagHandler),
 		Authenticator:       authhttp.NewAuthenticator(getAuthenticatedUserContext, sessionCookie),
 		HealthHandler:       health.NewHandler(pool),
 		CSRFTokenIssuer:     csrfTokenIssuer,

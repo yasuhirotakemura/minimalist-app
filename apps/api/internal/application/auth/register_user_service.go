@@ -3,8 +3,10 @@ package auth
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/domain/auth"
+	domaincategory "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/domain/category"
 	"github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/domain/shared"
 	"github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/platform/clock"
 	"github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/platform/idgenerator"
@@ -30,6 +32,7 @@ type RegisterUserResult struct {
 // RegisterUserService はユーザーを登録する。
 type RegisterUserService struct {
 	users              auth.UserRepository
+	categories         domaincategory.CategoryRepository
 	passwordHasher     auth.PasswordHasher
 	publicIDGenerator  idgenerator.PublicIDGenerator
 	clock              clock.Clock
@@ -45,6 +48,7 @@ func NewRegisterUserService(
 ) *RegisterUserService {
 	return &RegisterUserService{
 		users:              dependencies.Users,
+		categories:         dependencies.Categories,
 		passwordHasher:     dependencies.PasswordHasher,
 		publicIDGenerator:  publicIDGenerator,
 		clock:              systemClock,
@@ -106,7 +110,13 @@ func (s *RegisterUserService) Execute(
 		}
 
 		created, err = s.users.Create(ctx, user, passwordHash)
-		return err
+		if err != nil {
+			return err
+		}
+
+		// 登録直後からアイテムを分類できるよう、既定カテゴリーを同一transactionで作成する
+		// (設計書 28章 Phase 1「Category初期data」)。
+		return s.createDefaultCategories(ctx, created)
 	})
 	if err != nil {
 		return RegisterUserResult{}, err
@@ -119,4 +129,43 @@ func (s *RegisterUserService) Execute(
 	}
 
 	return RegisterUserResult{User: newUserResult(created)}, nil
+}
+
+// createDefaultCategories は既定カテゴリーを作成する。
+//
+// 呼び出し元のtransaction内で実行し、失敗した場合はユーザー登録ごとrollbackする。
+// カテゴリーが1件も無い状態のユーザーを作らないようにするためである。
+func (s *RegisterUserService) createDefaultCategories(
+	ctx context.Context,
+	user auth.User,
+) error {
+	definitions := domaincategory.DefaultCategoryDefinitions()
+	categories := make([]domaincategory.Category, 0, len(definitions))
+
+	for _, definition := range definitions {
+		publicID, err := s.publicIDGenerator.NewPublicID()
+		if err != nil {
+			return shared.NewInternalError(
+				"PUBLIC_ID_GENERATION_FAILED", "サーバーでエラーが発生しました。").WithCause(err)
+		}
+
+		description := definition.Description
+		newCategory, err := domaincategory.NewCategory(
+			publicID,
+			user.ID(),
+			definition.Name,
+			&description,
+			definition.SortOrder,
+			s.clock.Now(),
+		)
+		if err != nil {
+			return fmt.Errorf("build default category %q: %w", definition.Name, err)
+		}
+		categories = append(categories, newCategory)
+	}
+
+	if _, err := s.categories.CreateAll(ctx, categories); err != nil {
+		return err
+	}
+	return nil
 }

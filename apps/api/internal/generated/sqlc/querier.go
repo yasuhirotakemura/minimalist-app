@@ -12,22 +12,80 @@ import (
 )
 
 type Querier interface {
+	// archiveはsoft deleteとして表現する (設計書 1.4 / 12.4)。
+	ArchiveItem(ctx context.Context, arg ArchiveItemParams) (OwnershipItem, error)
+	CountActiveItemsByTagID(ctx context.Context, arg CountActiveItemsByTagIDParams) (int64, error)
+	CountItemUsageRecordsByItemID(ctx context.Context, arg CountItemUsageRecordsByItemIDParams) (int64, error)
+	// ListItemsと同一の絞り込み条件で総件数を返す。
+	CountItems(ctx context.Context, arg CountItemsParams) (int64, error)
 	DeleteExpiredAuthSessions(ctx context.Context, expiredBefore pgtype.Timestamptz) (int64, error)
+	DeleteItemTagsByItemID(ctx context.Context, arg DeleteItemTagsByItemIDParams) error
+	// 更新件数0の理由 (不存在か競合か) を判定するために使用する。
+	ExistsActiveTagByPublicID(ctx context.Context, arg ExistsActiveTagByPublicIDParams) (bool, error)
 	ExistsActiveUserByEmail(ctx context.Context, email string) (bool, error)
+	// 更新件数0の理由 (不存在か競合か) を判定するために使用する。
+	ExistsItemByPublicID(ctx context.Context, arg ExistsItemByPublicIDParams) (bool, error)
+	FindActiveCategoryByPublicID(ctx context.Context, arg FindActiveCategoryByPublicIDParams) (OwnershipCategory, error)
+	FindActiveTagByPublicID(ctx context.Context, arg FindActiveTagByPublicIDParams) (OwnershipTag, error)
 	FindActiveUserByEmail(ctx context.Context, email string) (IdentityUser, error)
 	FindActiveUserByID(ctx context.Context, id int64) (IdentityUser, error)
 	FindActiveUserByPublicID(ctx context.Context, publicID uuid.UUID) (IdentityUser, error)
+	// archive済み (deleted_at IS NOT NULL) も返す。
+	// 詳細画面からの復元と、archive状態の表示に使用する。
+	FindItemByPublicID(ctx context.Context, arg FindItemByPublicIDParams) (FindItemByPublicIDRow, error)
 	// 有効なsessionと所有ユーザーを1回のqueryで取得する。
 	FindLiveAuthSessionWithUserByTokenHash(ctx context.Context, arg FindLiveAuthSessionWithUserByTokenHashParams) (FindLiveAuthSessionWithUserByTokenHashRow, error)
 	FindUserPasswordAuthByUserID(ctx context.Context, userID int64) (IdentityUserPasswordAuth, error)
+	// 監査ログ (設計書 22章)。
+	// 追記のみのtableであり、更新・削除queryを持たない。
+	// changesは差分のみを保持し、機微情報を含めない。
+	InsertAuditLog(ctx context.Context, arg InsertAuditLogParams) error
 	// session tokenは保存せず、SHA-256 hashで検索する (設計書 18.1)。
 	InsertAuthSession(ctx context.Context, arg InsertAuthSessionParams) (IdentityAuthSession, error)
+	// 全てのユーザーdata queryは user internal ID を条件に含める (設計書 11.6 / 18.3)。
+	InsertCategory(ctx context.Context, arg InsertCategoryParams) (OwnershipCategory, error)
+	// 全てのユーザーdata queryは user internal ID を条件に含める (設計書 11.6 / 18.3)。
+	// 楽観ロックは version を WHERE 条件へ含め、更新件数0を競合として扱う (設計書 11.7)。
+	InsertItem(ctx context.Context, arg InsertItemParams) (OwnershipItem, error)
+	InsertItemTags(ctx context.Context, arg InsertItemTagsParams) error
+	// 全てのユーザーdata queryは user internal ID を条件に含める (設計書 11.6 / 18.3)。
+	InsertItemUsageRecord(ctx context.Context, arg InsertItemUsageRecordParams) (OwnershipItemUsageRecord, error)
+	// 全てのユーザーdata queryは user internal ID を条件に含める (設計書 11.6 / 18.3)。
+	InsertTag(ctx context.Context, arg InsertTagParams) (OwnershipTag, error)
 	// 全てのユーザーdata queryは user internal ID もしくは一意な公開値を条件に含める (設計書 11.6 / 18.3)。
 	InsertUser(ctx context.Context, arg InsertUserParams) (IdentityUser, error)
 	InsertUserPasswordAuth(ctx context.Context, arg InsertUserPasswordAuthParams) (IdentityUserPasswordAuth, error)
+	ListActiveCategoriesByUserID(ctx context.Context, userID int64) ([]OwnershipCategory, error)
+	// アイテムへ付与するタグをまとめて解決する。
+	// 指定した件数と結果件数が一致しない場合、呼び出し側は不存在として扱う。
+	ListActiveTagsByPublicIDs(ctx context.Context, arg ListActiveTagsByPublicIDsParams) ([]OwnershipTag, error)
+	// 一覧では付与済みアイテム件数を併せて返す。
+	// archive済みアイテムは件数へ含めない。
+	ListActiveTagsWithItemCountByUserID(ctx context.Context, userID int64) ([]ListActiveTagsWithItemCountByUserIDRow, error)
+	// 一覧のN+1を避けるため、pageに含まれるアイテムのタグをまとめて取得する。
+	ListItemTagsByItemIDs(ctx context.Context, arg ListItemTagsByItemIDsParams) ([]ListItemTagsByItemIDsRow, error)
+	// 履歴は使用日時の降順で返す。同時刻はid降順で安定させる。
+	ListItemUsageRecordsByItemID(ctx context.Context, arg ListItemUsageRecordsByItemIDParams) ([]OwnershipItemUsageRecord, error)
+	// 所持品一覧 (設計書 9.4)。
+	//
+	// 並び替えはsqlcで静的に生成するため、ORDER BYへCASEを並べて表現する。
+	// sort keyに一致しないCASEは全行NULLとなり順序へ影響しない。
+	// 同値時の順序を安定させるため、最後に id を加える。
+	ListItems(ctx context.Context, arg ListItemsParams) ([]ListItemsRow, error)
+	RestoreItem(ctx context.Context, arg RestoreItemParams) (OwnershipItem, error)
 	RevokeAllAuthSessionsByUserID(ctx context.Context, arg RevokeAllAuthSessionsByUserIDParams) (int64, error)
 	RevokeAuthSessionByTokenHash(ctx context.Context, arg RevokeAuthSessionByTokenHashParams) (int64, error)
+	SoftDeleteTag(ctx context.Context, arg SoftDeleteTagParams) (OwnershipTag, error)
 	TouchAuthSessionLastUsedAt(ctx context.Context, arg TouchAuthSessionLastUsedAtParams) (int64, error)
+	// 使用記録の登録に伴い最終使用日時を更新する。
+	// 既存値より古い使用日時では最終使用日時を後退させない。
+	// 使用記録は追記操作のため expectedVersion を要求しないが、
+	// 見直しスコアの再計算契機となるため version は増加させる。
+	TouchItemLastUsedAt(ctx context.Context, arg TouchItemLastUsedAtParams) (OwnershipItem, error)
+	// 全項目を置き換える。versionが一致しない場合は0件となる。
+	UpdateItem(ctx context.Context, arg UpdateItemParams) (OwnershipItem, error)
+	// 楽観ロック (設計書 11.7)。更新件数が0の場合は競合または不存在として扱う。
+	UpdateTag(ctx context.Context, arg UpdateTagParams) (OwnershipTag, error)
 	UpdateUserPasswordAuth(ctx context.Context, arg UpdateUserPasswordAuthParams) (int64, error)
 }
 

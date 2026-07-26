@@ -16,12 +16,16 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/domain/auth"
+	"github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/domain/category"
 )
 
 // Dependencies は認証ユースケースが必要とする依存をまとめる。
 type Dependencies struct {
-	Users                 auth.UserRepository
-	Sessions              auth.AuthSessionRepository
+	Users    auth.UserRepository
+	Sessions auth.AuthSessionRepository
+	// Categories はユーザー登録時に既定カテゴリーを作成するために使用する
+	// (設計書 28章 Phase 1)。
+	Categories            category.CategoryRepository
 	PasswordHasher        auth.PasswordHasher
 	SessionTokenGenerator auth.SessionTokenGenerator
 	SessionTTL            time.Duration

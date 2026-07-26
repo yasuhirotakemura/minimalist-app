@@ -25,9 +25,11 @@ func newRegisterFixture() registerFixture {
 	users := newFakeUserRepository()
 	passwordHasher := &fakePasswordHasher{}
 
+	categories := newFakeCategoryRepository()
 	dependencies := applicationauth.Dependencies{
 		Users:                 users,
 		Sessions:              newFakeAuthSessionRepository(),
+		Categories:            categories,
 		PasswordHasher:        passwordHasher,
 		SessionTokenGenerator: newFixedSessionTokenGenerator(),
 		SessionTTL:            30 * 24 * time.Hour,
