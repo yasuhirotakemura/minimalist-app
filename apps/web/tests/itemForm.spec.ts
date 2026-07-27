@@ -15,8 +15,6 @@ const itemsApiMocks = vi.hoisted(() => ({
   updateItem: vi.fn(),
   archiveItem: vi.fn(),
   restoreItem: vi.fn(),
-  createItemUsageRecord: vi.fn(),
-  listItemUsageRecords: vi.fn(),
 }))
 const categoriesApiMocks = vi.hoisted(() => ({ listCategories: vi.fn() }))
 const tagsApiMocks = vi.hoisted(() => ({
@@ -43,8 +41,6 @@ async function fillRequiredFields(user: ReturnType<typeof userEvent.setup>): Pro
   await user.selectOptions(screen.getByLabelText(/カテゴリー/), testCategory().publicId)
   await user.selectOptions(screen.getByLabelText(/必要度/), 'essential')
   await user.selectOptions(screen.getByLabelText(/使用頻度/), 'monthly')
-  await user.selectOptions(screen.getByLabelText(/代替可能性/), 'none')
-  await user.selectOptions(screen.getByLabelText(/携行区分/), 'daily_bag')
 }
 
 async function renderNewPage() {
@@ -59,11 +55,7 @@ async function renderNewPage() {
       },
       { path: '/tags', name: 'tags', component: { template: '<div>tags</div>' } },
       { path: '/', name: 'dashboard', component: { template: '<div>home</div>' } },
-      {
-        path: '/storage-units',
-        name: 'storageUnits',
-        component: { template: '<div>storage</div>' },
-      },
+      { path: '/mypage', name: 'myPage', component: { template: '<div>mypage</div>' } },
       { path: '/login', name: 'login', component: { template: '<div>login</div>' } },
     ],
     initialPath: '/items/new',
@@ -82,11 +74,7 @@ async function renderEditPage(item: ItemResponse) {
       { path: '/items/:publicId/edit', name: 'itemEdit', component: ItemEditPage },
       { path: '/tags', name: 'tags', component: { template: '<div>tags</div>' } },
       { path: '/', name: 'dashboard', component: { template: '<div>home</div>' } },
-      {
-        path: '/storage-units',
-        name: 'storageUnits',
-        component: { template: '<div>storage</div>' },
-      },
+      { path: '/mypage', name: 'myPage', component: { template: '<div>mypage</div>' } },
       { path: '/login', name: 'login', component: { template: '<div>login</div>' } },
     ],
     initialPath: `/items/${item.publicId}/edit`,
@@ -118,7 +106,7 @@ describe('アイテム登録フォーム', () => {
     expect(await screen.findByText('アイテム名を入力してください。')).toBeTruthy()
     expect(screen.getByText('カテゴリーを選択してください。')).toBeTruthy()
     expect(screen.getByText('必要度を選択してください。')).toBeTruthy()
-    expect(screen.getByText('携行区分を選択してください。')).toBeTruthy()
+    expect(screen.getByText('使用頻度を選択してください。')).toBeTruthy()
     expect(itemsApiMocks.createItem).not.toHaveBeenCalled()
   })
 
@@ -170,8 +158,6 @@ describe('アイテム登録フォーム', () => {
         categoryPublicId: testCategory().publicId,
         necessityLevelCode: 'essential',
         usageFrequencyCode: 'monthly',
-        substitutabilityCode: 'none',
-        mobilityClassCode: 'daily_bag',
         quantity: 1,
       }),
     )
@@ -191,9 +177,9 @@ describe('アイテム登録フォーム', () => {
       expect(itemsApiMocks.createItem).toHaveBeenCalled()
     })
     const body = itemsApiMocks.createItem.mock.calls[0]?.[0]
-    expect(body?.desiredQuantity).toBeNull()
     expect(body?.notes).toBeNull()
-    expect(body?.purchaseAmount).toBeNull()
+    expect(body?.purchasedOn).toBeNull()
+    expect(body?.sourceUrl).toBeNull()
   })
 
   it('server由来のfield errorを該当入力欄へ表示する', async () => {

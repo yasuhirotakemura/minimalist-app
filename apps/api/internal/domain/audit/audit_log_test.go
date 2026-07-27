@@ -139,12 +139,12 @@ func TestDiff_変更のあった項目だけを記録する(t *testing.T) {
 
 func TestDiff_pointerの中身で比較する(t *testing.T) {
 	before := map[string]any{
-		"notes":           pointerTo("古いメモ"),
-		"desiredQuantity": pointerTo(int32(2)),
+		"notes":    pointerTo("古いメモ"),
+		"quantity": pointerTo(int32(2)),
 	}
 	after := map[string]any{
-		"notes":           pointerTo("古いメモ"),
-		"desiredQuantity": pointerTo(int32(3)),
+		"notes":    pointerTo("古いメモ"),
+		"quantity": pointerTo(int32(3)),
 	}
 
 	changes := domainaudit.Diff(before, after)
@@ -152,8 +152,8 @@ func TestDiff_pointerの中身で比較する(t *testing.T) {
 	if _, changed := changes["notes"]; changed {
 		t.Error("changes contains notes, want unchanged")
 	}
-	if _, changed := changes["desiredQuantity"]; !changed {
-		t.Error("changes does not contain desiredQuantity, want changed")
+	if _, changed := changes["quantity"]; !changed {
+		t.Error("changes does not contain quantity, want changed")
 	}
 }
 

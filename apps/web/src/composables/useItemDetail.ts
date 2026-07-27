@@ -1,14 +1,8 @@
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, type Ref } from 'vue'
 
-import type { CreateItemUsageRecordRequest, ItemResponse } from '@/api/client'
-import {
-  archiveItem,
-  createItemUsageRecord,
-  fetchItem,
-  listItemUsageRecords,
-  restoreItem,
-} from '@/api/items'
+import type { ItemResponse } from '@/api/client'
+import { archiveItem, fetchItem, restoreItem } from '@/api/items'
 import { queryKeys } from '@/api/queryKeys'
 
 import { useSubmission } from './useSubmission'
@@ -29,26 +23,12 @@ export function useItemDetail(publicId: Ref<string>) {
     enabled: computed(() => publicId.value !== ''),
   })
 
-  const usageRecordsQuery = useQuery({
-    queryKey: computed(() => queryKeys.items.usageRecords(publicId.value)),
-    queryFn: () => listItemUsageRecords(publicId.value),
-    enabled: computed(() => publicId.value !== ''),
-  })
-
   async function invalidate(): Promise<void> {
     await queryClient.invalidateQueries({ queryKey: queryKeys.items.all() })
     // タグの付与件数が変わるため、タグ一覧も無効化する。
     await queryClient.invalidateQueries({ queryKey: queryKeys.tags.list() })
-  }
-
-  /** 使用した記録を追加する。成功時に更新後のアイテムを返す。 */
-  async function recordUsage(body: CreateItemUsageRecordRequest = {}): Promise<boolean> {
-    const result = await submission.submit(async () => {
-      await createItemUsageRecord(publicId.value, body)
-      await invalidate()
-      return true
-    })
-    return result === true
+    // 集計値が変わるため、ダッシュボードも無効化する。
+    await queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.summary() })
   }
 
   /** archiveする。破壊的操作のため、呼び出し側で確認を行う。 */
@@ -77,15 +57,9 @@ export function useItemDetail(publicId: Ref<string>) {
     error: query.error,
     refetch: query.refetch,
 
-    usageRecords: computed(() => usageRecordsQuery.data.value?.items ?? []),
-    usageRecordsTotal: computed(() => usageRecordsQuery.data.value?.pagination.totalCount ?? 0),
-    isUsageRecordsLoading: usageRecordsQuery.isPending,
-    isUsageRecordsError: usageRecordsQuery.isError,
-
     isSubmitting: submission.isSubmitting,
     submissionError: submission.submissionError,
     clearSubmissionError: submission.clearSubmissionError,
-    recordUsage,
     archive,
     restore,
   }

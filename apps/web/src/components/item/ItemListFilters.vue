@@ -1,20 +1,13 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 
-import type {
-  CategoryResponse,
-  ItemSortKey,
-  SortOrder,
-  StorageUnitResponse,
-  TagResponse,
-} from '@/api/client'
+import type { CategoryResponse, ItemSortKey, SortOrder, TagResponse } from '@/api/client'
 import BaseButton from '@/components/base/BaseButton.vue'
 import BaseInput from '@/components/base/BaseInput.vue'
 import BaseSelect from '@/components/base/BaseSelect.vue'
 import type { ItemListFilters } from '@/composables/useItemList'
 import {
   ITEM_SORT_OPTIONS,
-  MOBILITY_CLASS_OPTIONS,
   NECESSITY_LEVEL_OPTIONS,
   SORT_ORDER_OPTIONS,
   USAGE_FREQUENCY_OPTIONS,
@@ -29,8 +22,6 @@ const props = defineProps<{
   filters: ItemListFilters
   categories: readonly CategoryResponse[]
   tags: readonly TagResponse[]
-  /** 収納単位での絞り込み候補 (Phase 2)。 */
-  storageUnits: readonly StorageUnitResponse[]
 }>()
 
 const emit = defineEmits<{
@@ -51,9 +42,6 @@ const categoryOptions = () =>
   props.categories.map((category) => ({ code: category.publicId, label: category.name }))
 
 const tagOptions = () => props.tags.map((tag) => ({ code: tag.publicId, label: tag.name }))
-
-const storageUnitOptions = () =>
-  props.storageUnits.map((unit) => ({ code: unit.publicId, label: unit.name }))
 
 function submitKeyword(): void {
   emit('apply', { keyword: keyword.value.trim() })
@@ -118,21 +106,6 @@ function applyOrder(value: SortOrder | ''): void {
           :options="USAGE_FREQUENCY_OPTIONS"
           @update:model-value="emit('apply', { usageFrequencyCode: $event })"
         />
-        <BaseSelect
-          :model-value="filters.mobilityClassCode"
-          label="携行区分"
-          placeholder="すべて"
-          :options="MOBILITY_CLASS_OPTIONS"
-          @update:model-value="emit('apply', { mobilityClassCode: $event })"
-        />
-        <BaseSelect
-          :model-value="filters.storageUnitPublicId"
-          label="収納単位"
-          placeholder="すべて"
-          :options="storageUnitOptions()"
-          hint="指定した収納単位へ直接入っているアイテムだけを表示します。"
-          @update:model-value="emit('apply', { storageUnitPublicId: $event })"
-        />
         <div class="grid grid-cols-2 gap-2">
           <BaseSelect
             :model-value="filters.sort"
@@ -151,20 +124,6 @@ function applyOrder(value: SortOrder | ''): void {
 
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div class="flex flex-wrap items-center gap-4">
-          <label class="flex min-h-11 items-center gap-2 text-sm text-slate-900">
-            <input
-              type="checkbox"
-              class="size-4"
-              :checked="filters.isUnassigned"
-              data-testid="filter-unassigned"
-              @change="
-                emit('apply', {
-                  isUnassigned: ($event.target as HTMLInputElement).checked,
-                })
-              "
-            />
-            収納未割当のみ
-          </label>
           <label class="flex min-h-11 items-center gap-2 text-sm text-slate-900">
             <input
               type="checkbox"

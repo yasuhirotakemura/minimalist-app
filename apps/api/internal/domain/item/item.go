@@ -2,11 +2,7 @@
 //
 // 不変条件:
 //   - 数量は0以上。
-//   - 希望数量は0以上または未設定。
-//   - archive済みItemへ使用記録を追加できない。
-//   - 最終使用日時・使用日時は未来を指さない。
-//
-// 収納割当数量の合計制約 (設計書 7.2) はStorageUnit (Phase 2) の導入時に追加する。
+//   - archive済みItemは編集できない。
 package item
 
 import (
@@ -24,14 +20,12 @@ import (
 
 // 入力の長さ・範囲の上限。DB制約と一致させる。
 const (
-	MaxNameLength              = 200
-	MaxUnitNameLength          = 20
-	MaxOwnershipReasonLength   = 1000
-	MaxDisposalConditionLength = 1000
-	MaxNotesLength             = 2000
-	MaxSourceURLLength         = 2048
-	MaxQuantity                = 1_000_000
-	MaxTagsPerItem             = 30
+	MaxNameLength      = 200
+	MaxUnitNameLength  = 20
+	MaxNotesLength     = 2000
+	MaxSourceURLLength = 2048
+	MaxQuantity        = 1_000_000
+	MaxTagsPerItem     = 30
 )
 
 // DefaultUnitName は単位が未指定の場合に適用する値。
@@ -54,45 +48,27 @@ func (id ItemID) IsZero() bool { return id == 0 }
 // 内部ID・publicID・version・archive状態は本structへ含めない。
 // それらはEntityが管理する。
 type Attributes struct {
-	Name                string
-	Category            category.Reference
-	Kind                ItemKind
-	Quantity            int32
-	DesiredQuantity     *int32
-	UnitName            string
-	NecessityLevel      NecessityLevel
-	UsageFrequency      UsageFrequency
-	Substitutability    Substitutability
-	MobilityClass       MobilityClass
-	OwnershipReason     *string
-	DisposalCondition   *string
-	LastUsedAt          *time.Time
-	PurchasedOn         *time.Time
-	PurchaseAmount      *int64
-	ReplacementAmount   *int64
-	ResaleAmount        *int64
-	WeightGram          *int32
-	VolumeMilliliter    *int32
-	IsFragile           bool
-	IsValuable          bool
-	IsSentimental       bool
-	RequiresMaintenance bool
-	ExpiresOn           *time.Time
-	SourceURL           *string
-	Notes               *string
-	Tags                []tag.Reference
+	Name           string
+	Category       category.Reference
+	Kind           ItemKind
+	Quantity       int32
+	UnitName       string
+	NecessityLevel NecessityLevel
+	UsageFrequency UsageFrequency
+	PurchasedOn    *time.Time
+	SourceURL      *string
+	Notes          *string
+	Tags           []tag.Reference
 }
 
 // Item は所持品Aggregateのroot Entity。
 type Item struct {
-	id          ItemID
-	publicID    uuid.UUID
-	userID      auth.UserID
-	attributes  Attributes
-	isConfirmed bool
-	confirmedAt *time.Time
-	createdAt   time.Time
-	updatedAt   time.Time
+	id         ItemID
+	publicID   uuid.UUID
+	userID     auth.UserID
+	attributes Attributes
+	createdAt  time.Time
+	updatedAt  time.Time
 	// archivedAt はDBの deleted_at に対応する。
 	// archiveはsoft deleteとして表現する (設計書 1.4 / 12.4)。
 	archivedAt *time.Time
@@ -113,7 +89,7 @@ func NewItem(
 		return Item{}, shared.NewInternalError("INVALID_USER_ID", "内部エラーが発生しました。")
 	}
 
-	normalized, err := normalizeAttributes(attributes, now)
+	normalized, err := normalizeAttributes(attributes)
 	if err != nil {
 		return Item{}, err
 	}
@@ -131,34 +107,27 @@ func NewItem(
 
 // ReconstructItemParams は永続化済みItemの復元に使用する。
 type ReconstructItemParams struct {
-	ID          ItemID
-	PublicID    uuid.UUID
-	UserID      auth.UserID
-	Attributes  Attributes
-	IsConfirmed bool
-	ConfirmedAt *time.Time
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-	ArchivedAt  *time.Time
-	Version     int32
+	ID         ItemID
+	PublicID   uuid.UUID
+	UserID     auth.UserID
+	Attributes Attributes
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+	ArchivedAt *time.Time
+	Version    int32
 }
 
 // ReconstructItem はRepositoryが取得したdataからItemを復元する。
 // 復元時は業務ルールの再検証を行わず、保存済みの状態をそのまま表現する。
 func ReconstructItem(params ReconstructItemParams) Item {
 	item := Item{
-		id:          params.ID,
-		publicID:    params.PublicID,
-		userID:      params.UserID,
-		attributes:  params.Attributes,
-		isConfirmed: params.IsConfirmed,
-		createdAt:   params.CreatedAt.UTC(),
-		updatedAt:   params.UpdatedAt.UTC(),
-		version:     params.Version,
-	}
-	if params.ConfirmedAt != nil {
-		confirmedAt := params.ConfirmedAt.UTC()
-		item.confirmedAt = &confirmedAt
+		id:         params.ID,
+		publicID:   params.PublicID,
+		userID:     params.UserID,
+		attributes: params.Attributes,
+		createdAt:  params.CreatedAt.UTC(),
+		updatedAt:  params.UpdatedAt.UTC(),
+		version:    params.Version,
 	}
 	if params.ArchivedAt != nil {
 		archivedAt := params.ArchivedAt.UTC()
@@ -190,15 +159,6 @@ func (i Item) Tags() []tag.Reference { return i.attributes.Tags }
 
 // Quantity は所有数量を返す。
 func (i Item) Quantity() int32 { return i.attributes.Quantity }
-
-// LastUsedAt は最終使用日時を返す。
-func (i Item) LastUsedAt() *time.Time { return i.attributes.LastUsedAt }
-
-// IsConfirmed は棚卸し確認済みかどうかを返す。
-func (i Item) IsConfirmed() bool { return i.isConfirmed }
-
-// ConfirmedAt は確認日時を返す。
-func (i Item) ConfirmedAt() *time.Time { return i.confirmedAt }
 
 // CreatedAt は作成日時を返す。
 func (i Item) CreatedAt() time.Time { return i.createdAt }
@@ -240,7 +200,7 @@ func (i Item) Update(
 		return Item{}, err
 	}
 
-	normalized, err := normalizeAttributes(attributes, now)
+	normalized, err := normalizeAttributes(attributes)
 	if err != nil {
 		return Item{}, err
 	}
@@ -282,41 +242,6 @@ func (i Item) Restore(expectedVersion int32, now time.Time) (Item, error) {
 	return i, nil
 }
 
-// RecordUsage は使用記録を生成し、最終使用日時を更新した複製を返す。
-//
-// archive済みのItemへは使用記録を追加できない (設計書 7.2)。
-// 既存の最終使用日時より古い使用日時では最終使用日時を後退させない。
-//
-// 使用記録は追記操作のため expectedVersion を要求しない。
-// ただし最終使用日時は見直しスコアの入力となるため、versionは増加させる。
-func (i Item) RecordUsage(
-	recordPublicID uuid.UUID,
-	usedAt time.Time,
-	quantity int32,
-	note *string,
-	now time.Time,
-) (UsageRecord, Item, error) {
-	if i.IsArchived() {
-		return UsageRecord{}, Item{}, ErrItemArchived
-	}
-
-	record, err := NewUsageRecord(
-		recordPublicID, i.userID, i.id, usedAt, quantity, note, now)
-	if err != nil {
-		return UsageRecord{}, Item{}, err
-	}
-
-	latest := record.UsedAt()
-	if i.attributes.LastUsedAt != nil && i.attributes.LastUsedAt.After(latest) {
-		latest = *i.attributes.LastUsedAt
-	}
-
-	i.attributes.LastUsedAt = &latest
-	i.updatedAt = now.UTC()
-	i.version++
-	return record, i, nil
-}
-
 // EnsureVersionMatches は楽観ロックのversionが一致することを確認する。
 func (i Item) EnsureVersionMatches(expectedVersion int32) error {
 	if i.version != expectedVersion {
@@ -330,34 +255,18 @@ func (i Item) EnsureVersionMatches(expectedVersion int32) error {
 // 機微情報を含めない。金額・自由記述は利用者自身の操作履歴であるため含める。
 func (i Item) AuditSnapshot() map[string]any {
 	return map[string]any{
-		"name":                 i.attributes.Name,
-		"categoryPublicId":     i.attributes.Category.PublicID.String(),
-		"itemKindCode":         i.attributes.Kind.String(),
-		"quantity":             i.attributes.Quantity,
-		"desiredQuantity":      i.attributes.DesiredQuantity,
-		"unitName":             i.attributes.UnitName,
-		"necessityLevelCode":   i.attributes.NecessityLevel.String(),
-		"usageFrequencyCode":   i.attributes.UsageFrequency.String(),
-		"substitutabilityCode": i.attributes.Substitutability.String(),
-		"mobilityClassCode":    i.attributes.MobilityClass.String(),
-		"ownershipReason":      i.attributes.OwnershipReason,
-		"disposalCondition":    i.attributes.DisposalCondition,
-		"lastUsedAt":           formatOptionalTime(i.attributes.LastUsedAt),
-		"purchasedOn":          formatOptionalDate(i.attributes.PurchasedOn),
-		"purchaseAmount":       i.attributes.PurchaseAmount,
-		"replacementAmount":    i.attributes.ReplacementAmount,
-		"resaleAmount":         i.attributes.ResaleAmount,
-		"weightGram":           i.attributes.WeightGram,
-		"volumeMilliliter":     i.attributes.VolumeMilliliter,
-		"isFragile":            i.attributes.IsFragile,
-		"isValuable":           i.attributes.IsValuable,
-		"isSentimental":        i.attributes.IsSentimental,
-		"requiresMaintenance":  i.attributes.RequiresMaintenance,
-		"expiresOn":            formatOptionalDate(i.attributes.ExpiresOn),
-		"sourceUrl":            i.attributes.SourceURL,
-		"notes":                i.attributes.Notes,
-		"tagPublicIds":         tagPublicIDStrings(i.attributes.Tags),
-		"isArchived":           i.IsArchived(),
+		"name":               i.attributes.Name,
+		"categoryPublicId":   i.attributes.Category.PublicID.String(),
+		"itemKindCode":       i.attributes.Kind.String(),
+		"quantity":           i.attributes.Quantity,
+		"unitName":           i.attributes.UnitName,
+		"necessityLevelCode": i.attributes.NecessityLevel.String(),
+		"usageFrequencyCode": i.attributes.UsageFrequency.String(),
+		"purchasedOn":        formatOptionalDate(i.attributes.PurchasedOn),
+		"sourceUrl":          i.attributes.SourceURL,
+		"notes":              i.attributes.Notes,
+		"tagPublicIds":       tagPublicIDStrings(i.attributes.Tags),
+		"isArchived":         i.IsArchived(),
 	}
 }
 
@@ -367,13 +276,6 @@ func tagPublicIDStrings(references []tag.Reference) []string {
 		values = append(values, reference.PublicID.String())
 	}
 	return values
-}
-
-func formatOptionalTime(value *time.Time) any {
-	if value == nil {
-		return nil
-	}
-	return value.UTC().Format(time.RFC3339)
 }
 
 func formatOptionalDate(value *time.Time) any {
@@ -387,7 +289,7 @@ func formatOptionalDate(value *time.Time) any {
 //
 // fieldErrorのfield名はrequest bodyのfield名 (camelCase) と一致させ、
 // 画面が該当入力欄へerrorを表示できるようにする (設計書 10.6 / 12.3)。
-func normalizeAttributes(attributes Attributes, now time.Time) (Attributes, error) {
+func normalizeAttributes(attributes Attributes) (Attributes, error) {
 	normalizedName, err := normalizeRequiredText(
 		attributes.Name, "name", MaxNameLength, "アイテム名")
 	if err != nil {
@@ -412,22 +314,10 @@ func normalizeAttributes(attributes Attributes, now time.Time) (Attributes, erro
 	if _, err := NewUsageFrequency(attributes.UsageFrequency.String()); err != nil {
 		return Attributes{}, err
 	}
-	if _, err := NewSubstitutability(attributes.Substitutability.String()); err != nil {
-		return Attributes{}, err
-	}
-	if _, err := NewMobilityClass(attributes.MobilityClass.String()); err != nil {
-		return Attributes{}, err
-	}
 
 	if attributes.Quantity < 0 || attributes.Quantity > MaxQuantity {
 		return Attributes{}, newAttributeError(
 			"quantity", "数量は0以上1000000以下で入力してください。")
-	}
-	if attributes.DesiredQuantity != nil {
-		if *attributes.DesiredQuantity < 0 || *attributes.DesiredQuantity > MaxQuantity {
-			return Attributes{}, newAttributeError(
-				"desiredQuantity", "希望数量は0以上1000000以下で入力してください。")
-		}
 	}
 
 	unitName := strings.TrimSpace(attributes.UnitName)
@@ -440,16 +330,6 @@ func normalizeAttributes(attributes Attributes, now time.Time) (Attributes, erro
 	}
 	attributes.UnitName = unitName
 
-	if attributes.OwnershipReason, err = normalizeOptionalText(
-		attributes.OwnershipReason, "ownershipReason",
-		MaxOwnershipReasonLength, "所有理由"); err != nil {
-		return Attributes{}, err
-	}
-	if attributes.DisposalCondition, err = normalizeOptionalText(
-		attributes.DisposalCondition, "disposalCondition",
-		MaxDisposalConditionLength, "処分条件"); err != nil {
-		return Attributes{}, err
-	}
 	if attributes.Notes, err = normalizeOptionalText(
 		attributes.Notes, "notes", MaxNotesLength, "メモ"); err != nil {
 		return Attributes{}, err
@@ -459,38 +339,7 @@ func normalizeAttributes(attributes Attributes, now time.Time) (Attributes, erro
 		return Attributes{}, err
 	}
 
-	if attributes.PurchaseAmount, err = normalizeAmount(
-		attributes.PurchaseAmount, "purchaseAmount", "購入金額"); err != nil {
-		return Attributes{}, err
-	}
-	if attributes.ReplacementAmount, err = normalizeAmount(
-		attributes.ReplacementAmount, "replacementAmount", "再購入金額"); err != nil {
-		return Attributes{}, err
-	}
-	if attributes.ResaleAmount, err = normalizeAmount(
-		attributes.ResaleAmount, "resaleAmount", "推定売却金額"); err != nil {
-		return Attributes{}, err
-	}
-
-	if attributes.WeightGram, err = normalizeMeasurement(
-		attributes.WeightGram, "weightGram", "重量"); err != nil {
-		return Attributes{}, err
-	}
-	if attributes.VolumeMilliliter, err = normalizeMeasurement(
-		attributes.VolumeMilliliter, "volumeMilliliter", "容積"); err != nil {
-		return Attributes{}, err
-	}
-
-	if attributes.LastUsedAt != nil {
-		lastUsedAt := attributes.LastUsedAt.UTC()
-		if lastUsedAt.After(now.UTC()) {
-			return Attributes{}, newAttributeError(
-				"lastUsedAt", "最終使用日時に未来の日時は指定できません。")
-		}
-		attributes.LastUsedAt = &lastUsedAt
-	}
 	attributes.PurchasedOn = truncateToDate(attributes.PurchasedOn)
-	attributes.ExpiresOn = truncateToDate(attributes.ExpiresOn)
 
 	if len(attributes.Tags) > MaxTagsPerItem {
 		return Attributes{}, newAttributeError(
@@ -555,26 +404,6 @@ func normalizeSourceURL(raw *string) (*string, error) {
 			"sourceUrl", "商品URLは http または https で始まる形式で入力してください。")
 	}
 	return &normalized, nil
-}
-
-func normalizeAmount(raw *int64, field, label string) (*int64, error) {
-	if raw == nil {
-		return nil, nil
-	}
-	if *raw < 0 {
-		return nil, newAttributeError(field, label+"は0以上で入力してください。")
-	}
-	return raw, nil
-}
-
-func normalizeMeasurement(raw *int32, field, label string) (*int32, error) {
-	if raw == nil {
-		return nil, nil
-	}
-	if *raw < 0 {
-		return nil, newAttributeError(field, label+"は0以上で入力してください。")
-	}
-	return raw, nil
 }
 
 // truncateToDate はDATE columnへ保存する値をUTCの日付へ丸める。

@@ -41,61 +41,19 @@ func (e ItemKindCode) Valid() bool {
 
 // Defines values for ItemSortKey.
 const (
-	ItemSortKeyLastUsedAt ItemSortKey = "lastUsedAt"
-	ItemSortKeyName       ItemSortKey = "name"
-	ItemSortKeyQuantity   ItemSortKey = "quantity"
-	ItemSortKeyUpdatedAt  ItemSortKey = "updatedAt"
+	Name      ItemSortKey = "name"
+	Quantity  ItemSortKey = "quantity"
+	UpdatedAt ItemSortKey = "updatedAt"
 )
 
 // Valid indicates whether the value is a known member of the ItemSortKey enum.
 func (e ItemSortKey) Valid() bool {
 	switch e {
-	case ItemSortKeyLastUsedAt:
+	case Name:
 		return true
-	case ItemSortKeyName:
+	case Quantity:
 		return true
-	case ItemSortKeyQuantity:
-		return true
-	case ItemSortKeyUpdatedAt:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for MobilityClassCode.
-const (
-	DailyBag     MobilityClassCode = "daily_bag"
-	DisposeRebuy MobilityClassCode = "dispose_rebuy"
-	Fixed        MobilityClassCode = "fixed"
-	Mover        MobilityClassCode = "mover"
-	OnDemand     MobilityClassCode = "on_demand"
-	Parcel       MobilityClassCode = "parcel"
-	Pocket       MobilityClassCode = "pocket"
-	SelfCarry    MobilityClassCode = "self_carry"
-	Worn         MobilityClassCode = "worn"
-)
-
-// Valid indicates whether the value is a known member of the MobilityClassCode enum.
-func (e MobilityClassCode) Valid() bool {
-	switch e {
-	case DailyBag:
-		return true
-	case DisposeRebuy:
-		return true
-	case Fixed:
-		return true
-	case Mover:
-		return true
-	case OnDemand:
-		return true
-	case Parcel:
-		return true
-	case Pocket:
-		return true
-	case SelfCarry:
-		return true
-	case Worn:
+	case UpdatedAt:
 		return true
 	default:
 		return false
@@ -147,84 +105,6 @@ func (e SortOrder) Valid() bool {
 	}
 }
 
-// Defines values for StorageTypeCode.
-const (
-	Appliance StorageTypeCode = "appliance"
-	Bag       StorageTypeCode = "bag"
-	Box       StorageTypeCode = "box"
-	Other     StorageTypeCode = "other"
-	Pouch     StorageTypeCode = "pouch"
-	Room      StorageTypeCode = "room"
-	Shelf     StorageTypeCode = "shelf"
-)
-
-// Valid indicates whether the value is a known member of the StorageTypeCode enum.
-func (e StorageTypeCode) Valid() bool {
-	switch e {
-	case Appliance:
-		return true
-	case Bag:
-		return true
-	case Box:
-		return true
-	case Other:
-		return true
-	case Pouch:
-		return true
-	case Room:
-		return true
-	case Shelf:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for StorageUnitSortKey.
-const (
-	StorageUnitSortKeyName      StorageUnitSortKey = "name"
-	StorageUnitSortKeySortOrder StorageUnitSortKey = "sortOrder"
-	StorageUnitSortKeyUpdatedAt StorageUnitSortKey = "updatedAt"
-)
-
-// Valid indicates whether the value is a known member of the StorageUnitSortKey enum.
-func (e StorageUnitSortKey) Valid() bool {
-	switch e {
-	case StorageUnitSortKeyName:
-		return true
-	case StorageUnitSortKeySortOrder:
-		return true
-	case StorageUnitSortKeyUpdatedAt:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SubstitutabilityCode.
-const (
-	Full    SubstitutabilityCode = "full"
-	None    SubstitutabilityCode = "none"
-	Partial SubstitutabilityCode = "partial"
-	Unknown SubstitutabilityCode = "unknown"
-)
-
-// Valid indicates whether the value is a known member of the SubstitutabilityCode enum.
-func (e SubstitutabilityCode) Valid() bool {
-	switch e {
-	case Full:
-		return true
-	case None:
-		return true
-	case Partial:
-		return true
-	case Unknown:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for UsageFrequencyCode.
 const (
 	Daily     UsageFrequencyCode = "daily"
@@ -256,43 +136,6 @@ func (e UsageFrequencyCode) Valid() bool {
 	default:
 		return false
 	}
-}
-
-// AllocatedItemResponse 収納割当から参照するアイテムの表現。
-// 収納内容編集画面が整合性表示 (現在数量・他収納への割当数量・未割当数量)
-// を行うために必要な項目だけを持つ。
-type AllocatedItemResponse struct {
-	// AssignedQuantity 全収納単位への割当数量の合計
-	//
-	// Example: 3
-	AssignedQuantity int32 `json:"assignedQuantity"`
-
-	// IsArchived archive済みのアイテムか。
-	// archive済みアイテムへ新規割当はできないが、既存割当は保持する。
-	// archiveは手放しではなく、物理的には収納単位へ入ったままであるため
-	// 容量集計にも含める。手放し時の整合はPhase 3で扱う。
-	IsArchived bool `json:"isArchived"`
-
-	// Name Example: 半袖シャツ
-	Name     string             `json:"name"`
-	PublicId openapi_types.UUID `json:"publicId"`
-
-	// Quantity アイテムの所有数量
-	//
-	// Example: 3
-	Quantity int32 `json:"quantity"`
-
-	// UnassignedQuantity quantity - assignedQuantity
-	//
-	// Example: 0
-	UnassignedQuantity int32 `json:"unassignedQuantity"`
-
-	// UnitName Example: 枚
-	UnitName         string `json:"unitName"`
-	VolumeMilliliter *int32 `json:"volumeMilliliter"`
-
-	// WeightGram nullの場合、収納単位の重量集計は不完全となる。
-	WeightGram *int32 `json:"weightGram"`
 }
 
 // AuthenticatedUserContextResponse 認証済みユーザーのcontext。
@@ -339,121 +182,35 @@ type CategoryResponse struct {
 type CreateItemRequest struct {
 	CategoryPublicId openapi_types.UUID `json:"categoryPublicId"`
 
-	// DesiredQuantity Example: 1
-	DesiredQuantity   *int32              `json:"desiredQuantity,omitempty"`
-	DisposalCondition *string             `json:"disposalCondition,omitempty"`
-	ExpiresOn         *openapi_types.Date `json:"expiresOn,omitempty"`
-
-	// IsFragile 未指定時はfalse。
-	IsFragile *bool `json:"isFragile,omitempty"`
-
-	// IsSentimental 未指定時はfalse。
-	IsSentimental *bool `json:"isSentimental,omitempty"`
-
-	// IsValuable 未指定時はfalse。
-	IsValuable *bool `json:"isValuable,omitempty"`
-
 	// ItemKindCode 未指定時はserverが `durable` を適用する。
 	ItemKindCode *ItemKindCode `json:"itemKindCode,omitempty"`
-	LastUsedAt   *time.Time    `json:"lastUsedAt,omitempty"`
-
-	// MobilityClassCode 携行区分 (設計書 16.1)
-	//
-	// Example: daily_bag
-	MobilityClassCode MobilityClassCode `json:"mobilityClassCode"`
 
 	// Name Example: 折りたたみ傘
 	Name string `json:"name"`
 
-	// NecessityLevelCode 必要度 (設計書 14.5)
+	// NecessityLevelCode 必要度 (設計書 14.2)
 	//
 	// Example: essential
 	NecessityLevelCode NecessityLevelCode  `json:"necessityLevelCode"`
 	Notes              *string             `json:"notes,omitempty"`
-	OwnershipReason    *string             `json:"ownershipReason,omitempty"`
-	PurchaseAmount     *int64              `json:"purchaseAmount,omitempty"`
 	PurchasedOn        *openapi_types.Date `json:"purchasedOn,omitempty"`
 
 	// Quantity Example: 1
-	Quantity          int32  `json:"quantity"`
-	ReplacementAmount *int64 `json:"replacementAmount,omitempty"`
-
-	// RequiresMaintenance 未指定時はfalse。
-	RequiresMaintenance *bool  `json:"requiresMaintenance,omitempty"`
-	ResaleAmount        *int64 `json:"resaleAmount,omitempty"`
+	Quantity int32 `json:"quantity"`
 
 	// SourceUrl httpまたはhttpsのみを許可する (設計書 24.15)。
-	SourceUrl *string `json:"sourceUrl,omitempty"`
-
-	// SubstitutabilityCode 代替可能性 (設計書 14.4)
-	//
-	// Example: none
-	SubstitutabilityCode SubstitutabilityCode  `json:"substitutabilityCode"`
-	TagPublicIds         *[]openapi_types.UUID `json:"tagPublicIds,omitempty"`
+	SourceUrl    *string               `json:"sourceUrl,omitempty"`
+	TagPublicIds *[]openapi_types.UUID `json:"tagPublicIds,omitempty"`
 
 	// UnitName 未指定時はserverが `個` を適用する。
 	//
 	// Example: 本
 	UnitName *string `json:"unitName,omitempty"`
 
-	// UsageFrequencyCode 使用頻度 (設計書 14.3)
+	// UsageFrequencyCode 使用頻度 (設計書 14.1)
 	//
 	// Example: monthly
 	UsageFrequencyCode UsageFrequencyCode `json:"usageFrequencyCode"`
-	VolumeMilliliter   *int32             `json:"volumeMilliliter,omitempty"`
-	WeightGram         *int32             `json:"weightGram,omitempty"`
-}
-
-// CreateItemUsageRecordRequest defines model for CreateItemUsageRecordRequest.
-type CreateItemUsageRecordRequest struct {
-	Note *string `json:"note,omitempty"`
-
-	// Quantity 使用した数量。未指定時は1。
-	Quantity *int32 `json:"quantity,omitempty"`
-
-	// UsedAt 使用日時。未指定時はserverの現在時刻を使用する。未来日時は許可しない。
-	UsedAt *time.Time `json:"usedAt,omitempty"`
-}
-
-// CreateStorageAllocationRequest defines model for CreateStorageAllocationRequest.
-type CreateStorageAllocationRequest struct {
-	// ExpectedStorageUnitVersion 収納単位の現在version。割当集合の競合を検知する (設計書 11.7)。
-	// 成功時に収納単位のversionを1増加させる。
-	ExpectedStorageUnitVersion int32              `json:"expectedStorageUnitVersion"`
-	ItemPublicId               openapi_types.UUID `json:"itemPublicId"`
-
-	// Quantity Example: 2
-	Quantity int32 `json:"quantity"`
-}
-
-// CreateStorageUnitRequest defines model for CreateStorageUnitRequest.
-type CreateStorageUnitRequest struct {
-	Description             *string `json:"description,omitempty"`
-	MaximumVolumeMilliliter *int32  `json:"maximumVolumeMilliliter,omitempty"`
-	MaximumWeightGram       *int32  `json:"maximumWeightGram,omitempty"`
-
-	// MobilityClassCode 携行区分 (設計書 16.1)
-	//
-	// Example: daily_bag
-	MobilityClassCode MobilityClassCode `json:"mobilityClassCode"`
-
-	// Name Example: 日常リュック
-	Name string `json:"name"`
-
-	// ParentStorageUnitPublicId 親収納単位。未指定時はrootとする。
-	// 自身と合わせて階層が3を超える指定は 422 を返す。
-	ParentStorageUnitPublicId *openapi_types.UUID `json:"parentStorageUnitPublicId,omitempty"`
-
-	// SortOrder 未指定時はserverが0を適用する。
-	SortOrder *int32 `json:"sortOrder,omitempty"`
-
-	// StorageTypeCode 収納単位の種別。設計書 13.8 は `bag、pouch、box等` と例示のみで
-	// 値集合を定義していないため、実運用で必要な7値で開始する。
-	//
-	//
-	// Example: bag
-	StorageTypeCode StorageTypeCode `json:"storageTypeCode"`
-	TareWeightGram  *int32          `json:"tareWeightGram,omitempty"`
 }
 
 // CreateTagRequest defines model for CreateTagRequest.
@@ -462,6 +219,58 @@ type CreateTagRequest struct {
 	//
 	// Example: 防災
 	Name string `json:"name"`
+}
+
+// DashboardCategoryBreakdownResponse defines model for DashboardCategoryBreakdownResponse.
+type DashboardCategoryBreakdownResponse struct {
+	// Category 他resourceから参照する際の最小表現
+	Category CategoryReferenceResponse `json:"category"`
+
+	// ItemTypeCount Example: 7
+	ItemTypeCount int64 `json:"itemTypeCount"`
+
+	// TotalQuantity Example: 12
+	TotalQuantity int64 `json:"totalQuantity"`
+}
+
+// DashboardCodeBreakdownResponse code値ごとの内訳。codeとlabelを対で返し、画面はlabelをそのまま表示する
+// (設計書 12.6)。
+type DashboardCodeBreakdownResponse struct {
+	// Code 必要度または使用頻度のcode
+	//
+	// Example: essential
+	Code string `json:"code"`
+
+	// ItemTypeCount Example: 7
+	ItemTypeCount int64 `json:"itemTypeCount"`
+
+	// Label Example: 必須
+	Label string `json:"label"`
+
+	// TotalQuantity Example: 12
+	TotalQuantity int64 `json:"totalQuantity"`
+}
+
+// DashboardSummaryResponse ダッシュボードの集計値 (設計書 9.3)。archive済みのアイテムを含めない。
+type DashboardSummaryResponse struct {
+	// CategoryBreakdown カテゴリー別の内訳。カテゴリーの表示順で返す。
+	CategoryBreakdown []DashboardCategoryBreakdownResponse `json:"categoryBreakdown"`
+
+	// ItemTypeCount 所持アイテム種類数。単位はアイテム種別 (登録済みアイテムの件数)。
+	//
+	// Example: 42
+	ItemTypeCount int64 `json:"itemTypeCount"`
+
+	// NecessityLevelBreakdown 必要度別の内訳。必要度の定義順で返す。
+	NecessityLevelBreakdown []DashboardCodeBreakdownResponse `json:"necessityLevelBreakdown"`
+
+	// TotalQuantity 所持アイテム数。単位はアイテム数 (各アイテムの数量の合計)。
+	//
+	// Example: 87
+	TotalQuantity int64 `json:"totalQuantity"`
+
+	// UsageFrequencyBreakdown 使用頻度別の内訳。使用頻度の定義順で返す。
+	UsageFrequencyBreakdown []DashboardCodeBreakdownResponse `json:"usageFrequencyBreakdown"`
 }
 
 // ErrorResponse 全endpointで共通のerror形式 (設計書 12.3)
@@ -495,8 +304,7 @@ type FieldError struct {
 	Message string `json:"message"`
 }
 
-// ItemKindCode アイテム種別。設計書 13.7 は種別の存在のみを定め、値集合を定義していない。
-// 12.5 の例 `durable` を基に、耐久品と消耗品の2値で開始する。
+// ItemKindCode アイテム種別 (設計書 14.3)。未指定時はserverが `durable` を適用する。
 //
 // Example: durable
 type ItemKindCode string
@@ -511,107 +319,50 @@ type ItemListResponse struct {
 
 // ItemResponse 所持品 (設計書 12.6 / 13.7)。内部IDを含めない。
 // 一覧と詳細で同一の表現を使用する。
-//
-// `review` (見直しスコア) はPhase 3のスコープのため含めない。
 type ItemResponse struct {
 	// ArchivedAt archive日時。DBの `deleted_at` に対応する。
 	ArchivedAt *time.Time `json:"archivedAt"`
 
 	// Category 他resourceから参照する際の最小表現
-	Category    CategoryReferenceResponse `json:"category"`
-	ConfirmedAt *time.Time                `json:"confirmedAt"`
-	CreatedAt   time.Time                 `json:"createdAt"`
-
-	// DesiredQuantity 希望上限数量。未設定の場合はnull。
-	//
-	// Example: 1
-	DesiredQuantity *int32 `json:"desiredQuantity"`
-
-	// DisposalCondition Example: 破損して修理不能になった場合
-	DisposalCondition *string             `json:"disposalCondition"`
-	ExpiresOn         *openapi_types.Date `json:"expiresOn"`
+	Category  CategoryReferenceResponse `json:"category"`
+	CreatedAt time.Time                 `json:"createdAt"`
 
 	// IsArchived archive (soft delete) 済みか
 	IsArchived bool `json:"isArchived"`
 
-	// IsConfirmed 棚卸し確認済みか (設計書 13.7)。
-	// 確認操作 (`confirmItem`) はPhase 1のスコープ外のため、常にfalseとなる。
-	IsConfirmed   bool `json:"isConfirmed"`
-	IsFragile     bool `json:"isFragile"`
-	IsSentimental bool `json:"isSentimental"`
-	IsValuable    bool `json:"isValuable"`
-
-	// ItemKindCode アイテム種別。設計書 13.7 は種別の存在のみを定め、値集合を定義していない。
-	// 12.5 の例 `durable` を基に、耐久品と消耗品の2値で開始する。
+	// ItemKindCode アイテム種別 (設計書 14.3)。未指定時はserverが `durable` を適用する。
 	//
 	//
 	// Example: durable
 	ItemKindCode ItemKindCode `json:"itemKindCode"`
 
 	// ItemKindLabel Example: 耐久品
-	ItemKindLabel string     `json:"itemKindLabel"`
-	LastUsedAt    *time.Time `json:"lastUsedAt"`
-
-	// MobilityClassCode 携行区分 (設計書 16.1)
-	//
-	// Example: daily_bag
-	MobilityClassCode MobilityClassCode `json:"mobilityClassCode"`
-
-	// MobilityClassLabel Example: 常時リュック
-	MobilityClassLabel string `json:"mobilityClassLabel"`
+	ItemKindLabel string `json:"itemKindLabel"`
 
 	// Name Example: 折りたたみ傘
 	Name string `json:"name"`
 
-	// NecessityLevelCode 必要度 (設計書 14.5)
+	// NecessityLevelCode 必要度 (設計書 14.2)
 	//
 	// Example: essential
 	NecessityLevelCode NecessityLevelCode `json:"necessityLevelCode"`
 
 	// NecessityLevelLabel Example: 必須
-	NecessityLevelLabel string  `json:"necessityLevelLabel"`
-	Notes               *string `json:"notes"`
-
-	// OwnershipReason Example: 突然の雨に対応するため
-	OwnershipReason *string            `json:"ownershipReason"`
-	PublicId        openapi_types.UUID `json:"publicId"`
-
-	// PurchaseAmount 購入金額 (円)。丸め誤差を避けるため整数で扱う (設計書 11章)。
-	PurchaseAmount *int64              `json:"purchaseAmount"`
-	PurchasedOn    *openapi_types.Date `json:"purchasedOn"`
+	NecessityLevelLabel string              `json:"necessityLevelLabel"`
+	Notes               *string             `json:"notes"`
+	PublicId            openapi_types.UUID  `json:"publicId"`
+	PurchasedOn         *openapi_types.Date `json:"purchasedOn"`
 
 	// Quantity Example: 1
-	Quantity            int32   `json:"quantity"`
-	ReplacementAmount   *int64  `json:"replacementAmount"`
-	RequiresMaintenance bool    `json:"requiresMaintenance"`
-	ResaleAmount        *int64  `json:"resaleAmount"`
-	SourceUrl           *string `json:"sourceUrl"`
-
-	// StorageAllocations 本アイテムがどの収納単位へ何個入っているか (F-009)。
-	// 同一アイテムを複数収納単位へ分割割当できるため配列とする。
-	StorageAllocations []ItemStorageAllocationResponse `json:"storageAllocations"`
-
-	// SubstitutabilityCode 代替可能性 (設計書 14.4)
-	//
-	// Example: none
-	SubstitutabilityCode SubstitutabilityCode `json:"substitutabilityCode"`
-
-	// SubstitutabilityLabel Example: 代替不可
-	SubstitutabilityLabel string                 `json:"substitutabilityLabel"`
-	Tags                  []TagReferenceResponse `json:"tags"`
-
-	// UnassignedQuantity 未割当数量。`quantity - sum(storageAllocations[].quantity)` で算出する。
-	// DBへ重複保存せず取得時に算出する。
-	//
-	//
-	// Example: 0
-	UnassignedQuantity int32 `json:"unassignedQuantity"`
+	Quantity  int32                  `json:"quantity"`
+	SourceUrl *string                `json:"sourceUrl"`
+	Tags      []TagReferenceResponse `json:"tags"`
 
 	// UnitName Example: 本
 	UnitName  string    `json:"unitName"`
 	UpdatedAt time.Time `json:"updatedAt"`
 
-	// UsageFrequencyCode 使用頻度 (設計書 14.3)
+	// UsageFrequencyCode 使用頻度 (設計書 14.1)
 	//
 	// Example: monthly
 	UsageFrequencyCode UsageFrequencyCode `json:"usageFrequencyCode"`
@@ -622,70 +373,13 @@ type ItemResponse struct {
 	// Version 楽観ロック用のversion (設計書 11.7)
 	//
 	// Example: 3
-	Version          int32  `json:"version"`
-	VolumeMilliliter *int32 `json:"volumeMilliliter"`
-	WeightGram       *int32 `json:"weightGram"`
+	Version int32 `json:"version"`
 }
 
 // ItemSortKey 所持品一覧の並び替えkey
 //
 // Example: updatedAt
 type ItemSortKey string
-
-// ItemStorageAllocationListResponse 1アイテムの収納割当一覧。
-// 件数が収納単位数で上限づけられるためpaginationを持たない。
-type ItemStorageAllocationListResponse struct {
-	// AssignedQuantity Example: 3
-	AssignedQuantity int32                           `json:"assignedQuantity"`
-	Items            []ItemStorageAllocationResponse `json:"items"`
-
-	// Quantity アイテムの所有数量
-	//
-	// Example: 3
-	Quantity int32 `json:"quantity"`
-
-	// UnassignedQuantity Example: 0
-	UnassignedQuantity int32 `json:"unassignedQuantity"`
-}
-
-// ItemStorageAllocationResponse アイテム側から見た割当1件。収納単位を参照として持つ。
-type ItemStorageAllocationResponse struct {
-	CreatedAt time.Time          `json:"createdAt"`
-	PublicId  openapi_types.UUID `json:"publicId"`
-
-	// Quantity Example: 2
-	Quantity int32 `json:"quantity"`
-
-	// StorageUnit 他resourceから参照する際の最小表現
-	StorageUnit StorageUnitReferenceResponse `json:"storageUnit"`
-	UpdatedAt   time.Time                    `json:"updatedAt"`
-
-	// Version Example: 1
-	Version int32 `json:"version"`
-}
-
-// ItemUsageRecordListResponse defines model for ItemUsageRecordListResponse.
-type ItemUsageRecordListResponse struct {
-	Items []ItemUsageRecordResponse `json:"items"`
-
-	// Pagination offset paginationの結果 (本file冒頭の注記を参照)。
-	Pagination PaginationResponse `json:"pagination"`
-}
-
-// ItemUsageRecordResponse defines model for ItemUsageRecordResponse.
-type ItemUsageRecordResponse struct {
-	CreatedAt time.Time `json:"createdAt"`
-
-	// Note Example: 通勤時に使用
-	Note     *string            `json:"note"`
-	PublicId openapi_types.UUID `json:"publicId"`
-
-	// Quantity 使用した数量。
-	//
-	// Example: 1
-	Quantity int32     `json:"quantity"`
-	UsedAt   time.Time `json:"usedAt"`
-}
 
 // ItemVersionRequest archive・restoreのように追加入力を持たない操作で使用する。
 type ItemVersionRequest struct {
@@ -702,12 +396,7 @@ type LoginUserRequest struct {
 	Password string `json:"password"`
 }
 
-// MobilityClassCode 携行区分 (設計書 16.1)
-//
-// Example: daily_bag
-type MobilityClassCode string
-
-// NecessityLevelCode 必要度 (設計書 14.5)
+// NecessityLevelCode 必要度 (設計書 14.2)
 //
 // Example: essential
 type NecessityLevelCode string
@@ -762,261 +451,8 @@ type RegisterUserRequest struct {
 	Timezone *string `json:"timezone,omitempty"`
 }
 
-// SetStorageUnitAllocationsRequest 収納単位の割当集合を指定内容へ置き換える。
-// 含まれない既存割当は削除する。空配列は「中身を空にする」を意味する。
-type SetStorageUnitAllocationsRequest struct {
-	// Allocations 同一アイテムを2件以上含めることはできない (400)。
-	Allocations                []StorageAllocationInput `json:"allocations"`
-	ExpectedStorageUnitVersion int32                    `json:"expectedStorageUnitVersion"`
-}
-
 // SortOrder Example: desc
 type SortOrder string
-
-// StorageAllocationInput 一括置換で指定する割当1件。
-type StorageAllocationInput struct {
-	ItemPublicId openapi_types.UUID `json:"itemPublicId"`
-	Quantity     int32              `json:"quantity"`
-}
-
-// StorageAllocationResponse 収納単位配下の割当1件。親の収納単位は文脈から明らかなため含めない。
-type StorageAllocationResponse struct {
-	CreatedAt time.Time `json:"createdAt"`
-
-	// Item 収納割当から参照するアイテムの表現。
-	// 収納内容編集画面が整合性表示 (現在数量・他収納への割当数量・未割当数量)
-	// を行うために必要な項目だけを持つ。
-	Item     AllocatedItemResponse `json:"item"`
-	PublicId openapi_types.UUID    `json:"publicId"`
-
-	// Quantity 本収納単位へ入れている数量。1以上。
-	//
-	// Example: 2
-	Quantity  int32     `json:"quantity"`
-	UpdatedAt time.Time `json:"updatedAt"`
-
-	// Version Example: 1
-	Version int32 `json:"version"`
-}
-
-// StorageTypeCode 収納単位の種別。設計書 13.8 は `bag、pouch、box等` と例示のみで
-// 値集合を定義していないため、実運用で必要な7値で開始する。
-//
-// Example: bag
-type StorageTypeCode string
-
-// StorageUnitCapacityResponse 収納単位の重量・容積の集計と超過判定 (設計書 16.2 / 16.3)。
-//
-// 重量の内訳:
-//
-//	tareWeightGram        : 本収納単位の自重
-//	itemWeightGram        : 直接割当されたアイテムの重量合計
-//	descendantWeightGram  : 子孫収納単位の自重と内容物重量の合計
-//	totalWeightGram       = tareWeightGram + itemWeightGram + descendantWeightGram
-//
-// 親と子で同じ重量を二重計上しないため、descendantWeightGramには
-// 親自身の自重・直接割当分を含めない。
-//
-// 重量・容積が未設定のアイテムが含まれる場合、既知分だけを合計し
-// hasUnknownWeight / hasUnknownVolume を trueとする。
-// 未設定を0として扱い、完全な値に見せることはしない。
-type StorageUnitCapacityResponse struct {
-	// AllocatedItemKindCount 直接割当されているアイテムの種類数
-	//
-	// Example: 4
-	AllocatedItemKindCount int32 `json:"allocatedItemKindCount"`
-
-	// AllocatedQuantity 直接割当されている数量の合計
-	//
-	// Example: 7
-	AllocatedQuantity int64 `json:"allocatedQuantity"`
-
-	// DescendantVolumeMilliliter 子孫収納単位の内容物容積の合計 (既知分のみ)。
-	// 設計書 13.8 に収納単位自身の外寸容積columnが無いため、
-	// 空の子収納単位が占める容積は含められない。
-	//
-	//
-	// Example: 800
-	DescendantVolumeMilliliter int64 `json:"descendantVolumeMilliliter"`
-
-	// DescendantWeightGram 子孫収納単位の自重と内容物重量の合計 (既知分のみ)
-	//
-	// Example: 1300
-	DescendantWeightGram int64 `json:"descendantWeightGram"`
-	HasUnknownVolume     bool  `json:"hasUnknownVolume"`
-
-	// HasUnknownWeight 自重、または集計対象アイテムのいずれかに重量が未設定のものがあるか。
-	// trueの場合、合計値は「入力済み分のみ」である (設計書 16.2)。
-	HasUnknownWeight bool `json:"hasUnknownWeight"`
-	IsVolumeExceeded bool `json:"isVolumeExceeded"`
-
-	// IsWeightExceeded totalWeightGram が maximumWeightGram を超えたか (設計書 16.3)
-	IsWeightExceeded bool `json:"isWeightExceeded"`
-
-	// ItemVolumeMilliliter 直接割当されたアイテムの容積合計 (既知分のみ)
-	//
-	// Example: 5200
-	ItemVolumeMilliliter int64 `json:"itemVolumeMilliliter"`
-
-	// ItemWeightGram 直接割当されたアイテムの重量合計 (既知分のみ)
-	//
-	// Example: 2400
-	ItemWeightGram int64 `json:"itemWeightGram"`
-
-	// MaximumVolumeMilliliter Example: 25000
-	MaximumVolumeMilliliter *int32 `json:"maximumVolumeMilliliter"`
-
-	// MaximumWeightGram 最大重量。未設定の場合はnullとし、超過判定を行わない。
-	//
-	// Example: 8000
-	MaximumWeightGram *int32 `json:"maximumWeightGram"`
-
-	// RemainingVolumeMilliliter Example: 19000
-	RemainingVolumeMilliliter *int64 `json:"remainingVolumeMilliliter"`
-
-	// RemainingWeightGram `maximumWeightGram - totalWeightGram`。
-	// 最大重量が未設定の場合はnull。超過時は負値を返す。
-	//
-	//
-	// Example: 3400
-	RemainingWeightGram *int64 `json:"remainingWeightGram"`
-
-	// TareWeightGram 本収納単位の自重。未設定の場合は0とし hasUnknownWeight をtrueとする。
-	//
-	// Example: 900
-	TareWeightGram int64 `json:"tareWeightGram"`
-
-	// TotalVolumeMilliliter Example: 6000
-	TotalVolumeMilliliter int64 `json:"totalVolumeMilliliter"`
-
-	// TotalWeightGram Example: 4600
-	TotalWeightGram int64 `json:"totalWeightGram"`
-}
-
-// StorageUnitContentsResponse 収納単位の内容。割当の追加・変更・削除・一括置換のresponseにも使用する。
-//
-// 更新後のversion (収納単位・各割当)、容量集計、超過判定を1requestで
-// 返すことで、クライアントが追加requestなしに整合した画面を描ける。
-type StorageUnitContentsResponse struct {
-	// Allocations 直接割当されているアイテム。アイテム名昇順で返す。
-	Allocations []StorageAllocationResponse `json:"allocations"`
-
-	// ChildStorageUnits 直接の子収納単位。archive済みは含めない。
-	ChildStorageUnits []StorageUnitResponse `json:"childStorageUnits"`
-
-	// StorageUnit 収納単位 (設計書 13.8)。内部IDを含めない。
-	StorageUnit StorageUnitResponse `json:"storageUnit"`
-}
-
-// StorageUnitListResponse defines model for StorageUnitListResponse.
-type StorageUnitListResponse struct {
-	Items []StorageUnitResponse `json:"items"`
-
-	// Pagination offset paginationの結果 (本file冒頭の注記を参照)。
-	Pagination PaginationResponse `json:"pagination"`
-}
-
-// StorageUnitReferenceResponse 他resourceから参照する際の最小表現
-type StorageUnitReferenceResponse struct {
-	// Name Example: 日常リュック
-	Name     string             `json:"name"`
-	PublicId openapi_types.UUID `json:"publicId"`
-}
-
-// StorageUnitResponse 収納単位 (設計書 13.8)。内部IDを含めない。
-type StorageUnitResponse struct {
-	// Ancestors rootから直接の親までの並び。階層のbreadcrumb表示に使用する。
-	// 自身は含めない。
-	Ancestors []StorageUnitReferenceResponse `json:"ancestors"`
-
-	// ArchivedAt archive日時。DBの `deleted_at` に対応する。
-	ArchivedAt *time.Time `json:"archivedAt"`
-
-	// Capacity 収納単位の重量・容積の集計と超過判定 (設計書 16.2 / 16.3)。
-	//
-	// 重量の内訳:
-	//   tareWeightGram        : 本収納単位の自重
-	//   itemWeightGram        : 直接割当されたアイテムの重量合計
-	//   descendantWeightGram  : 子孫収納単位の自重と内容物重量の合計
-	//   totalWeightGram       = tareWeightGram + itemWeightGram + descendantWeightGram
-	//
-	// 親と子で同じ重量を二重計上しないため、descendantWeightGramには
-	// 親自身の自重・直接割当分を含めない。
-	//
-	// 重量・容積が未設定のアイテムが含まれる場合、既知分だけを合計し
-	// hasUnknownWeight / hasUnknownVolume を trueとする。
-	// 未設定を0として扱い、完全な値に見せることはしない。
-	Capacity StorageUnitCapacityResponse `json:"capacity"`
-
-	// ChildCount archive前の直接の子収納単位の件数
-	//
-	// Example: 2
-	ChildCount int32     `json:"childCount"`
-	CreatedAt  time.Time `json:"createdAt"`
-
-	// Depth 階層の深さ。rootは1。最大3 (設計書 7.3)。
-	//
-	// Example: 1
-	Depth                   int32   `json:"depth"`
-	Description             *string `json:"description"`
-	IsArchived              bool    `json:"isArchived"`
-	MaximumVolumeMilliliter *int32  `json:"maximumVolumeMilliliter"`
-	MaximumWeightGram       *int32  `json:"maximumWeightGram"`
-
-	// MobilityClassCode 携行区分 (設計書 16.1)
-	//
-	// Example: daily_bag
-	MobilityClassCode MobilityClassCode `json:"mobilityClassCode"`
-
-	// MobilityClassLabel Example: 常時リュック
-	MobilityClassLabel string `json:"mobilityClassLabel"`
-
-	// Name Example: 日常リュック
-	Name string `json:"name"`
-
-	// Parent 直接の親。親を持たない場合はnull。
-	Parent   *StorageUnitReferenceResponse `json:"parent"`
-	PublicId openapi_types.UUID            `json:"publicId"`
-
-	// SortOrder 画面の表示順。小さい順に表示する。
-	//
-	// Example: 10
-	SortOrder int32 `json:"sortOrder"`
-
-	// StorageTypeCode 収納単位の種別。設計書 13.8 は `bag、pouch、box等` と例示のみで
-	// 値集合を定義していないため、実運用で必要な7値で開始する。
-	//
-	//
-	// Example: bag
-	StorageTypeCode StorageTypeCode `json:"storageTypeCode"`
-
-	// StorageTypeLabel Example: バッグ
-	StorageTypeLabel string `json:"storageTypeLabel"`
-
-	// TareWeightGram 収納単位自身の重量 (グラム)。未設定の場合はnull。
-	TareWeightGram *int32    `json:"tareWeightGram"`
-	UpdatedAt      time.Time `json:"updatedAt"`
-
-	// Version Example: 1
-	Version int32 `json:"version"`
-}
-
-// StorageUnitSortKey 収納単位一覧の並び替えkey。
-// `totalWeightGram` はDBへ保存しない集計値のためsort keyへ含めない。
-//
-// Example: sortOrder
-type StorageUnitSortKey string
-
-// StorageUnitVersionRequest archive・restoreのように追加入力を持たない操作で使用する。
-type StorageUnitVersionRequest struct {
-	// ExpectedVersion 楽観ロック用の現在version (設計書 11.7)
-	ExpectedVersion int32 `json:"expectedVersion"`
-}
-
-// SubstitutabilityCode 代替可能性 (設計書 14.4)
-//
-// Example: none
-type SubstitutabilityCode string
 
 // TagListResponse defines model for TagListResponse.
 type TagListResponse struct {
@@ -1051,96 +487,32 @@ type TagResponse struct {
 // UpdateItemRequest 全項目を置き換える。CreateItemRequestと同じ項目に `expectedVersion` を加える。
 // allOfで合成せず明示的に列挙し、`additionalProperties: false` を正しく機能させる。
 type UpdateItemRequest struct {
-	CategoryPublicId  openapi_types.UUID `json:"categoryPublicId"`
-	DesiredQuantity   *int32             `json:"desiredQuantity,omitempty"`
-	DisposalCondition *string            `json:"disposalCondition,omitempty"`
+	CategoryPublicId openapi_types.UUID `json:"categoryPublicId"`
 
 	// ExpectedVersion 楽観ロック用の現在version (設計書 11.7)
-	ExpectedVersion int32               `json:"expectedVersion"`
-	ExpiresOn       *openapi_types.Date `json:"expiresOn,omitempty"`
-	IsFragile       *bool               `json:"isFragile,omitempty"`
-	IsSentimental   *bool               `json:"isSentimental,omitempty"`
-	IsValuable      *bool               `json:"isValuable,omitempty"`
+	ExpectedVersion int32 `json:"expectedVersion"`
 
 	// ItemKindCode 未指定時はserverが `durable` を適用する。
 	ItemKindCode *ItemKindCode `json:"itemKindCode,omitempty"`
-	LastUsedAt   *time.Time    `json:"lastUsedAt,omitempty"`
+	Name         string        `json:"name"`
 
-	// MobilityClassCode 携行区分 (設計書 16.1)
-	//
-	// Example: daily_bag
-	MobilityClassCode MobilityClassCode `json:"mobilityClassCode"`
-	Name              string            `json:"name"`
-
-	// NecessityLevelCode 必要度 (設計書 14.5)
+	// NecessityLevelCode 必要度 (設計書 14.2)
 	//
 	// Example: essential
-	NecessityLevelCode  NecessityLevelCode  `json:"necessityLevelCode"`
-	Notes               *string             `json:"notes,omitempty"`
-	OwnershipReason     *string             `json:"ownershipReason,omitempty"`
-	PurchaseAmount      *int64              `json:"purchaseAmount,omitempty"`
-	PurchasedOn         *openapi_types.Date `json:"purchasedOn,omitempty"`
-	Quantity            int32               `json:"quantity"`
-	ReplacementAmount   *int64              `json:"replacementAmount,omitempty"`
-	RequiresMaintenance *bool               `json:"requiresMaintenance,omitempty"`
-	ResaleAmount        *int64              `json:"resaleAmount,omitempty"`
-	SourceUrl           *string             `json:"sourceUrl,omitempty"`
-
-	// SubstitutabilityCode 代替可能性 (設計書 14.4)
-	//
-	// Example: none
-	SubstitutabilityCode SubstitutabilityCode  `json:"substitutabilityCode"`
-	TagPublicIds         *[]openapi_types.UUID `json:"tagPublicIds,omitempty"`
+	NecessityLevelCode NecessityLevelCode    `json:"necessityLevelCode"`
+	Notes              *string               `json:"notes,omitempty"`
+	PurchasedOn        *openapi_types.Date   `json:"purchasedOn,omitempty"`
+	Quantity           int32                 `json:"quantity"`
+	SourceUrl          *string               `json:"sourceUrl,omitempty"`
+	TagPublicIds       *[]openapi_types.UUID `json:"tagPublicIds,omitempty"`
 
 	// UnitName 未指定時はserverが `個` を適用する。
 	UnitName *string `json:"unitName,omitempty"`
 
-	// UsageFrequencyCode 使用頻度 (設計書 14.3)
+	// UsageFrequencyCode 使用頻度 (設計書 14.1)
 	//
 	// Example: monthly
 	UsageFrequencyCode UsageFrequencyCode `json:"usageFrequencyCode"`
-	VolumeMilliliter   *int32             `json:"volumeMilliliter,omitempty"`
-	WeightGram         *int32             `json:"weightGram,omitempty"`
-}
-
-// UpdateStorageAllocationRequest defines model for UpdateStorageAllocationRequest.
-type UpdateStorageAllocationRequest struct {
-	// ExpectedStorageUnitVersion 収納単位の現在version
-	ExpectedStorageUnitVersion int32 `json:"expectedStorageUnitVersion"`
-
-	// ExpectedVersion 収納割当の現在version
-	ExpectedVersion int32 `json:"expectedVersion"`
-
-	// Quantity Example: 3
-	Quantity int32 `json:"quantity"`
-}
-
-// UpdateStorageUnitRequest 全項目を置き換える。CreateStorageUnitRequestと同じ項目に
-// `expectedVersion` を加える。
-// allOfで合成せず明示的に列挙し `additionalProperties: false` を機能させる。
-type UpdateStorageUnitRequest struct {
-	Description *string `json:"description,omitempty"`
-
-	// ExpectedVersion 楽観ロック用の現在version (設計書 11.7)
-	ExpectedVersion         int32  `json:"expectedVersion"`
-	MaximumVolumeMilliliter *int32 `json:"maximumVolumeMilliliter,omitempty"`
-	MaximumWeightGram       *int32 `json:"maximumWeightGram,omitempty"`
-
-	// MobilityClassCode 携行区分 (設計書 16.1)
-	//
-	// Example: daily_bag
-	MobilityClassCode         MobilityClassCode   `json:"mobilityClassCode"`
-	Name                      string              `json:"name"`
-	ParentStorageUnitPublicId *openapi_types.UUID `json:"parentStorageUnitPublicId,omitempty"`
-	SortOrder                 *int32              `json:"sortOrder,omitempty"`
-
-	// StorageTypeCode 収納単位の種別。設計書 13.8 は `bag、pouch、box等` と例示のみで
-	// 値集合を定義していないため、実運用で必要な7値で開始する。
-	//
-	//
-	// Example: bag
-	StorageTypeCode StorageTypeCode `json:"storageTypeCode"`
-	TareWeightGram  *int32          `json:"tareWeightGram,omitempty"`
 }
 
 // UpdateTagRequest defines model for UpdateTagRequest.
@@ -1154,7 +526,7 @@ type UpdateTagRequest struct {
 	Name string `json:"name"`
 }
 
-// UsageFrequencyCode 使用頻度 (設計書 14.3)
+// UsageFrequencyCode 使用頻度 (設計書 14.1)
 //
 // Example: monthly
 type UsageFrequencyCode string
@@ -1182,9 +554,6 @@ type UserResponse struct {
 	// UpdatedAt Example: 2026-07-25T00:00:00Z
 	UpdatedAt time.Time `json:"updatedAt"`
 }
-
-// AllocationPublicIdPathParameter defines model for AllocationPublicIdPathParameter.
-type AllocationPublicIdPathParameter = openapi_types.UUID
 
 // LimitQueryParameter defines model for LimitQueryParameter.
 type LimitQueryParameter = int32
@@ -1231,15 +600,6 @@ type ListItemsParams struct {
 	TagPublicId        *openapi_types.UUID `form:"tagPublicId,omitempty" json:"tagPublicId,omitempty"`
 	NecessityLevelCode *NecessityLevelCode `form:"necessityLevelCode,omitempty" json:"necessityLevelCode,omitempty"`
 	UsageFrequencyCode *UsageFrequencyCode `form:"usageFrequencyCode,omitempty" json:"usageFrequencyCode,omitempty"`
-	MobilityClassCode  *MobilityClassCode  `form:"mobilityClassCode,omitempty" json:"mobilityClassCode,omitempty"`
-
-	// StorageUnitPublicId 指定した収納単位へ直接割当されているアイテムだけを返す (設計書 9.4)。
-	// 子収納単位の内容は含めない。
-	StorageUnitPublicId *openapi_types.UUID `form:"storageUnitPublicId,omitempty" json:"storageUnitPublicId,omitempty"`
-
-	// IsUnassigned trueの場合、未割当数量が1以上のアイテムだけを返す (設計書 9.4)。
-	// 未割当数量 = quantity - 収納割当数量の合計。
-	IsUnassigned *bool `form:"isUnassigned,omitempty" json:"isUnassigned,omitempty"`
 
 	// IncludeDeleted archive済みのアイテムを含めるか。未指定時はfalse。
 	IncludeDeleted *bool `form:"includeDeleted,omitempty" json:"includeDeleted,omitempty"`
@@ -1255,56 +615,6 @@ type ListItemsParams struct {
 
 	// Offset 読み飛ばす件数。未指定時は0。
 	Offset *OffsetQueryParameter `form:"offset,omitempty" json:"offset,omitempty"`
-}
-
-// ListItemUsageRecordsParams defines parameters for ListItemUsageRecords.
-type ListItemUsageRecordsParams struct {
-	// Limit 取得件数。未指定時は50。
-	Limit *LimitQueryParameter `form:"limit,omitempty" json:"limit,omitempty"`
-
-	// Offset 読み飛ばす件数。未指定時は0。
-	Offset *OffsetQueryParameter `form:"offset,omitempty" json:"offset,omitempty"`
-}
-
-// ListStorageUnitsParams defines parameters for ListStorageUnits.
-type ListStorageUnitsParams struct {
-	// Keyword 収納単位名または説明の部分一致 (大文字小文字を区別しない)
-	Keyword           *string            `form:"keyword,omitempty" json:"keyword,omitempty"`
-	StorageTypeCode   *StorageTypeCode   `form:"storageTypeCode,omitempty" json:"storageTypeCode,omitempty"`
-	MobilityClassCode *MobilityClassCode `form:"mobilityClassCode,omitempty" json:"mobilityClassCode,omitempty"`
-
-	// ParentStorageUnitPublicId 指定した収納単位の直接の子だけを返す。
-	ParentStorageUnitPublicId *openapi_types.UUID `form:"parentStorageUnitPublicId,omitempty" json:"parentStorageUnitPublicId,omitempty"`
-
-	// RootOnly trueの場合、親を持たない収納単位だけを返す。
-	// `parentStorageUnitPublicId` と同時に指定した場合は 400 を返す。
-	RootOnly *bool `form:"rootOnly,omitempty" json:"rootOnly,omitempty"`
-
-	// IncludeArchived archive済みの収納単位を含めるか。未指定時はfalse。
-	// Itemの `includeDeleted` と役割は同じだが、収納単位はarchiveのみを
-	// 利用者へ見せるため名称を `includeArchived` とした。
-	IncludeArchived *bool `form:"includeArchived,omitempty" json:"includeArchived,omitempty"`
-
-	// Sort 並び替えkey。未指定時は sortOrder。
-	Sort *StorageUnitSortKey `form:"sort,omitempty" json:"sort,omitempty"`
-
-	// Order 並び順。未指定時は asc (sortOrder) / desc (updatedAt) ではなく常に指定値を使う。未指定時は asc。
-	Order *SortOrder `form:"order,omitempty" json:"order,omitempty"`
-
-	// Limit 取得件数。未指定時は50。
-	Limit *LimitQueryParameter `form:"limit,omitempty" json:"limit,omitempty"`
-
-	// Offset 読み飛ばす件数。未指定時は0。
-	Offset *OffsetQueryParameter `form:"offset,omitempty" json:"offset,omitempty"`
-}
-
-// DeleteStorageAllocationParams defines parameters for DeleteStorageAllocation.
-type DeleteStorageAllocationParams struct {
-	// ExpectedVersion 収納割当の現在version (設計書 11.7)
-	ExpectedVersion int32 `form:"expectedVersion" json:"expectedVersion"`
-
-	// ExpectedStorageUnitVersion 収納単位の現在version。割当集合の競合を検知する。
-	ExpectedStorageUnitVersion int32 `form:"expectedStorageUnitVersion" json:"expectedStorageUnitVersion"`
 }
 
 // DeleteTagParams defines parameters for DeleteTag.
@@ -1331,30 +641,6 @@ type ArchiveItemJSONRequestBody = ItemVersionRequest
 // RestoreItemJSONRequestBody defines body for RestoreItem for application/json ContentType.
 type RestoreItemJSONRequestBody = ItemVersionRequest
 
-// CreateItemUsageRecordJSONRequestBody defines body for CreateItemUsageRecord for application/json ContentType.
-type CreateItemUsageRecordJSONRequestBody = CreateItemUsageRecordRequest
-
-// CreateStorageUnitJSONRequestBody defines body for CreateStorageUnit for application/json ContentType.
-type CreateStorageUnitJSONRequestBody = CreateStorageUnitRequest
-
-// UpdateStorageUnitJSONRequestBody defines body for UpdateStorageUnit for application/json ContentType.
-type UpdateStorageUnitJSONRequestBody = UpdateStorageUnitRequest
-
-// CreateStorageAllocationJSONRequestBody defines body for CreateStorageAllocation for application/json ContentType.
-type CreateStorageAllocationJSONRequestBody = CreateStorageAllocationRequest
-
-// SetStorageUnitAllocationsJSONRequestBody defines body for SetStorageUnitAllocations for application/json ContentType.
-type SetStorageUnitAllocationsJSONRequestBody = SetStorageUnitAllocationsRequest
-
-// UpdateStorageAllocationJSONRequestBody defines body for UpdateStorageAllocation for application/json ContentType.
-type UpdateStorageAllocationJSONRequestBody = UpdateStorageAllocationRequest
-
-// ArchiveStorageUnitJSONRequestBody defines body for ArchiveStorageUnit for application/json ContentType.
-type ArchiveStorageUnitJSONRequestBody = StorageUnitVersionRequest
-
-// RestoreStorageUnitJSONRequestBody defines body for RestoreStorageUnit for application/json ContentType.
-type RestoreStorageUnitJSONRequestBody = StorageUnitVersionRequest
-
 // CreateTagJSONRequestBody defines body for CreateTag for application/json ContentType.
 type CreateTagJSONRequestBody = CreateTagRequest
 
@@ -1378,6 +664,9 @@ type ServerInterface interface {
 	// ListCategories カテゴリー一覧を取得する
 	// (GET /categories)
 	ListCategories(w http.ResponseWriter, r *http.Request)
+	// GetDashboardSummary ダッシュボードの集計値を取得する
+	// (GET /dashboard/summary)
+	GetDashboardSummary(w http.ResponseWriter, r *http.Request)
 	// ListItems 所持品一覧を取得する
 	// (GET /items)
 	ListItems(w http.ResponseWriter, r *http.Request, params ListItemsParams)
@@ -1396,51 +685,6 @@ type ServerInterface interface {
 	// RestoreItem archive済みの所持品を復元する
 	// (POST /items/{publicId}/restore)
 	RestoreItem(w http.ResponseWriter, r *http.Request, publicId PublicIdPathParameter)
-	// ListItemStorageAllocations 所持品の収納割当を取得する
-	// (GET /items/{publicId}/storage-allocations)
-	ListItemStorageAllocations(w http.ResponseWriter, r *http.Request, publicId PublicIdPathParameter)
-	// ListItemUsageRecords 使用記録の履歴を取得する
-	// (GET /items/{publicId}/usage-records)
-	ListItemUsageRecords(w http.ResponseWriter, r *http.Request, publicId PublicIdPathParameter, params ListItemUsageRecordsParams)
-	// CreateItemUsageRecord 使用記録を登録する
-	// (POST /items/{publicId}/usage-records)
-	CreateItemUsageRecord(w http.ResponseWriter, r *http.Request, publicId PublicIdPathParameter)
-	// ListStorageUnits 収納単位一覧を取得する
-	// (GET /storage-units)
-	ListStorageUnits(w http.ResponseWriter, r *http.Request, params ListStorageUnitsParams)
-	// CreateStorageUnit 収納単位を登録する
-	// (POST /storage-units)
-	CreateStorageUnit(w http.ResponseWriter, r *http.Request)
-	// GetStorageUnitByPublicId 収納単位を取得する
-	// (GET /storage-units/{publicId})
-	GetStorageUnitByPublicId(w http.ResponseWriter, r *http.Request, publicId PublicIdPathParameter)
-	// UpdateStorageUnit 収納単位を更新する
-	// (PUT /storage-units/{publicId})
-	UpdateStorageUnit(w http.ResponseWriter, r *http.Request, publicId PublicIdPathParameter)
-	// CreateStorageAllocation 所持品を収納単位へ割り当てる
-	// (POST /storage-units/{publicId}/allocations)
-	CreateStorageAllocation(w http.ResponseWriter, r *http.Request, publicId PublicIdPathParameter)
-	// SetStorageUnitAllocations 収納単位の割当を一括置換する
-	// (PUT /storage-units/{publicId}/allocations)
-	SetStorageUnitAllocations(w http.ResponseWriter, r *http.Request, publicId PublicIdPathParameter)
-	// DeleteStorageAllocation 収納割当を削除する
-	// (DELETE /storage-units/{publicId}/allocations/{allocationPublicId})
-	DeleteStorageAllocation(w http.ResponseWriter, r *http.Request, publicId PublicIdPathParameter, allocationPublicId AllocationPublicIdPathParameter, params DeleteStorageAllocationParams)
-	// UpdateStorageAllocation 収納割当の数量を変更する
-	// (PUT /storage-units/{publicId}/allocations/{allocationPublicId})
-	UpdateStorageAllocation(w http.ResponseWriter, r *http.Request, publicId PublicIdPathParameter, allocationPublicId AllocationPublicIdPathParameter)
-	// ArchiveStorageUnit 収納単位をarchiveする
-	// (POST /storage-units/{publicId}/archive)
-	ArchiveStorageUnit(w http.ResponseWriter, r *http.Request, publicId PublicIdPathParameter)
-	// GetStorageUnitCapacity 収納単位の重量・容積を取得する
-	// (GET /storage-units/{publicId}/capacity)
-	GetStorageUnitCapacity(w http.ResponseWriter, r *http.Request, publicId PublicIdPathParameter)
-	// GetStorageUnitContents 収納単位の内容を取得する
-	// (GET /storage-units/{publicId}/contents)
-	GetStorageUnitContents(w http.ResponseWriter, r *http.Request, publicId PublicIdPathParameter)
-	// RestoreStorageUnit archive済みの収納単位を復元する
-	// (POST /storage-units/{publicId}/restore)
-	RestoreStorageUnit(w http.ResponseWriter, r *http.Request, publicId PublicIdPathParameter)
 	// ListTags タグ一覧を取得する
 	// (GET /tags)
 	ListTags(w http.ResponseWriter, r *http.Request)
@@ -1489,6 +733,12 @@ func (_ Unimplemented) ListCategories(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// GetDashboardSummary ダッシュボードの集計値を取得する
+// (GET /dashboard/summary)
+func (_ Unimplemented) GetDashboardSummary(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // ListItems 所持品一覧を取得する
 // (GET /items)
 func (_ Unimplemented) ListItems(w http.ResponseWriter, r *http.Request, params ListItemsParams) {
@@ -1522,96 +772,6 @@ func (_ Unimplemented) ArchiveItem(w http.ResponseWriter, r *http.Request, publi
 // RestoreItem archive済みの所持品を復元する
 // (POST /items/{publicId}/restore)
 func (_ Unimplemented) RestoreItem(w http.ResponseWriter, r *http.Request, publicId PublicIdPathParameter) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// ListItemStorageAllocations 所持品の収納割当を取得する
-// (GET /items/{publicId}/storage-allocations)
-func (_ Unimplemented) ListItemStorageAllocations(w http.ResponseWriter, r *http.Request, publicId PublicIdPathParameter) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// ListItemUsageRecords 使用記録の履歴を取得する
-// (GET /items/{publicId}/usage-records)
-func (_ Unimplemented) ListItemUsageRecords(w http.ResponseWriter, r *http.Request, publicId PublicIdPathParameter, params ListItemUsageRecordsParams) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// CreateItemUsageRecord 使用記録を登録する
-// (POST /items/{publicId}/usage-records)
-func (_ Unimplemented) CreateItemUsageRecord(w http.ResponseWriter, r *http.Request, publicId PublicIdPathParameter) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// ListStorageUnits 収納単位一覧を取得する
-// (GET /storage-units)
-func (_ Unimplemented) ListStorageUnits(w http.ResponseWriter, r *http.Request, params ListStorageUnitsParams) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// CreateStorageUnit 収納単位を登録する
-// (POST /storage-units)
-func (_ Unimplemented) CreateStorageUnit(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// GetStorageUnitByPublicId 収納単位を取得する
-// (GET /storage-units/{publicId})
-func (_ Unimplemented) GetStorageUnitByPublicId(w http.ResponseWriter, r *http.Request, publicId PublicIdPathParameter) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// UpdateStorageUnit 収納単位を更新する
-// (PUT /storage-units/{publicId})
-func (_ Unimplemented) UpdateStorageUnit(w http.ResponseWriter, r *http.Request, publicId PublicIdPathParameter) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// CreateStorageAllocation 所持品を収納単位へ割り当てる
-// (POST /storage-units/{publicId}/allocations)
-func (_ Unimplemented) CreateStorageAllocation(w http.ResponseWriter, r *http.Request, publicId PublicIdPathParameter) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// SetStorageUnitAllocations 収納単位の割当を一括置換する
-// (PUT /storage-units/{publicId}/allocations)
-func (_ Unimplemented) SetStorageUnitAllocations(w http.ResponseWriter, r *http.Request, publicId PublicIdPathParameter) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// DeleteStorageAllocation 収納割当を削除する
-// (DELETE /storage-units/{publicId}/allocations/{allocationPublicId})
-func (_ Unimplemented) DeleteStorageAllocation(w http.ResponseWriter, r *http.Request, publicId PublicIdPathParameter, allocationPublicId AllocationPublicIdPathParameter, params DeleteStorageAllocationParams) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// UpdateStorageAllocation 収納割当の数量を変更する
-// (PUT /storage-units/{publicId}/allocations/{allocationPublicId})
-func (_ Unimplemented) UpdateStorageAllocation(w http.ResponseWriter, r *http.Request, publicId PublicIdPathParameter, allocationPublicId AllocationPublicIdPathParameter) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// ArchiveStorageUnit 収納単位をarchiveする
-// (POST /storage-units/{publicId}/archive)
-func (_ Unimplemented) ArchiveStorageUnit(w http.ResponseWriter, r *http.Request, publicId PublicIdPathParameter) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// GetStorageUnitCapacity 収納単位の重量・容積を取得する
-// (GET /storage-units/{publicId}/capacity)
-func (_ Unimplemented) GetStorageUnitCapacity(w http.ResponseWriter, r *http.Request, publicId PublicIdPathParameter) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// GetStorageUnitContents 収納単位の内容を取得する
-// (GET /storage-units/{publicId}/contents)
-func (_ Unimplemented) GetStorageUnitContents(w http.ResponseWriter, r *http.Request, publicId PublicIdPathParameter) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// RestoreStorageUnit archive済みの収納単位を復元する
-// (POST /storage-units/{publicId}/restore)
-func (_ Unimplemented) RestoreStorageUnit(w http.ResponseWriter, r *http.Request, publicId PublicIdPathParameter) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1718,6 +878,20 @@ func (siw *ServerInterfaceWrapper) ListCategories(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
+// GetDashboardSummary operation middleware
+func (siw *ServerInterfaceWrapper) GetDashboardSummary(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetDashboardSummary(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListItems operation middleware
 func (siw *ServerInterfaceWrapper) ListItems(w http.ResponseWriter, r *http.Request) {
 
@@ -1788,45 +962,6 @@ func (siw *ServerInterfaceWrapper) ListItems(w http.ResponseWriter, r *http.Requ
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "usageFrequencyCode"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "usageFrequencyCode", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "mobilityClassCode" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "mobilityClassCode", r.URL.Query(), &params.MobilityClassCode, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "mobilityClassCode"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "mobilityClassCode", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "storageUnitPublicId" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "storageUnitPublicId", r.URL.Query(), &params.StorageUnitPublicId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "storageUnitPublicId"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "storageUnitPublicId", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "isUnassigned" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "isUnassigned", r.URL.Query(), &params.IsUnassigned, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "isUnassigned"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "isUnassigned", Err: err})
 		}
 		return
 	}
@@ -2016,584 +1151,6 @@ func (siw *ServerInterfaceWrapper) RestoreItem(w http.ResponseWriter, r *http.Re
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RestoreItem(w, r, publicId)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// ListItemStorageAllocations operation middleware
-func (siw *ServerInterfaceWrapper) ListItemStorageAllocations(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "publicId" -------------
-	var publicId PublicIdPathParameter
-
-	err = runtime.BindStyledParameterWithOptions("simple", "publicId", chi.URLParam(r, "publicId"), &publicId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "publicId", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListItemStorageAllocations(w, r, publicId)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// ListItemUsageRecords operation middleware
-func (siw *ServerInterfaceWrapper) ListItemUsageRecords(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "publicId" -------------
-	var publicId PublicIdPathParameter
-
-	err = runtime.BindStyledParameterWithOptions("simple", "publicId", chi.URLParam(r, "publicId"), &publicId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "publicId", Err: err})
-		return
-	}
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params ListItemUsageRecordsParams
-
-	// ------------- Optional query parameter "limit" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "offset" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", r.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "offset"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
-		}
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListItemUsageRecords(w, r, publicId, params)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// CreateItemUsageRecord operation middleware
-func (siw *ServerInterfaceWrapper) CreateItemUsageRecord(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "publicId" -------------
-	var publicId PublicIdPathParameter
-
-	err = runtime.BindStyledParameterWithOptions("simple", "publicId", chi.URLParam(r, "publicId"), &publicId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "publicId", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.CreateItemUsageRecord(w, r, publicId)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// ListStorageUnits operation middleware
-func (siw *ServerInterfaceWrapper) ListStorageUnits(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params ListStorageUnitsParams
-
-	// ------------- Optional query parameter "keyword" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "keyword", r.URL.Query(), &params.Keyword, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "keyword"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "keyword", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "storageTypeCode" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "storageTypeCode", r.URL.Query(), &params.StorageTypeCode, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "storageTypeCode"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "storageTypeCode", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "mobilityClassCode" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "mobilityClassCode", r.URL.Query(), &params.MobilityClassCode, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "mobilityClassCode"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "mobilityClassCode", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "parentStorageUnitPublicId" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "parentStorageUnitPublicId", r.URL.Query(), &params.ParentStorageUnitPublicId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "parentStorageUnitPublicId"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "parentStorageUnitPublicId", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "rootOnly" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "rootOnly", r.URL.Query(), &params.RootOnly, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "rootOnly"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "rootOnly", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "includeArchived" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "includeArchived", r.URL.Query(), &params.IncludeArchived, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "includeArchived"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "includeArchived", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "sort" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "sort", r.URL.Query(), &params.Sort, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "sort"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sort", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "order" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "order", r.URL.Query(), &params.Order, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "order"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "order", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "limit" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "offset" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", r.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "offset"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
-		}
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListStorageUnits(w, r, params)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// CreateStorageUnit operation middleware
-func (siw *ServerInterfaceWrapper) CreateStorageUnit(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.CreateStorageUnit(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// GetStorageUnitByPublicId operation middleware
-func (siw *ServerInterfaceWrapper) GetStorageUnitByPublicId(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "publicId" -------------
-	var publicId PublicIdPathParameter
-
-	err = runtime.BindStyledParameterWithOptions("simple", "publicId", chi.URLParam(r, "publicId"), &publicId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "publicId", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetStorageUnitByPublicId(w, r, publicId)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// UpdateStorageUnit operation middleware
-func (siw *ServerInterfaceWrapper) UpdateStorageUnit(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "publicId" -------------
-	var publicId PublicIdPathParameter
-
-	err = runtime.BindStyledParameterWithOptions("simple", "publicId", chi.URLParam(r, "publicId"), &publicId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "publicId", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.UpdateStorageUnit(w, r, publicId)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// CreateStorageAllocation operation middleware
-func (siw *ServerInterfaceWrapper) CreateStorageAllocation(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "publicId" -------------
-	var publicId PublicIdPathParameter
-
-	err = runtime.BindStyledParameterWithOptions("simple", "publicId", chi.URLParam(r, "publicId"), &publicId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "publicId", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.CreateStorageAllocation(w, r, publicId)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// SetStorageUnitAllocations operation middleware
-func (siw *ServerInterfaceWrapper) SetStorageUnitAllocations(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "publicId" -------------
-	var publicId PublicIdPathParameter
-
-	err = runtime.BindStyledParameterWithOptions("simple", "publicId", chi.URLParam(r, "publicId"), &publicId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "publicId", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.SetStorageUnitAllocations(w, r, publicId)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// DeleteStorageAllocation operation middleware
-func (siw *ServerInterfaceWrapper) DeleteStorageAllocation(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "publicId" -------------
-	var publicId PublicIdPathParameter
-
-	err = runtime.BindStyledParameterWithOptions("simple", "publicId", chi.URLParam(r, "publicId"), &publicId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "publicId", Err: err})
-		return
-	}
-
-	// ------------- Path parameter "allocationPublicId" -------------
-	var allocationPublicId AllocationPublicIdPathParameter
-
-	err = runtime.BindStyledParameterWithOptions("simple", "allocationPublicId", chi.URLParam(r, "allocationPublicId"), &allocationPublicId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "allocationPublicId", Err: err})
-		return
-	}
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params DeleteStorageAllocationParams
-
-	// ------------- Required query parameter "expectedVersion" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, true, "expectedVersion", r.URL.Query(), &params.ExpectedVersion, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "expectedVersion"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "expectedVersion", Err: err})
-		}
-		return
-	}
-
-	// ------------- Required query parameter "expectedStorageUnitVersion" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, true, "expectedStorageUnitVersion", r.URL.Query(), &params.ExpectedStorageUnitVersion, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "expectedStorageUnitVersion"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "expectedStorageUnitVersion", Err: err})
-		}
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.DeleteStorageAllocation(w, r, publicId, allocationPublicId, params)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// UpdateStorageAllocation operation middleware
-func (siw *ServerInterfaceWrapper) UpdateStorageAllocation(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "publicId" -------------
-	var publicId PublicIdPathParameter
-
-	err = runtime.BindStyledParameterWithOptions("simple", "publicId", chi.URLParam(r, "publicId"), &publicId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "publicId", Err: err})
-		return
-	}
-
-	// ------------- Path parameter "allocationPublicId" -------------
-	var allocationPublicId AllocationPublicIdPathParameter
-
-	err = runtime.BindStyledParameterWithOptions("simple", "allocationPublicId", chi.URLParam(r, "allocationPublicId"), &allocationPublicId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "allocationPublicId", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.UpdateStorageAllocation(w, r, publicId, allocationPublicId)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// ArchiveStorageUnit operation middleware
-func (siw *ServerInterfaceWrapper) ArchiveStorageUnit(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "publicId" -------------
-	var publicId PublicIdPathParameter
-
-	err = runtime.BindStyledParameterWithOptions("simple", "publicId", chi.URLParam(r, "publicId"), &publicId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "publicId", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ArchiveStorageUnit(w, r, publicId)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// GetStorageUnitCapacity operation middleware
-func (siw *ServerInterfaceWrapper) GetStorageUnitCapacity(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "publicId" -------------
-	var publicId PublicIdPathParameter
-
-	err = runtime.BindStyledParameterWithOptions("simple", "publicId", chi.URLParam(r, "publicId"), &publicId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "publicId", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetStorageUnitCapacity(w, r, publicId)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// GetStorageUnitContents operation middleware
-func (siw *ServerInterfaceWrapper) GetStorageUnitContents(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "publicId" -------------
-	var publicId PublicIdPathParameter
-
-	err = runtime.BindStyledParameterWithOptions("simple", "publicId", chi.URLParam(r, "publicId"), &publicId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "publicId", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetStorageUnitContents(w, r, publicId)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// RestoreStorageUnit operation middleware
-func (siw *ServerInterfaceWrapper) RestoreStorageUnit(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "publicId" -------------
-	var publicId PublicIdPathParameter
-
-	err = runtime.BindStyledParameterWithOptions("simple", "publicId", chi.URLParam(r, "publicId"), &publicId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "publicId", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.RestoreStorageUnit(w, r, publicId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2858,49 +1415,7 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/items/{publicId}/restore", wrapper.RestoreItem)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/items/{publicId}/usage-records", wrapper.ListItemUsageRecords)
-	})
-	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/items/{publicId}/usage-records", wrapper.CreateItemUsageRecord)
-	})
-	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/items/{publicId}/storage-allocations", wrapper.ListItemStorageAllocations)
-	})
-	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/storage-units", wrapper.ListStorageUnits)
-	})
-	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/storage-units", wrapper.CreateStorageUnit)
-	})
-	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/storage-units/{publicId}", wrapper.GetStorageUnitByPublicId)
-	})
-	r.Group(func(r chi.Router) {
-		r.Put(options.BaseURL+"/storage-units/{publicId}", wrapper.UpdateStorageUnit)
-	})
-	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/storage-units/{publicId}/archive", wrapper.ArchiveStorageUnit)
-	})
-	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/storage-units/{publicId}/restore", wrapper.RestoreStorageUnit)
-	})
-	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/storage-units/{publicId}/capacity", wrapper.GetStorageUnitCapacity)
-	})
-	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/storage-units/{publicId}/contents", wrapper.GetStorageUnitContents)
-	})
-	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/storage-units/{publicId}/allocations", wrapper.CreateStorageAllocation)
-	})
-	r.Group(func(r chi.Router) {
-		r.Put(options.BaseURL+"/storage-units/{publicId}/allocations", wrapper.SetStorageUnitAllocations)
-	})
-	r.Group(func(r chi.Router) {
-		r.Delete(options.BaseURL+"/storage-units/{publicId}/allocations/{allocationPublicId}", wrapper.DeleteStorageAllocation)
-	})
-	r.Group(func(r chi.Router) {
-		r.Put(options.BaseURL+"/storage-units/{publicId}/allocations/{allocationPublicId}", wrapper.UpdateStorageAllocation)
+		r.Get(options.BaseURL+"/dashboard/summary", wrapper.GetDashboardSummary)
 	})
 
 	return r
@@ -2911,235 +1426,129 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

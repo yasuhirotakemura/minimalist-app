@@ -33,14 +33,6 @@ func utcTime(value pgtype.Timestamptz) time.Time {
 	return value.Time.UTC()
 }
 
-// nullableTimestamptz は*time.TimeをUTCでpgtype.Timestamptzへ変換する。nilはNULLとする。
-func nullableTimestamptz(value *time.Time) pgtype.Timestamptz {
-	if value == nil {
-		return pgtype.Timestamptz{}
-	}
-	return pgtype.Timestamptz{Time: value.UTC(), Valid: true}
-}
-
 // nullableDate は*time.TimeをDATE columnへ渡す値へ変換する。
 // 時刻部分は保持されないため、UTCの日付として扱う。
 func nullableDate(value *time.Time) pgtype.Date {

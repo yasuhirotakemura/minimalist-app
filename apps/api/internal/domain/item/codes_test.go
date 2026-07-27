@@ -55,41 +55,6 @@ func TestCodeLabels_全ての値にlabelがある(t *testing.T) {
 			t.Errorf("NewUsageFrequency(%q) returned error: %v", frequency, err)
 		}
 	}
-
-	substitutabilities := []domainitem.Substitutability{
-		domainitem.SubstitutabilityNone,
-		domainitem.SubstitutabilityPartial,
-		domainitem.SubstitutabilityFull,
-		domainitem.SubstitutabilityUnknown,
-	}
-	for _, substitutability := range substitutabilities {
-		if substitutability.Label() == "" {
-			t.Errorf("Substitutability %q has empty label", substitutability)
-		}
-		if _, err := domainitem.NewSubstitutability(substitutability.String()); err != nil {
-			t.Errorf("NewSubstitutability(%q) returned error: %v", substitutability, err)
-		}
-	}
-
-	mobilityClasses := []domainitem.MobilityClass{
-		domainitem.MobilityClassWorn,
-		domainitem.MobilityClassPocket,
-		domainitem.MobilityClassDailyBag,
-		domainitem.MobilityClassOnDemand,
-		domainitem.MobilityClassSelfCarry,
-		domainitem.MobilityClassParcel,
-		domainitem.MobilityClassMover,
-		domainitem.MobilityClassDisposeRebuy,
-		domainitem.MobilityClassFixed,
-	}
-	for _, class := range mobilityClasses {
-		if class.Label() == "" {
-			t.Errorf("MobilityClass %q has empty label", class)
-		}
-		if _, err := domainitem.NewMobilityClass(class.String()); err != nil {
-			t.Errorf("NewMobilityClass(%q) returned error: %v", class, err)
-		}
-	}
 }
 
 func TestCodes_未知の値を拒否する(t *testing.T) {
@@ -99,10 +64,28 @@ func TestCodes_未知の値を拒否する(t *testing.T) {
 	if _, err := domainitem.NewUsageFrequency("sometimes"); err == nil {
 		t.Error("NewUsageFrequency(sometimes) returned nil error, want error")
 	}
-	if _, err := domainitem.NewSubstitutability("maybe"); err == nil {
-		t.Error("NewSubstitutability(maybe) returned nil error, want error")
+}
+
+func TestCodesInOrder_全ての値を表示順で返す(t *testing.T) {
+	levels := domainitem.NecessityLevelsInOrder()
+	if len(levels) != 5 {
+		t.Fatalf("len(NecessityLevelsInOrder()) = %d, want 5", len(levels))
 	}
-	if _, err := domainitem.NewMobilityClass("truck"); err == nil {
-		t.Error("NewMobilityClass(truck) returned nil error, want error")
+	if levels[0] != domainitem.NecessityLevelEssential {
+		t.Errorf("levels[0] = %q, want %q", levels[0], domainitem.NecessityLevelEssential)
+	}
+
+	frequencies := domainitem.UsageFrequenciesInOrder()
+	if len(frequencies) != 7 {
+		t.Fatalf("len(UsageFrequenciesInOrder()) = %d, want 7", len(frequencies))
+	}
+	if frequencies[0] != domainitem.UsageFrequencyDaily {
+		t.Errorf("frequencies[0] = %q, want %q", frequencies[0], domainitem.UsageFrequencyDaily)
+	}
+
+	// 返り値を書き換えても内部の定義順へ影響しない。
+	levels[0] = domainitem.NecessityLevelUnnecessary
+	if domainitem.NecessityLevelsInOrder()[0] != domainitem.NecessityLevelEssential {
+		t.Error("NecessityLevelsInOrder() returned a mutable shared slice")
 	}
 }

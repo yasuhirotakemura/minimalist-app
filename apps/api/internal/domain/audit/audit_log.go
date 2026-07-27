@@ -20,8 +20,8 @@ import (
 
 // ActionCode は記録対象の操作 (設計書 22章)。
 //
-// Phase 1で記録する操作のみを定義する。
-// 後続phaseで対象が増えるため、DB側は値集合ではなく形式をCHECKで保証する。
+// 対象が増えても既存行を書き換えずに済むよう、
+// DB側は値集合ではなく形式をCHECKで保証する。
 type ActionCode string
 
 // ActionCodeの値。
@@ -31,20 +31,9 @@ const (
 	ActionItemUpdated              ActionCode = "item_updated"
 	ActionItemArchived             ActionCode = "item_archived"
 	ActionItemRestored             ActionCode = "item_restored"
-	ActionItemUsageRecorded        ActionCode = "item_usage_recorded"
 	ActionTagCreated               ActionCode = "tag_created"
 	ActionTagUpdated               ActionCode = "tag_updated"
 	ActionTagDeleted               ActionCode = "tag_deleted"
-
-	// Phase 2: 収納単位・収納割当 (設計書 22章 "storage allocation変更")。
-	ActionStorageUnitCreated         ActionCode = "storage_unit_created"
-	ActionStorageUnitUpdated         ActionCode = "storage_unit_updated"
-	ActionStorageUnitArchived        ActionCode = "storage_unit_archived"
-	ActionStorageUnitRestored        ActionCode = "storage_unit_restored"
-	ActionStorageAllocationCreated   ActionCode = "storage_allocation_created"
-	ActionStorageAllocationUpdated   ActionCode = "storage_allocation_updated"
-	ActionStorageAllocationDeleted   ActionCode = "storage_allocation_deleted"
-	ActionStorageAllocationsReplaced ActionCode = "storage_allocations_replaced"
 
 	// ActionVersionConflictDetected は楽観ロック競合の検知を表す。
 	//
@@ -61,11 +50,9 @@ type TargetTypeCode string
 
 // TargetTypeCodeの値。
 const (
-	TargetTypeItem              TargetTypeCode = "item"
-	TargetTypeTag               TargetTypeCode = "tag"
-	TargetTypeCategory          TargetTypeCode = "category"
-	TargetTypeStorageUnit       TargetTypeCode = "storage_unit"
-	TargetTypeStorageAllocation TargetTypeCode = "storage_allocation"
+	TargetTypeItem     TargetTypeCode = "item"
+	TargetTypeTag      TargetTypeCode = "tag"
+	TargetTypeCategory TargetTypeCode = "category"
 )
 
 // String はcodeを返す。

@@ -32,15 +32,13 @@ func testCategoryReference() domaincategory.Reference {
 // validAttributes は必須項目を満たした属性を返す。
 func validAttributes() domainitem.Attributes {
 	return domainitem.Attributes{
-		Name:             "折りたたみ傘",
-		Category:         testCategoryReference(),
-		Kind:             domainitem.ItemKindDurable,
-		Quantity:         1,
-		UnitName:         "本",
-		NecessityLevel:   domainitem.NecessityLevelEssential,
-		UsageFrequency:   domainitem.UsageFrequencyMonthly,
-		Substitutability: domainitem.SubstitutabilityNone,
-		MobilityClass:    domainitem.MobilityClassDailyBag,
+		Name:           "折りたたみ傘",
+		Category:       testCategoryReference(),
+		Kind:           domainitem.ItemKindDurable,
+		Quantity:       1,
+		UnitName:       "本",
+		NecessityLevel: domainitem.NecessityLevelEssential,
+		UsageFrequency: domainitem.UsageFrequencyMonthly,
 	}
 }
 
@@ -79,9 +77,6 @@ func TestNewItem_正常系(t *testing.T) {
 	}
 	if created.IsArchived() {
 		t.Error("IsArchived = true, want false")
-	}
-	if created.IsConfirmed() {
-		t.Error("IsConfirmed = true, want false")
 	}
 	if !created.CreatedAt().Equal(testNow) {
 		t.Errorf("CreatedAt = %v, want %v", created.CreatedAt(), testNow)
@@ -150,10 +145,6 @@ func TestNewItem_異常系(t *testing.T) {
 			},
 			wantField: "quantity",
 		},
-		"希望数量が負": {
-			mutate:    func(a *domainitem.Attributes) { a.DesiredQuantity = pointerTo(int32(-1)) },
-			wantField: "desiredQuantity",
-		},
 		"単位が上限超過": {
 			mutate: func(a *domainitem.Attributes) {
 				a.UnitName = strings.Repeat("個", domainitem.MaxUnitNameLength+1)
@@ -168,39 +159,13 @@ func TestNewItem_異常系(t *testing.T) {
 			mutate:    func(a *domainitem.Attributes) { a.UsageFrequency = "sometimes" },
 			wantField: "usageFrequencyCode",
 		},
-		"代替可能性が不正": {
-			mutate:    func(a *domainitem.Attributes) { a.Substitutability = "maybe" },
-			wantField: "substitutabilityCode",
-		},
-		"携行区分が不正": {
-			mutate:    func(a *domainitem.Attributes) { a.MobilityClass = "truck" },
-			wantField: "mobilityClassCode",
-		},
 		"種別が不正": {
 			mutate:    func(a *domainitem.Attributes) { a.Kind = "rental" },
 			wantField: "itemKindCode",
 		},
-		"金額が負": {
-			mutate:    func(a *domainitem.Attributes) { a.PurchaseAmount = pointerTo(int64(-1)) },
-			wantField: "purchaseAmount",
-		},
-		"重量が負": {
-			mutate:    func(a *domainitem.Attributes) { a.WeightGram = pointerTo(int32(-1)) },
-			wantField: "weightGram",
-		},
-		"容積が負": {
-			mutate:    func(a *domainitem.Attributes) { a.VolumeMilliliter = pointerTo(int32(-1)) },
-			wantField: "volumeMilliliter",
-		},
 		"商品URLのschemeが不正": {
 			mutate:    func(a *domainitem.Attributes) { a.SourceURL = pointerTo("javascript:alert(1)") },
 			wantField: "sourceUrl",
-		},
-		"最終使用日時が未来": {
-			mutate: func(a *domainitem.Attributes) {
-				a.LastUsedAt = pointerTo(testNow.Add(time.Hour))
-			},
-			wantField: "lastUsedAt",
 		},
 		"タグが上限超過": {
 			mutate: func(a *domainitem.Attributes) {
@@ -237,15 +202,15 @@ func TestNewItem_境界値(t *testing.T) {
 		"数量上限": func(a *domainitem.Attributes) {
 			a.Quantity = domainitem.MaxQuantity
 		},
-		"希望数量0": func(a *domainitem.Attributes) { a.DesiredQuantity = pointerTo(int32(0)) },
 		"アイテム名上限": func(a *domainitem.Attributes) {
 			a.Name = strings.Repeat("あ", domainitem.MaxNameLength)
 		},
 		"単位上限": func(a *domainitem.Attributes) {
 			a.UnitName = strings.Repeat("個", domainitem.MaxUnitNameLength)
 		},
-		"金額0":         func(a *domainitem.Attributes) { a.PurchaseAmount = pointerTo(int64(0)) },
-		"最終使用日時が現在時刻": func(a *domainitem.Attributes) { a.LastUsedAt = pointerTo(testNow) },
+		"購入日": func(a *domainitem.Attributes) {
+			a.PurchasedOn = pointerTo(testNow.Add(-24 * time.Hour))
+		},
 		"httpsのURL": func(a *domainitem.Attributes) {
 			a.SourceURL = pointerTo("https://example.com/item")
 		},
@@ -385,59 +350,6 @@ func TestItem_Restore(t *testing.T) {
 	if _, err := restored.Restore(restored.Version(), testNow); !errors.Is(
 		err, domainitem.ErrItemNotArchived) {
 		t.Fatalf("Restore on active item error = %v, want ErrItemNotArchived", err)
-	}
-}
-
-func TestItem_RecordUsage_最終使用日時を更新する(t *testing.T) {
-	attributes := validAttributes()
-	attributes.LastUsedAt = pointerTo(testNow.Add(-48 * time.Hour))
-	created := newTestItem(t, attributes)
-
-	usedAt := testNow.Add(-time.Hour)
-	record, updated, err := created.RecordUsage(
-		uuid.New(), usedAt, 1, pointerTo("通勤で使用"), testNow)
-	if err != nil {
-		t.Fatalf("RecordUsage returned error: %v", err)
-	}
-
-	if !record.UsedAt().Equal(usedAt) {
-		t.Errorf("record.UsedAt = %v, want %v", record.UsedAt(), usedAt)
-	}
-	if updated.LastUsedAt() == nil || !updated.LastUsedAt().Equal(usedAt) {
-		t.Errorf("LastUsedAt = %v, want %v", updated.LastUsedAt(), usedAt)
-	}
-	if updated.Version() != created.Version()+1 {
-		t.Errorf("Version = %d, want %d", updated.Version(), created.Version()+1)
-	}
-}
-
-func TestItem_RecordUsage_古い使用日時では後退させない(t *testing.T) {
-	latest := testNow.Add(-time.Hour)
-	attributes := validAttributes()
-	attributes.LastUsedAt = pointerTo(latest)
-	created := newTestItem(t, attributes)
-
-	_, updated, err := created.RecordUsage(
-		uuid.New(), testNow.Add(-72*time.Hour), 1, nil, testNow)
-	if err != nil {
-		t.Fatalf("RecordUsage returned error: %v", err)
-	}
-
-	if updated.LastUsedAt() == nil || !updated.LastUsedAt().Equal(latest) {
-		t.Errorf("LastUsedAt = %v, want %v (unchanged)", updated.LastUsedAt(), latest)
-	}
-}
-
-func TestItem_RecordUsage_archive済みへは追加できない(t *testing.T) {
-	created := newTestItem(t, validAttributes())
-	archived, err := created.Archive(created.Version(), testNow)
-	if err != nil {
-		t.Fatalf("Archive returned error: %v", err)
-	}
-
-	_, _, err = archived.RecordUsage(uuid.New(), testNow, 1, nil, testNow)
-	if !errors.Is(err, domainitem.ErrItemArchived) {
-		t.Fatalf("RecordUsage error = %v, want ErrItemArchived", err)
 	}
 }
 

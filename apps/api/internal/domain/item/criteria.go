@@ -23,28 +23,24 @@ type SortKey string
 
 // SortKeyの値。
 const (
-	SortKeyName       SortKey = "name"
-	SortKeyQuantity   SortKey = "quantity"
-	SortKeyLastUsedAt SortKey = "lastUsedAt"
-	SortKeyUpdatedAt  SortKey = "updatedAt"
+	SortKeyName      SortKey = "name"
+	SortKeyQuantity  SortKey = "quantity"
+	SortKeyUpdatedAt SortKey = "updatedAt"
 )
 
 // DefaultSortKey は未指定時の並び替えkey。
 const DefaultSortKey = SortKeyUpdatedAt
 
 var sortKeys = map[SortKey]struct{}{
-	SortKeyName:       {},
-	SortKeyQuantity:   {},
-	SortKeyLastUsedAt: {},
-	SortKeyUpdatedAt:  {},
+	SortKeyName:      {},
+	SortKeyQuantity:  {},
+	SortKeyUpdatedAt: {},
 }
 
 // String はkey名を返す。
 func (k SortKey) String() string { return string(k) }
 
 // ListCriteria は一覧の検索・絞り込み・並び替え条件 (設計書 9.4)。
-//
-// 見直しスコアに関する条件 (reviewRankCode) はPhase 3のスコープのため含めない。
 type ListCriteria struct {
 	// Keyword はアイテム名またはメモの部分一致条件。空文字は条件なし。
 	Keyword          string
@@ -52,12 +48,6 @@ type ListCriteria struct {
 	TagPublicID      *uuid.UUID
 	NecessityLevel   *NecessityLevel
 	UsageFrequency   *UsageFrequency
-	MobilityClass    *MobilityClass
-	// StorageUnitPublicID は指定した収納単位へ直接割当されているアイテムに
-	// 絞り込む条件 (Phase 2)。子収納単位の内容は含めない。
-	StorageUnitPublicID *uuid.UUID
-	// IsUnassigned は未割当数量が1以上のアイテムに絞り込む条件 (Phase 2)。
-	IsUnassigned bool
 	// IncludeArchived はarchive済みを含めるか。既定はfalse。
 	IncludeArchived bool
 	SortKey         SortKey
@@ -68,19 +58,16 @@ type ListCriteria struct {
 
 // ListCriteriaInput は正規化前の一覧条件。presentation layerからそのまま渡す。
 type ListCriteriaInput struct {
-	Keyword             string
-	CategoryPublicID    *uuid.UUID
-	TagPublicID         *uuid.UUID
-	NecessityLevelCode  string
-	UsageFrequencyCode  string
-	MobilityClassCode   string
-	StorageUnitPublicID *uuid.UUID
-	IsUnassigned        bool
-	IncludeArchived     bool
-	SortKeyName         string
-	Order               string
-	Limit               *int32
-	Offset              *int32
+	Keyword            string
+	CategoryPublicID   *uuid.UUID
+	TagPublicID        *uuid.UUID
+	NecessityLevelCode string
+	UsageFrequencyCode string
+	IncludeArchived    bool
+	SortKeyName        string
+	Order              string
+	Limit              *int32
+	Offset             *int32
 }
 
 // NewListCriteria は入力を検証し、既定値を適用した条件を返す。
@@ -88,11 +75,9 @@ type ListCriteriaInput struct {
 // 既定値: sort=updatedAt、order=desc、limit=50、offset=0。
 func NewListCriteria(input ListCriteriaInput) (ListCriteria, error) {
 	criteria := ListCriteria{
-		CategoryPublicID:    input.CategoryPublicID,
-		TagPublicID:         input.TagPublicID,
-		StorageUnitPublicID: input.StorageUnitPublicID,
-		IsUnassigned:        input.IsUnassigned,
-		IncludeArchived:     input.IncludeArchived,
+		CategoryPublicID: input.CategoryPublicID,
+		TagPublicID:      input.TagPublicID,
+		IncludeArchived:  input.IncludeArchived,
 	}
 
 	keyword := strings.TrimSpace(input.Keyword)
@@ -115,13 +100,6 @@ func NewListCriteria(input ListCriteriaInput) (ListCriteria, error) {
 			return ListCriteria{}, err
 		}
 		criteria.UsageFrequency = &frequency
-	}
-	if code := strings.TrimSpace(input.MobilityClassCode); code != "" {
-		class, err := NewMobilityClass(code)
-		if err != nil {
-			return ListCriteria{}, err
-		}
-		criteria.MobilityClass = &class
 	}
 
 	sortKey := SortKey(strings.TrimSpace(input.SortKeyName))
@@ -159,31 +137,6 @@ func NewListCriteria(input ListCriteriaInput) (ListCriteria, error) {
 	}
 
 	return criteria, nil
-}
-
-// PageCriteria は使用記録履歴などの単純なpagination条件。
-type PageCriteria struct {
-	Limit  int32
-	Offset int32
-}
-
-// NewPageCriteria は既定値を適用したpagination条件を返す。
-func NewPageCriteria(limit, offset *int32) (PageCriteria, error) {
-	page := PageCriteria{Limit: DefaultListLimit}
-	if limit != nil {
-		if *limit < 1 || *limit > MaxListLimit {
-			return PageCriteria{}, newCriteriaError(
-				"limit", "取得件数は1以上100以下で指定してください。")
-		}
-		page.Limit = *limit
-	}
-	if offset != nil {
-		if *offset < 0 {
-			return PageCriteria{}, newCriteriaError("offset", "offsetは0以上で指定してください。")
-		}
-		page.Offset = *offset
-	}
-	return page, nil
 }
 
 func newCriteriaError(field, message string) *shared.DomainError {

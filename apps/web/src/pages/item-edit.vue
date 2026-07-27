@@ -46,6 +46,7 @@ async function handleSubmit(body: CreateItemRequest): Promise<void> {
     })
     await queryClient.invalidateQueries({ queryKey: queryKeys.items.all() })
     await queryClient.invalidateQueries({ queryKey: queryKeys.tags.list() })
+    await queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.summary() })
     return item
   })
 

@@ -12,6 +12,163 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const aggregateItemCountsByCategory = `-- name: AggregateItemCountsByCategory :many
+SELECT
+    c.public_id                        AS category_public_id,
+    c.name                             AS category_name,
+    COUNT(i.id)::bigint                AS item_type_count,
+    COALESCE(SUM(i.quantity), 0)::bigint AS total_quantity
+FROM ownership.categories c
+JOIN ownership.items i
+  ON i.category_id = c.id
+ AND i.user_id = c.user_id
+ AND i.deleted_at IS NULL
+WHERE c.user_id = $1
+  AND c.deleted_at IS NULL
+GROUP BY c.id, c.public_id, c.name, c.sort_order
+ORDER BY c.sort_order, c.id
+`
+
+type AggregateItemCountsByCategoryRow struct {
+	CategoryPublicID uuid.UUID
+	CategoryName     string
+	ItemTypeCount    int64
+	TotalQuantity    int64
+}
+
+// ダッシュボードのカテゴリー別内訳 (設計書 9.3)。
+//
+// 所持品が1件も無いカテゴリーは行として返さない。
+// 並びはカテゴリーの表示順 (sort_order) とする。
+func (q *Queries) AggregateItemCountsByCategory(ctx context.Context, userID int64) ([]AggregateItemCountsByCategoryRow, error) {
+	rows, err := q.db.Query(ctx, aggregateItemCountsByCategory, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []AggregateItemCountsByCategoryRow{}
+	for rows.Next() {
+		var i AggregateItemCountsByCategoryRow
+		if err := rows.Scan(
+			&i.CategoryPublicID,
+			&i.CategoryName,
+			&i.ItemTypeCount,
+			&i.TotalQuantity,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const aggregateItemCountsByNecessityLevel = `-- name: AggregateItemCountsByNecessityLevel :many
+SELECT
+    necessity_level_code,
+    COUNT(*)::bigint                   AS item_type_count,
+    COALESCE(SUM(quantity), 0)::bigint AS total_quantity
+FROM ownership.items
+WHERE user_id = $1
+  AND deleted_at IS NULL
+GROUP BY necessity_level_code
+ORDER BY necessity_level_code
+`
+
+type AggregateItemCountsByNecessityLevelRow struct {
+	NecessityLevelCode string
+	ItemTypeCount      int64
+	TotalQuantity      int64
+}
+
+// ダッシュボードの必要度別内訳 (設計書 9.3)。
+// 表示順はDomainのcode体系が決めるため、SQLではcode順に返す。
+func (q *Queries) AggregateItemCountsByNecessityLevel(ctx context.Context, userID int64) ([]AggregateItemCountsByNecessityLevelRow, error) {
+	rows, err := q.db.Query(ctx, aggregateItemCountsByNecessityLevel, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []AggregateItemCountsByNecessityLevelRow{}
+	for rows.Next() {
+		var i AggregateItemCountsByNecessityLevelRow
+		if err := rows.Scan(&i.NecessityLevelCode, &i.ItemTypeCount, &i.TotalQuantity); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const aggregateItemCountsByUsageFrequency = `-- name: AggregateItemCountsByUsageFrequency :many
+SELECT
+    usage_frequency_code,
+    COUNT(*)::bigint                   AS item_type_count,
+    COALESCE(SUM(quantity), 0)::bigint AS total_quantity
+FROM ownership.items
+WHERE user_id = $1
+  AND deleted_at IS NULL
+GROUP BY usage_frequency_code
+ORDER BY usage_frequency_code
+`
+
+type AggregateItemCountsByUsageFrequencyRow struct {
+	UsageFrequencyCode string
+	ItemTypeCount      int64
+	TotalQuantity      int64
+}
+
+// ダッシュボードの使用頻度別内訳 (設計書 9.3)。
+func (q *Queries) AggregateItemCountsByUsageFrequency(ctx context.Context, userID int64) ([]AggregateItemCountsByUsageFrequencyRow, error) {
+	rows, err := q.db.Query(ctx, aggregateItemCountsByUsageFrequency, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []AggregateItemCountsByUsageFrequencyRow{}
+	for rows.Next() {
+		var i AggregateItemCountsByUsageFrequencyRow
+		if err := rows.Scan(&i.UsageFrequencyCode, &i.ItemTypeCount, &i.TotalQuantity); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const aggregateItemTotals = `-- name: AggregateItemTotals :one
+SELECT
+    COUNT(*)::bigint                        AS item_type_count,
+    COALESCE(SUM(quantity), 0)::bigint      AS total_quantity
+FROM ownership.items
+WHERE user_id = $1
+  AND deleted_at IS NULL
+`
+
+type AggregateItemTotalsRow struct {
+	ItemTypeCount int64
+	TotalQuantity int64
+}
+
+// ダッシュボードの合計 (設計書 9.3)。
+//
+// item_type_count はアイテム種別 (行) の数、total_quantity は所有数量の合計。
+// archive済みは集計へ含めない。
+func (q *Queries) AggregateItemTotals(ctx context.Context, userID int64) (AggregateItemTotalsRow, error) {
+	row := q.db.QueryRow(ctx, aggregateItemTotals, userID)
+	var i AggregateItemTotalsRow
+	err := row.Scan(&i.ItemTypeCount, &i.TotalQuantity)
+	return i, err
+}
+
 const archiveItem = `-- name: ArchiveItem :one
 UPDATE ownership.items
 SET deleted_at = $1,
@@ -21,7 +178,7 @@ WHERE public_id = $3
   AND user_id = $4
   AND deleted_at IS NULL
   AND version = $5
-RETURNING id, public_id, user_id, category_id, name, item_kind_code, quantity, desired_quantity, unit_name, necessity_level_code, usage_frequency_code, substitutability_code, mobility_class_code, ownership_reason, disposal_condition, last_used_at, purchased_on, purchase_amount, replacement_amount, resale_amount, weight_gram, volume_milliliter, is_fragile, is_valuable, is_sentimental, requires_maintenance, expires_on, source_url, notes, is_confirmed, confirmed_at, created_at, updated_at, deleted_at, version
+RETURNING id, public_id, user_id, category_id, name, item_kind_code, quantity, unit_name, necessity_level_code, usage_frequency_code, purchased_on, source_url, notes, created_at, updated_at, deleted_at, version
 `
 
 type ArchiveItemParams struct {
@@ -50,30 +207,12 @@ func (q *Queries) ArchiveItem(ctx context.Context, arg ArchiveItemParams) (Owner
 		&i.Name,
 		&i.ItemKindCode,
 		&i.Quantity,
-		&i.DesiredQuantity,
 		&i.UnitName,
 		&i.NecessityLevelCode,
 		&i.UsageFrequencyCode,
-		&i.SubstitutabilityCode,
-		&i.MobilityClassCode,
-		&i.OwnershipReason,
-		&i.DisposalCondition,
-		&i.LastUsedAt,
 		&i.PurchasedOn,
-		&i.PurchaseAmount,
-		&i.ReplacementAmount,
-		&i.ResaleAmount,
-		&i.WeightGram,
-		&i.VolumeMilliliter,
-		&i.IsFragile,
-		&i.IsValuable,
-		&i.IsSentimental,
-		&i.RequiresMaintenance,
-		&i.ExpiresOn,
 		&i.SourceUrl,
 		&i.Notes,
-		&i.IsConfirmed,
-		&i.ConfirmedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
@@ -101,9 +240,7 @@ WHERE i.user_id = $1
        OR i.necessity_level_code = $5::text)
   AND ($6::text IS NULL
        OR i.usage_frequency_code = $6::text)
-  AND ($7::text IS NULL
-       OR i.mobility_class_code = $7::text)
-  AND ($8::uuid IS NULL
+  AND ($7::uuid IS NULL
        OR EXISTS (
             SELECT 1
             FROM ownership.item_tags it
@@ -113,36 +250,17 @@ WHERE i.user_id = $1
              AND t.deleted_at IS NULL
             WHERE it.item_id = i.id
               AND it.user_id = i.user_id
-              AND t.public_id = $8::uuid))
-  AND ($9::uuid IS NULL
-       OR EXISTS (
-            SELECT 1
-            FROM ownership.storage_allocations sa
-            JOIN ownership.storage_units su
-              ON su.id = sa.storage_unit_id
-             AND su.user_id = sa.user_id
-            WHERE sa.item_id = i.id
-              AND sa.user_id = i.user_id
-              AND su.public_id = $9::uuid))
-  AND (NOT $10::boolean
-       OR i.quantity > COALESCE((
-            SELECT SUM(sa.quantity)
-            FROM ownership.storage_allocations sa
-            WHERE sa.item_id = i.id
-              AND sa.user_id = i.user_id), 0))
+              AND t.public_id = $7::uuid))
 `
 
 type CountItemsParams struct {
-	UserID              int64
-	IncludeDeleted      bool
-	KeywordPattern      *string
-	CategoryPublicID    *uuid.UUID
-	NecessityLevelCode  *string
-	UsageFrequencyCode  *string
-	MobilityClassCode   *string
-	TagPublicID         *uuid.UUID
-	StorageUnitPublicID *uuid.UUID
-	UnassignedOnly      bool
+	UserID             int64
+	IncludeDeleted     bool
+	KeywordPattern     *string
+	CategoryPublicID   *uuid.UUID
+	NecessityLevelCode *string
+	UsageFrequencyCode *string
+	TagPublicID        *uuid.UUID
 }
 
 // ListItemsと同一の絞り込み条件で総件数を返す。
@@ -154,10 +272,7 @@ func (q *Queries) CountItems(ctx context.Context, arg CountItemsParams) (int64, 
 		arg.CategoryPublicID,
 		arg.NecessityLevelCode,
 		arg.UsageFrequencyCode,
-		arg.MobilityClassCode,
 		arg.TagPublicID,
-		arg.StorageUnitPublicID,
-		arg.UnassignedOnly,
 	)
 	var count int64
 	err := row.Scan(&count)
@@ -204,7 +319,7 @@ func (q *Queries) ExistsItemByPublicID(ctx context.Context, arg ExistsItemByPubl
 
 const findItemByPublicID = `-- name: FindItemByPublicID :one
 SELECT
-    i.id, i.public_id, i.user_id, i.category_id, i.name, i.item_kind_code, i.quantity, i.desired_quantity, i.unit_name, i.necessity_level_code, i.usage_frequency_code, i.substitutability_code, i.mobility_class_code, i.ownership_reason, i.disposal_condition, i.last_used_at, i.purchased_on, i.purchase_amount, i.replacement_amount, i.resale_amount, i.weight_gram, i.volume_milliliter, i.is_fragile, i.is_valuable, i.is_sentimental, i.requires_maintenance, i.expires_on, i.source_url, i.notes, i.is_confirmed, i.confirmed_at, i.created_at, i.updated_at, i.deleted_at, i.version,
+    i.id, i.public_id, i.user_id, i.category_id, i.name, i.item_kind_code, i.quantity, i.unit_name, i.necessity_level_code, i.usage_frequency_code, i.purchased_on, i.source_url, i.notes, i.created_at, i.updated_at, i.deleted_at, i.version,
     c.public_id AS category_public_id,
     c.name      AS category_name
 FROM ownership.items i
@@ -239,30 +354,12 @@ func (q *Queries) FindItemByPublicID(ctx context.Context, arg FindItemByPublicID
 		&i.OwnershipItem.Name,
 		&i.OwnershipItem.ItemKindCode,
 		&i.OwnershipItem.Quantity,
-		&i.OwnershipItem.DesiredQuantity,
 		&i.OwnershipItem.UnitName,
 		&i.OwnershipItem.NecessityLevelCode,
 		&i.OwnershipItem.UsageFrequencyCode,
-		&i.OwnershipItem.SubstitutabilityCode,
-		&i.OwnershipItem.MobilityClassCode,
-		&i.OwnershipItem.OwnershipReason,
-		&i.OwnershipItem.DisposalCondition,
-		&i.OwnershipItem.LastUsedAt,
 		&i.OwnershipItem.PurchasedOn,
-		&i.OwnershipItem.PurchaseAmount,
-		&i.OwnershipItem.ReplacementAmount,
-		&i.OwnershipItem.ResaleAmount,
-		&i.OwnershipItem.WeightGram,
-		&i.OwnershipItem.VolumeMilliliter,
-		&i.OwnershipItem.IsFragile,
-		&i.OwnershipItem.IsValuable,
-		&i.OwnershipItem.IsSentimental,
-		&i.OwnershipItem.RequiresMaintenance,
-		&i.OwnershipItem.ExpiresOn,
 		&i.OwnershipItem.SourceUrl,
 		&i.OwnershipItem.Notes,
-		&i.OwnershipItem.IsConfirmed,
-		&i.OwnershipItem.ConfirmedAt,
 		&i.OwnershipItem.CreatedAt,
 		&i.OwnershipItem.UpdatedAt,
 		&i.OwnershipItem.DeletedAt,
@@ -282,30 +379,12 @@ INSERT INTO ownership.items (
     name,
     item_kind_code,
     quantity,
-    desired_quantity,
     unit_name,
     necessity_level_code,
     usage_frequency_code,
-    substitutability_code,
-    mobility_class_code,
-    ownership_reason,
-    disposal_condition,
-    last_used_at,
     purchased_on,
-    purchase_amount,
-    replacement_amount,
-    resale_amount,
-    weight_gram,
-    volume_milliliter,
-    is_fragile,
-    is_valuable,
-    is_sentimental,
-    requires_maintenance,
-    expires_on,
     source_url,
     notes,
-    is_confirmed,
-    confirmed_at,
     created_at,
     updated_at,
     version
@@ -324,62 +403,26 @@ INSERT INTO ownership.items (
     $12,
     $13,
     $14,
-    $15,
-    $16,
-    $17,
-    $18,
-    $19,
-    $20,
-    $21,
-    $22,
-    $23,
-    $24,
-    $25,
-    $26,
-    $27,
-    $28,
-    $29,
-    $30,
-    $31,
-    $32,
     1
 )
-RETURNING id, public_id, user_id, category_id, name, item_kind_code, quantity, desired_quantity, unit_name, necessity_level_code, usage_frequency_code, substitutability_code, mobility_class_code, ownership_reason, disposal_condition, last_used_at, purchased_on, purchase_amount, replacement_amount, resale_amount, weight_gram, volume_milliliter, is_fragile, is_valuable, is_sentimental, requires_maintenance, expires_on, source_url, notes, is_confirmed, confirmed_at, created_at, updated_at, deleted_at, version
+RETURNING id, public_id, user_id, category_id, name, item_kind_code, quantity, unit_name, necessity_level_code, usage_frequency_code, purchased_on, source_url, notes, created_at, updated_at, deleted_at, version
 `
 
 type InsertItemParams struct {
-	PublicID             uuid.UUID
-	UserID               int64
-	CategoryID           int64
-	Name                 string
-	ItemKindCode         string
-	Quantity             int32
-	DesiredQuantity      *int32
-	UnitName             string
-	NecessityLevelCode   string
-	UsageFrequencyCode   string
-	SubstitutabilityCode string
-	MobilityClassCode    string
-	OwnershipReason      *string
-	DisposalCondition    *string
-	LastUsedAt           pgtype.Timestamptz
-	PurchasedOn          pgtype.Date
-	PurchaseAmount       *int64
-	ReplacementAmount    *int64
-	ResaleAmount         *int64
-	WeightGram           *int32
-	VolumeMilliliter     *int32
-	IsFragile            bool
-	IsValuable           bool
-	IsSentimental        bool
-	RequiresMaintenance  bool
-	ExpiresOn            pgtype.Date
-	SourceUrl            *string
-	Notes                *string
-	IsConfirmed          bool
-	ConfirmedAt          pgtype.Timestamptz
-	CreatedAt            pgtype.Timestamptz
-	UpdatedAt            pgtype.Timestamptz
+	PublicID           uuid.UUID
+	UserID             int64
+	CategoryID         int64
+	Name               string
+	ItemKindCode       string
+	Quantity           int32
+	UnitName           string
+	NecessityLevelCode string
+	UsageFrequencyCode string
+	PurchasedOn        pgtype.Date
+	SourceUrl          *string
+	Notes              *string
+	CreatedAt          pgtype.Timestamptz
+	UpdatedAt          pgtype.Timestamptz
 }
 
 // 全てのユーザーdata queryは user internal ID を条件に含める (設計書 11.6 / 18.3)。
@@ -392,30 +435,12 @@ func (q *Queries) InsertItem(ctx context.Context, arg InsertItemParams) (Ownersh
 		arg.Name,
 		arg.ItemKindCode,
 		arg.Quantity,
-		arg.DesiredQuantity,
 		arg.UnitName,
 		arg.NecessityLevelCode,
 		arg.UsageFrequencyCode,
-		arg.SubstitutabilityCode,
-		arg.MobilityClassCode,
-		arg.OwnershipReason,
-		arg.DisposalCondition,
-		arg.LastUsedAt,
 		arg.PurchasedOn,
-		arg.PurchaseAmount,
-		arg.ReplacementAmount,
-		arg.ResaleAmount,
-		arg.WeightGram,
-		arg.VolumeMilliliter,
-		arg.IsFragile,
-		arg.IsValuable,
-		arg.IsSentimental,
-		arg.RequiresMaintenance,
-		arg.ExpiresOn,
 		arg.SourceUrl,
 		arg.Notes,
-		arg.IsConfirmed,
-		arg.ConfirmedAt,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
@@ -428,30 +453,12 @@ func (q *Queries) InsertItem(ctx context.Context, arg InsertItemParams) (Ownersh
 		&i.Name,
 		&i.ItemKindCode,
 		&i.Quantity,
-		&i.DesiredQuantity,
 		&i.UnitName,
 		&i.NecessityLevelCode,
 		&i.UsageFrequencyCode,
-		&i.SubstitutabilityCode,
-		&i.MobilityClassCode,
-		&i.OwnershipReason,
-		&i.DisposalCondition,
-		&i.LastUsedAt,
 		&i.PurchasedOn,
-		&i.PurchaseAmount,
-		&i.ReplacementAmount,
-		&i.ResaleAmount,
-		&i.WeightGram,
-		&i.VolumeMilliliter,
-		&i.IsFragile,
-		&i.IsValuable,
-		&i.IsSentimental,
-		&i.RequiresMaintenance,
-		&i.ExpiresOn,
 		&i.SourceUrl,
 		&i.Notes,
-		&i.IsConfirmed,
-		&i.ConfirmedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
@@ -527,7 +534,7 @@ func (q *Queries) ListItemTagsByItemIDs(ctx context.Context, arg ListItemTagsByI
 
 const listItems = `-- name: ListItems :many
 SELECT
-    i.id, i.public_id, i.user_id, i.category_id, i.name, i.item_kind_code, i.quantity, i.desired_quantity, i.unit_name, i.necessity_level_code, i.usage_frequency_code, i.substitutability_code, i.mobility_class_code, i.ownership_reason, i.disposal_condition, i.last_used_at, i.purchased_on, i.purchase_amount, i.replacement_amount, i.resale_amount, i.weight_gram, i.volume_milliliter, i.is_fragile, i.is_valuable, i.is_sentimental, i.requires_maintenance, i.expires_on, i.source_url, i.notes, i.is_confirmed, i.confirmed_at, i.created_at, i.updated_at, i.deleted_at, i.version,
+    i.id, i.public_id, i.user_id, i.category_id, i.name, i.item_kind_code, i.quantity, i.unit_name, i.necessity_level_code, i.usage_frequency_code, i.purchased_on, i.source_url, i.notes, i.created_at, i.updated_at, i.deleted_at, i.version,
     c.public_id AS category_public_id,
     c.name      AS category_name
 FROM ownership.items i
@@ -547,9 +554,7 @@ WHERE i.user_id = $1
        OR i.necessity_level_code = $5::text)
   AND ($6::text IS NULL
        OR i.usage_frequency_code = $6::text)
-  AND ($7::text IS NULL
-       OR i.mobility_class_code = $7::text)
-  AND ($8::uuid IS NULL
+  AND ($7::uuid IS NULL
        OR EXISTS (
             SELECT 1
             FROM ownership.item_tags it
@@ -559,64 +564,37 @@ WHERE i.user_id = $1
              AND t.deleted_at IS NULL
             WHERE it.item_id = i.id
               AND it.user_id = i.user_id
-              AND t.public_id = $8::uuid))
-  -- 指定した収納単位へ直接割当されているアイテムだけを返す (Phase 2)。
-  -- 子収納単位の内容は含めない。
-  AND ($9::uuid IS NULL
-       OR EXISTS (
-            SELECT 1
-            FROM ownership.storage_allocations sa
-            JOIN ownership.storage_units su
-              ON su.id = sa.storage_unit_id
-             AND su.user_id = sa.user_id
-            WHERE sa.item_id = i.id
-              AND sa.user_id = i.user_id
-              AND su.public_id = $9::uuid))
-  -- 未割当数量が1以上のアイテムだけを返す (Phase 2)。
-  -- 未割当数量はDBへ保存せず、割当合計との差で判定する。
-  AND (NOT $10::boolean
-       OR i.quantity > COALESCE((
-            SELECT SUM(sa.quantity)
-            FROM ownership.storage_allocations sa
-            WHERE sa.item_id = i.id
-              AND sa.user_id = i.user_id), 0))
+              AND t.public_id = $7::uuid))
 ORDER BY
-    CASE WHEN $11::text = 'name' AND NOT $12::boolean
+    CASE WHEN $8::text = 'name' AND NOT $9::boolean
          THEN i.name END ASC,
-    CASE WHEN $11::text = 'name' AND $12::boolean
+    CASE WHEN $8::text = 'name' AND $9::boolean
          THEN i.name END DESC,
-    CASE WHEN $11::text = 'quantity' AND NOT $12::boolean
+    CASE WHEN $8::text = 'quantity' AND NOT $9::boolean
          THEN i.quantity END ASC,
-    CASE WHEN $11::text = 'quantity' AND $12::boolean
+    CASE WHEN $8::text = 'quantity' AND $9::boolean
          THEN i.quantity END DESC,
-    CASE WHEN $11::text = 'last_used_at' AND NOT $12::boolean
-         THEN i.last_used_at END ASC NULLS LAST,
-    CASE WHEN $11::text = 'last_used_at' AND $12::boolean
-         THEN i.last_used_at END DESC NULLS LAST,
-    CASE WHEN $11::text = 'updated_at' AND NOT $12::boolean
+    CASE WHEN $8::text = 'updated_at' AND NOT $9::boolean
          THEN i.updated_at END ASC,
-    CASE WHEN $11::text = 'updated_at' AND $12::boolean
+    CASE WHEN $8::text = 'updated_at' AND $9::boolean
          THEN i.updated_at END DESC,
     i.id DESC
-LIMIT $14
-OFFSET $13
+LIMIT $11
+OFFSET $10
 `
 
 type ListItemsParams struct {
-	UserID              int64
-	IncludeDeleted      bool
-	KeywordPattern      *string
-	CategoryPublicID    *uuid.UUID
-	NecessityLevelCode  *string
-	UsageFrequencyCode  *string
-	MobilityClassCode   *string
-	TagPublicID         *uuid.UUID
-	StorageUnitPublicID *uuid.UUID
-	UnassignedOnly      bool
-	SortKey             string
-	Descending          bool
-	RowOffset           int32
-	RowLimit            int32
+	UserID             int64
+	IncludeDeleted     bool
+	KeywordPattern     *string
+	CategoryPublicID   *uuid.UUID
+	NecessityLevelCode *string
+	UsageFrequencyCode *string
+	TagPublicID        *uuid.UUID
+	SortKey            string
+	Descending         bool
+	RowOffset          int32
+	RowLimit           int32
 }
 
 type ListItemsRow struct {
@@ -638,10 +616,7 @@ func (q *Queries) ListItems(ctx context.Context, arg ListItemsParams) ([]ListIte
 		arg.CategoryPublicID,
 		arg.NecessityLevelCode,
 		arg.UsageFrequencyCode,
-		arg.MobilityClassCode,
 		arg.TagPublicID,
-		arg.StorageUnitPublicID,
-		arg.UnassignedOnly,
 		arg.SortKey,
 		arg.Descending,
 		arg.RowOffset,
@@ -662,30 +637,12 @@ func (q *Queries) ListItems(ctx context.Context, arg ListItemsParams) ([]ListIte
 			&i.OwnershipItem.Name,
 			&i.OwnershipItem.ItemKindCode,
 			&i.OwnershipItem.Quantity,
-			&i.OwnershipItem.DesiredQuantity,
 			&i.OwnershipItem.UnitName,
 			&i.OwnershipItem.NecessityLevelCode,
 			&i.OwnershipItem.UsageFrequencyCode,
-			&i.OwnershipItem.SubstitutabilityCode,
-			&i.OwnershipItem.MobilityClassCode,
-			&i.OwnershipItem.OwnershipReason,
-			&i.OwnershipItem.DisposalCondition,
-			&i.OwnershipItem.LastUsedAt,
 			&i.OwnershipItem.PurchasedOn,
-			&i.OwnershipItem.PurchaseAmount,
-			&i.OwnershipItem.ReplacementAmount,
-			&i.OwnershipItem.ResaleAmount,
-			&i.OwnershipItem.WeightGram,
-			&i.OwnershipItem.VolumeMilliliter,
-			&i.OwnershipItem.IsFragile,
-			&i.OwnershipItem.IsValuable,
-			&i.OwnershipItem.IsSentimental,
-			&i.OwnershipItem.RequiresMaintenance,
-			&i.OwnershipItem.ExpiresOn,
 			&i.OwnershipItem.SourceUrl,
 			&i.OwnershipItem.Notes,
-			&i.OwnershipItem.IsConfirmed,
-			&i.OwnershipItem.ConfirmedAt,
 			&i.OwnershipItem.CreatedAt,
 			&i.OwnershipItem.UpdatedAt,
 			&i.OwnershipItem.DeletedAt,
@@ -712,7 +669,7 @@ WHERE public_id = $2
   AND user_id = $3
   AND deleted_at IS NOT NULL
   AND version = $4
-RETURNING id, public_id, user_id, category_id, name, item_kind_code, quantity, desired_quantity, unit_name, necessity_level_code, usage_frequency_code, substitutability_code, mobility_class_code, ownership_reason, disposal_condition, last_used_at, purchased_on, purchase_amount, replacement_amount, resale_amount, weight_gram, volume_milliliter, is_fragile, is_valuable, is_sentimental, requires_maintenance, expires_on, source_url, notes, is_confirmed, confirmed_at, created_at, updated_at, deleted_at, version
+RETURNING id, public_id, user_id, category_id, name, item_kind_code, quantity, unit_name, necessity_level_code, usage_frequency_code, purchased_on, source_url, notes, created_at, updated_at, deleted_at, version
 `
 
 type RestoreItemParams struct {
@@ -738,100 +695,12 @@ func (q *Queries) RestoreItem(ctx context.Context, arg RestoreItemParams) (Owner
 		&i.Name,
 		&i.ItemKindCode,
 		&i.Quantity,
-		&i.DesiredQuantity,
 		&i.UnitName,
 		&i.NecessityLevelCode,
 		&i.UsageFrequencyCode,
-		&i.SubstitutabilityCode,
-		&i.MobilityClassCode,
-		&i.OwnershipReason,
-		&i.DisposalCondition,
-		&i.LastUsedAt,
 		&i.PurchasedOn,
-		&i.PurchaseAmount,
-		&i.ReplacementAmount,
-		&i.ResaleAmount,
-		&i.WeightGram,
-		&i.VolumeMilliliter,
-		&i.IsFragile,
-		&i.IsValuable,
-		&i.IsSentimental,
-		&i.RequiresMaintenance,
-		&i.ExpiresOn,
 		&i.SourceUrl,
 		&i.Notes,
-		&i.IsConfirmed,
-		&i.ConfirmedAt,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.DeletedAt,
-		&i.Version,
-	)
-	return i, err
-}
-
-const touchItemLastUsedAt = `-- name: TouchItemLastUsedAt :one
-UPDATE ownership.items
-SET last_used_at = GREATEST(COALESCE(last_used_at, $1), $1),
-    updated_at   = $2,
-    version      = version + 1
-WHERE public_id = $3
-  AND user_id = $4
-  AND deleted_at IS NULL
-RETURNING id, public_id, user_id, category_id, name, item_kind_code, quantity, desired_quantity, unit_name, necessity_level_code, usage_frequency_code, substitutability_code, mobility_class_code, ownership_reason, disposal_condition, last_used_at, purchased_on, purchase_amount, replacement_amount, resale_amount, weight_gram, volume_milliliter, is_fragile, is_valuable, is_sentimental, requires_maintenance, expires_on, source_url, notes, is_confirmed, confirmed_at, created_at, updated_at, deleted_at, version
-`
-
-type TouchItemLastUsedAtParams struct {
-	UsedAt    pgtype.Timestamptz
-	UpdatedAt pgtype.Timestamptz
-	PublicID  uuid.UUID
-	UserID    int64
-}
-
-// 使用記録の登録に伴い最終使用日時を更新する。
-// 既存値より古い使用日時では最終使用日時を後退させない。
-// 使用記録は追記操作のため expectedVersion を要求しないが、
-// 見直しスコアの再計算契機となるため version は増加させる。
-func (q *Queries) TouchItemLastUsedAt(ctx context.Context, arg TouchItemLastUsedAtParams) (OwnershipItem, error) {
-	row := q.db.QueryRow(ctx, touchItemLastUsedAt,
-		arg.UsedAt,
-		arg.UpdatedAt,
-		arg.PublicID,
-		arg.UserID,
-	)
-	var i OwnershipItem
-	err := row.Scan(
-		&i.ID,
-		&i.PublicID,
-		&i.UserID,
-		&i.CategoryID,
-		&i.Name,
-		&i.ItemKindCode,
-		&i.Quantity,
-		&i.DesiredQuantity,
-		&i.UnitName,
-		&i.NecessityLevelCode,
-		&i.UsageFrequencyCode,
-		&i.SubstitutabilityCode,
-		&i.MobilityClassCode,
-		&i.OwnershipReason,
-		&i.DisposalCondition,
-		&i.LastUsedAt,
-		&i.PurchasedOn,
-		&i.PurchaseAmount,
-		&i.ReplacementAmount,
-		&i.ResaleAmount,
-		&i.WeightGram,
-		&i.VolumeMilliliter,
-		&i.IsFragile,
-		&i.IsValuable,
-		&i.IsSentimental,
-		&i.RequiresMaintenance,
-		&i.ExpiresOn,
-		&i.SourceUrl,
-		&i.Notes,
-		&i.IsConfirmed,
-		&i.ConfirmedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
@@ -842,72 +711,40 @@ func (q *Queries) TouchItemLastUsedAt(ctx context.Context, arg TouchItemLastUsed
 
 const updateItem = `-- name: UpdateItem :one
 UPDATE ownership.items
-SET category_id           = $1,
-    name                  = $2,
-    item_kind_code        = $3,
-    quantity              = $4,
-    desired_quantity      = $5,
-    unit_name             = $6,
-    necessity_level_code  = $7,
-    usage_frequency_code  = $8,
-    substitutability_code = $9,
-    mobility_class_code   = $10,
-    ownership_reason      = $11,
-    disposal_condition    = $12,
-    last_used_at          = $13,
-    purchased_on          = $14,
-    purchase_amount       = $15,
-    replacement_amount    = $16,
-    resale_amount         = $17,
-    weight_gram           = $18,
-    volume_milliliter     = $19,
-    is_fragile            = $20,
-    is_valuable           = $21,
-    is_sentimental        = $22,
-    requires_maintenance  = $23,
-    expires_on            = $24,
-    source_url            = $25,
-    notes                 = $26,
-    updated_at            = $27,
-    version               = version + 1
-WHERE public_id = $28
-  AND user_id = $29
+SET category_id          = $1,
+    name                 = $2,
+    item_kind_code       = $3,
+    quantity             = $4,
+    unit_name            = $5,
+    necessity_level_code = $6,
+    usage_frequency_code = $7,
+    purchased_on         = $8,
+    source_url           = $9,
+    notes                = $10,
+    updated_at           = $11,
+    version              = version + 1
+WHERE public_id = $12
+  AND user_id = $13
   AND deleted_at IS NULL
-  AND version = $30
-RETURNING id, public_id, user_id, category_id, name, item_kind_code, quantity, desired_quantity, unit_name, necessity_level_code, usage_frequency_code, substitutability_code, mobility_class_code, ownership_reason, disposal_condition, last_used_at, purchased_on, purchase_amount, replacement_amount, resale_amount, weight_gram, volume_milliliter, is_fragile, is_valuable, is_sentimental, requires_maintenance, expires_on, source_url, notes, is_confirmed, confirmed_at, created_at, updated_at, deleted_at, version
+  AND version = $14
+RETURNING id, public_id, user_id, category_id, name, item_kind_code, quantity, unit_name, necessity_level_code, usage_frequency_code, purchased_on, source_url, notes, created_at, updated_at, deleted_at, version
 `
 
 type UpdateItemParams struct {
-	CategoryID           int64
-	Name                 string
-	ItemKindCode         string
-	Quantity             int32
-	DesiredQuantity      *int32
-	UnitName             string
-	NecessityLevelCode   string
-	UsageFrequencyCode   string
-	SubstitutabilityCode string
-	MobilityClassCode    string
-	OwnershipReason      *string
-	DisposalCondition    *string
-	LastUsedAt           pgtype.Timestamptz
-	PurchasedOn          pgtype.Date
-	PurchaseAmount       *int64
-	ReplacementAmount    *int64
-	ResaleAmount         *int64
-	WeightGram           *int32
-	VolumeMilliliter     *int32
-	IsFragile            bool
-	IsValuable           bool
-	IsSentimental        bool
-	RequiresMaintenance  bool
-	ExpiresOn            pgtype.Date
-	SourceUrl            *string
-	Notes                *string
-	UpdatedAt            pgtype.Timestamptz
-	PublicID             uuid.UUID
-	UserID               int64
-	ExpectedVersion      int32
+	CategoryID         int64
+	Name               string
+	ItemKindCode       string
+	Quantity           int32
+	UnitName           string
+	NecessityLevelCode string
+	UsageFrequencyCode string
+	PurchasedOn        pgtype.Date
+	SourceUrl          *string
+	Notes              *string
+	UpdatedAt          pgtype.Timestamptz
+	PublicID           uuid.UUID
+	UserID             int64
+	ExpectedVersion    int32
 }
 
 // 全項目を置き換える。versionが一致しない場合は0件となる。
@@ -917,26 +754,10 @@ func (q *Queries) UpdateItem(ctx context.Context, arg UpdateItemParams) (Ownersh
 		arg.Name,
 		arg.ItemKindCode,
 		arg.Quantity,
-		arg.DesiredQuantity,
 		arg.UnitName,
 		arg.NecessityLevelCode,
 		arg.UsageFrequencyCode,
-		arg.SubstitutabilityCode,
-		arg.MobilityClassCode,
-		arg.OwnershipReason,
-		arg.DisposalCondition,
-		arg.LastUsedAt,
 		arg.PurchasedOn,
-		arg.PurchaseAmount,
-		arg.ReplacementAmount,
-		arg.ResaleAmount,
-		arg.WeightGram,
-		arg.VolumeMilliliter,
-		arg.IsFragile,
-		arg.IsValuable,
-		arg.IsSentimental,
-		arg.RequiresMaintenance,
-		arg.ExpiresOn,
 		arg.SourceUrl,
 		arg.Notes,
 		arg.UpdatedAt,
@@ -953,30 +774,12 @@ func (q *Queries) UpdateItem(ctx context.Context, arg UpdateItemParams) (Ownersh
 		&i.Name,
 		&i.ItemKindCode,
 		&i.Quantity,
-		&i.DesiredQuantity,
 		&i.UnitName,
 		&i.NecessityLevelCode,
 		&i.UsageFrequencyCode,
-		&i.SubstitutabilityCode,
-		&i.MobilityClassCode,
-		&i.OwnershipReason,
-		&i.DisposalCondition,
-		&i.LastUsedAt,
 		&i.PurchasedOn,
-		&i.PurchaseAmount,
-		&i.ReplacementAmount,
-		&i.ResaleAmount,
-		&i.WeightGram,
-		&i.VolumeMilliliter,
-		&i.IsFragile,
-		&i.IsValuable,
-		&i.IsSentimental,
-		&i.RequiresMaintenance,
-		&i.ExpiresOn,
 		&i.SourceUrl,
 		&i.Notes,
-		&i.IsConfirmed,
-		&i.ConfirmedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,

@@ -27,28 +27,17 @@ type itemSeedFile struct {
 }
 
 type seedItem struct {
-	Name                 string   `json:"name"`
-	CategoryName         string   `json:"categoryName"`
-	ItemKindCode         string   `json:"itemKindCode"`
-	Quantity             int32    `json:"quantity"`
-	DesiredQuantity      *int32   `json:"desiredQuantity"`
-	UnitName             string   `json:"unitName"`
-	NecessityLevelCode   string   `json:"necessityLevelCode"`
-	UsageFrequencyCode   string   `json:"usageFrequencyCode"`
-	SubstitutabilityCode string   `json:"substitutabilityCode"`
-	MobilityClassCode    string   `json:"mobilityClassCode"`
-	OwnershipReason      *string  `json:"ownershipReason"`
-	DisposalCondition    *string  `json:"disposalCondition"`
-	PurchaseAmount       *int64   `json:"purchaseAmount"`
-	ReplacementAmount    *int64   `json:"replacementAmount"`
-	ResaleAmount         *int64   `json:"resaleAmount"`
-	WeightGram           *int32   `json:"weightGram"`
-	VolumeMilliliter     *int32   `json:"volumeMilliliter"`
-	IsValuable           bool     `json:"isValuable"`
-	IsFragile            bool     `json:"isFragile"`
-	ExpiresOn            *string  `json:"expiresOn"`
-	Notes                *string  `json:"notes"`
-	Tags                 []string `json:"tags"`
+	Name               string   `json:"name"`
+	CategoryName       string   `json:"categoryName"`
+	ItemKindCode       string   `json:"itemKindCode"`
+	Quantity           int32    `json:"quantity"`
+	UnitName           string   `json:"unitName"`
+	NecessityLevelCode string   `json:"necessityLevelCode"`
+	UsageFrequencyCode string   `json:"usageFrequencyCode"`
+	PurchasedOn        *string  `json:"purchasedOn"`
+	SourceURL          *string  `json:"sourceUrl"`
+	Notes              *string  `json:"notes"`
+	Tags               []string `json:"tags"`
 }
 
 // insertDefaultCategories は既定カテゴリーを作成する。
@@ -263,13 +252,13 @@ func insertSeedItem(
 		return fmt.Errorf("generate item public id: %w", err)
 	}
 
-	var expiresOn any
-	if item.ExpiresOn != nil {
-		parsed, err := time.Parse(time.DateOnly, *item.ExpiresOn)
+	var purchasedOn any
+	if item.PurchasedOn != nil {
+		parsed, err := time.Parse(time.DateOnly, *item.PurchasedOn)
 		if err != nil {
-			return fmt.Errorf("seed item %q has invalid expiresOn: %w", item.Name, err)
+			return fmt.Errorf("seed item %q has invalid purchasedOn: %w", item.Name, err)
 		}
-		expiresOn = parsed
+		purchasedOn = parsed
 	}
 
 	var itemID int64
@@ -277,34 +266,22 @@ func insertSeedItem(
 		ctx,
 		`INSERT INTO ownership.items (
 		     public_id, user_id, category_id, name, item_kind_code,
-		     quantity, desired_quantity, unit_name,
+		     quantity, unit_name,
 		     necessity_level_code, usage_frequency_code,
-		     substitutability_code, mobility_class_code,
-		     ownership_reason, disposal_condition,
-		     purchase_amount, replacement_amount, resale_amount,
-		     weight_gram, volume_milliliter,
-		     is_valuable, is_fragile, expires_on, notes,
+		     purchased_on, source_url, notes,
 		     created_at, updated_at, version
 		 ) VALUES (
 		     $1, $2, $3, $4, $5,
-		     $6, $7, $8,
-		     $9, $10,
-		     $11, $12,
-		     $13, $14,
-		     $15, $16, $17,
-		     $18, $19,
-		     $20, $21, $22, $23,
-		     $24, $25, 1
+		     $6, $7,
+		     $8, $9,
+		     $10, $11, $12,
+		     $13, $14, 1
 		 )
 		 RETURNING id`,
 		publicID, userID, categoryID, item.Name, item.ItemKindCode,
-		item.Quantity, item.DesiredQuantity, item.UnitName,
+		item.Quantity, item.UnitName,
 		item.NecessityLevelCode, item.UsageFrequencyCode,
-		item.SubstitutabilityCode, item.MobilityClassCode,
-		item.OwnershipReason, item.DisposalCondition,
-		item.PurchaseAmount, item.ReplacementAmount, item.ResaleAmount,
-		item.WeightGram, item.VolumeMilliliter,
-		item.IsValuable, item.IsFragile, expiresOn, item.Notes,
+		purchasedOn, item.SourceURL, item.Notes,
 		now, now,
 	).Scan(&itemID); err != nil {
 		return fmt.Errorf("insert seed item %q: %w", item.Name, err)

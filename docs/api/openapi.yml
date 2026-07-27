@@ -2,31 +2,20 @@ openapi: 3.0.3
 
 info:
   title: LESS API
-  version: 0.1.0
+  version: 0.2.0
   description: |
     LESSのREST API定義。本fileがフロントエンドとバックエンドの契約の正本である。
 
-    現在のスコープは以下とする。
-      - Phase 0: 認証 (F-001)
-      - Phase 1: Category初期data / Item CRUD / 一覧filter / Tag / 使用記録 (F-003〜F-006)
-      - Phase 2: StorageUnit / 収納割当 / 容量集計 / 携行区分 (F-008 / F-009)
+    本APIのスコープは以下とする。
+      - 認証 (F-001)
+      - ダッシュボード集計 (F-002)
+      - 所持品CRUDと一覧filter (F-003)
+      - カテゴリー初期data (F-004)
+      - タグ (F-005)
 
-    Review (Phase 3)、PurchaseCandidate (Phase 4)、Scenario (Phase 5)、
-    Import/Export (Phase 6) はまだ定義しない。
-
-    Phase 2で設計書と異なる判断をした点:
-      - 更新は 設計書 12.4 の `PUT /api/storage-units/{publicId}` に従い全置換とする。
-        PATCHによる部分更新は導入しない (Itemの `updateItem` と同じ方針)。
-      - 重量・容積のfield名は設計書 13.7 / 13.8 のcolumn名に合わせ単数形
-        (`tareWeightGram` / `maximumVolumeMilliliter` 等) とする。
-        Phase 1の `weightGram` / `volumeMilliliter` と揃える。
-      - 設計書 12.4 に無い `restore` / `contents` / 割当の個別操作 /
-        `GET /items/{publicId}/storage-allocations` を追加した。
-        いずれもPhase 2の要件 (収納内容編集・分割割当・未割当数量) に必要である。
-      - 収納単位の親集計は設計書 16.2 が子孫を規定していないため、
-        直接割当分 (`itemWeightGram`) と子孫分 (`descendantWeightGram`) を
-        別fieldで返し、`totalWeightGram` で合算する。二重計上を避けるため
-        子孫分には子孫自身の自重を含め、親の自重は含めない。
+    収納単位・収納割当・携行区分・使用記録・所有見直し判定・購入前審査・
+    シナリオは対象外である。アプリケーションを所持品とタグの管理へ絞ったため、
+    これらのendpointとschemaは定義しない。
 
     共通仕様 (設計書 12.1):
       - base path: `/api`
@@ -56,14 +45,14 @@ servers:
 tags:
   - name: auth
     description: ユーザー登録・login・logout・認証context
+  - name: dashboard
+    description: 所持品の集計値 (F-002)
   - name: categories
     description: アイテムの主分類 (F-004)
   - name: tags
     description: アイテムへ付与する任意のlabel (F-005)
   - name: items
-    description: 所持品の登録・取得・更新・archive・使用記録 (F-003 / F-006)
-  - name: storage-units
-    description: 収納単位と収納割当 (F-008 / F-009)
+    description: 所持品の登録・取得・更新・archive (F-003)
 
 paths:
   /auth/register:
@@ -288,8 +277,7 @@ paths:
       operationId: updateTag
       summary: タグを更新する
       description: |
-        設計書 12.4 のendpoint一覧には含まれないが、
-        タグ名の修正を行えるようにするため追加した。
+        タグ名を変更する。`expectedVersion` が現在versionと一致しない場合は 409 を返す。
       security:
         - sessionCookie: []
           csrfToken: []
@@ -392,25 +380,6 @@ paths:
           in: query
           schema:
             $ref: "#/components/schemas/UsageFrequencyCode"
-        - name: mobilityClassCode
-          in: query
-          schema:
-            $ref: "#/components/schemas/MobilityClassCode"
-        - name: storageUnitPublicId
-          in: query
-          description: |
-            指定した収納単位へ直接割当されているアイテムだけを返す (設計書 9.4)。
-            子収納単位の内容は含めない。
-          schema:
-            type: string
-            format: uuid
-        - name: isUnassigned
-          in: query
-          description: |
-            trueの場合、未割当数量が1以上のアイテムだけを返す (設計書 9.4)。
-            未割当数量 = quantity - 収納割当数量の合計。
-          schema:
-            type: boolean
         - name: includeDeleted
           in: query
           description: archive済みのアイテムを含めるか。未指定時はfalse。
@@ -558,7 +527,7 @@ paths:
       summary: 所持品をarchiveする
       description: |
         soft deleteとして `archivedAt` を設定する (設計書 1.4)。
-        archive済みのアイテムは既定の一覧から除外され、使用記録を追加できない。
+        archive済みのアイテムは既定の一覧から除外される。
       security:
         - sessionCookie: []
           csrfToken: []
@@ -629,88 +598,17 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
-  /items/{publicId}/usage-records:
-    parameters:
-      - $ref: "#/components/parameters/PublicIdPathParameter"
-
+  /dashboard/summary:
     get:
-      tags: [items]
-      operationId: listItemUsageRecords
-      summary: 使用記録の履歴を取得する
-      description: 使用日時の降順で返す。
-      security:
-        - sessionCookie: []
-      parameters:
-        - $ref: "#/components/parameters/LimitQueryParameter"
-        - $ref: "#/components/parameters/OffsetQueryParameter"
-      responses:
-        "200":
-          description: 取得に成功した
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ItemUsageRecordListResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-
-    post:
-      tags: [items]
-      operationId: createItemUsageRecord
-      summary: 使用記録を登録する
+      tags: [dashboard]
+      operationId: getDashboardSummary
+      summary: ダッシュボードの集計値を取得する
       description: |
-        登録と同時にアイテムの最終使用日時を更新する。
-        既存の最終使用日時より古い記録では更新しない。
-        archive済みのアイテムへは登録できず 422 を返す (設計書 7.2)。
-      security:
-        - sessionCookie: []
-          csrfToken: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateItemUsageRecordRequest"
-      responses:
-        "201":
-          description: 登録に成功した
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ItemUsageRecordResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "422":
-          $ref: "#/components/responses/UnprocessableEntity"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
+        認証ユーザーの所持品を集計して返す (設計書 9.3)。
+        archive済みのアイテムは集計へ含めない。
 
-  /items/{publicId}/storage-allocations:
-    parameters:
-      - $ref: "#/components/parameters/PublicIdPathParameter"
-
-    get:
-      tags: [items]
-      operationId: listItemStorageAllocations
-      summary: 所持品の収納割当を取得する
-      description: |
-        1つのアイテムがどの収納単位へ何個ずつ入っているかを返す。
-        同一アイテムを複数収納単位へ分割割当できるため複数件になる (F-009)。
-
-        1アイテムの割当件数は収納単位数で上限が決まり少数であるため、
-        paginationを行わず全件を返す。
-        `unassignedQuantity` はDBへ保存せず取得時に算出する。
+        内訳は該当アイテムが1件以上ある区分のみを返す。
+        件数0の区分をどう表示するかは画面側の判断とする。
       security:
         - sessionCookie: []
       responses:
@@ -719,572 +617,11 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ItemStorageAllocationListResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-
-  /storage-units:
-    get:
-      tags: [storage-units]
-      operationId: listStorageUnits
-      summary: 収納単位一覧を取得する
-      description: |
-        認証ユーザーの収納単位を検索・絞り込み・並び替えして返す (F-008)。
-        archive済みは既定で除外し、`includeArchived=true` の場合のみ含める。
-
-        各要素は `capacity` に重量・容積の集計と超過判定を含む。
-        集計は子孫収納単位を含むため、pageに含まれない収納単位も
-        server側で階層をたどって計算する。
-      security:
-        - sessionCookie: []
-      parameters:
-        - name: keyword
-          in: query
-          description: 収納単位名または説明の部分一致 (大文字小文字を区別しない)
-          schema:
-            type: string
-            maxLength: 100
-        - name: storageTypeCode
-          in: query
-          schema:
-            $ref: "#/components/schemas/StorageTypeCode"
-        - name: mobilityClassCode
-          in: query
-          schema:
-            $ref: "#/components/schemas/MobilityClassCode"
-        - name: parentStorageUnitPublicId
-          in: query
-          description: 指定した収納単位の直接の子だけを返す。
-          schema:
-            type: string
-            format: uuid
-        - name: rootOnly
-          in: query
-          description: |
-            trueの場合、親を持たない収納単位だけを返す。
-            `parentStorageUnitPublicId` と同時に指定した場合は 400 を返す。
-          schema:
-            type: boolean
-        - name: includeArchived
-          in: query
-          description: |
-            archive済みの収納単位を含めるか。未指定時はfalse。
-            Itemの `includeDeleted` と役割は同じだが、収納単位はarchiveのみを
-            利用者へ見せるため名称を `includeArchived` とした。
-          schema:
-            type: boolean
-        - name: sort
-          in: query
-          description: 並び替えkey。未指定時は sortOrder。
-          schema:
-            $ref: "#/components/schemas/StorageUnitSortKey"
-        - name: order
-          in: query
-          description: 並び順。未指定時は asc (sortOrder) / desc (updatedAt) ではなく常に指定値を使う。未指定時は asc。
-          schema:
-            $ref: "#/components/schemas/SortOrder"
-        - $ref: "#/components/parameters/LimitQueryParameter"
-        - $ref: "#/components/parameters/OffsetQueryParameter"
-      responses:
-        "200":
-          description: 取得に成功した
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/StorageUnitListResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
+                $ref: "#/components/schemas/DashboardSummaryResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "500":
           $ref: "#/components/responses/InternalServerError"
-
-    post:
-      tags: [storage-units]
-      operationId: createStorageUnit
-      summary: 収納単位を登録する
-      security:
-        - sessionCookie: []
-          csrfToken: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateStorageUnitRequest"
-      responses:
-        "201":
-          description: 登録に成功した
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/StorageUnitResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          description: |
-            指定した親収納単位が存在しない。
-            他ユーザーの収納単位を指定した場合も本statusを返す (設計書 18.3)。
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "422":
-          description: |
-            業務ルール違反。以下を含む。
-              - 階層が3を超える (`STORAGE_HIERARCHY_TOO_DEEP`)
-              - archive済みの収納単位を親に指定した (`STORAGE_UNIT_PARENT_ARCHIVED`)
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-
-  /storage-units/{publicId}:
-    parameters:
-      - $ref: "#/components/parameters/PublicIdPathParameter"
-
-    get:
-      tags: [storage-units]
-      operationId: getStorageUnitByPublicId
-      summary: 収納単位を取得する
-      description: |
-        他ユーザーのpublicIdを指定した場合も 404 を返し、
-        存在有無を公開しない (設計書 18.3)。
-      security:
-        - sessionCookie: []
-      responses:
-        "200":
-          description: 取得に成功した
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/StorageUnitResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-
-    put:
-      tags: [storage-units]
-      operationId: updateStorageUnit
-      summary: 収納単位を更新する
-      description: |
-        全項目を置き換える。省略した任意項目はNULLへ更新される。
-        `expectedVersion` が現在versionと一致しない場合は 409 を返す。
-
-        `parentStorageUnitPublicId` の変更で階層が移動する。
-        自分自身・子孫を親に指定した場合、および移動後の階層が3を超える場合は
-        422 を返す。
-      security:
-        - sessionCookie: []
-          csrfToken: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UpdateStorageUnitRequest"
-      responses:
-        "200":
-          description: 更新に成功した
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/StorageUnitResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          description: |
-            業務ルール違反。以下を含む。
-              - 自分自身を親に指定した (`STORAGE_UNIT_SELF_PARENT`)
-              - 子孫を親に指定した (`STORAGE_UNIT_CIRCULAR_PARENT`)
-              - 階層が3を超える (`STORAGE_HIERARCHY_TOO_DEEP`)
-              - archive済みの収納単位を親に指定した (`STORAGE_UNIT_PARENT_ARCHIVED`)
-              - archive済みの収納単位を編集した (`STORAGE_UNIT_ARCHIVED`)
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-
-  /storage-units/{publicId}/archive:
-    parameters:
-      - $ref: "#/components/parameters/PublicIdPathParameter"
-
-    post:
-      tags: [storage-units]
-      operationId: archiveStorageUnit
-      summary: 収納単位をarchiveする
-      description: |
-        soft deleteとして `archivedAt` を設定する (設計書 1.4)。
-
-        以下の場合は 422 を返し、親のarchiveで子を暗黙にarchiveしない。
-          - archive前の子収納単位が残っている (`STORAGE_UNIT_HAS_CHILDREN`)
-          - 収納割当が残っている (`STORAGE_UNIT_HAS_ALLOCATIONS`)
-
-        いずれも利用者へ「子を先にarchiveする」「中身を先に出す」ことを求める。
-        暗黙のcascadeを行わないことで、復元時の状態を予測可能にする。
-      security:
-        - sessionCookie: []
-          csrfToken: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/StorageUnitVersionRequest"
-      responses:
-        "200":
-          description: archiveに成功した
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/StorageUnitResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/UnprocessableEntity"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-
-  /storage-units/{publicId}/restore:
-    parameters:
-      - $ref: "#/components/parameters/PublicIdPathParameter"
-
-    post:
-      tags: [storage-units]
-      operationId: restoreStorageUnit
-      summary: archive済みの収納単位を復元する
-      description: |
-        親がarchive済みの場合は 422 を返す (`STORAGE_UNIT_PARENT_ARCHIVED`)。
-        階層の不整合を作らないため、親から順に復元させる。
-      security:
-        - sessionCookie: []
-          csrfToken: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/StorageUnitVersionRequest"
-      responses:
-        "200":
-          description: 復元に成功した
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/StorageUnitResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/UnprocessableEntity"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-
-  /storage-units/{publicId}/capacity:
-    parameters:
-      - $ref: "#/components/parameters/PublicIdPathParameter"
-
-    get:
-      tags: [storage-units]
-      operationId: getStorageUnitCapacity
-      summary: 収納単位の重量・容積を取得する
-      description: |
-        設計書 16.2 の使用量と 16.3 の超過警告を返す。
-
-        収納済みアイテムの一部に重量または容積が未設定の場合、
-        既知分だけを合計し `hasUnknownWeight` / `hasUnknownVolume` を trueとする。
-        未設定値を0として完全な値に見せない。
-      security:
-        - sessionCookie: []
-      responses:
-        "200":
-          description: 取得に成功した
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/StorageUnitCapacityResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-
-  /storage-units/{publicId}/contents:
-    parameters:
-      - $ref: "#/components/parameters/PublicIdPathParameter"
-
-    get:
-      tags: [storage-units]
-      operationId: getStorageUnitContents
-      summary: 収納単位の内容を取得する
-      description: |
-        直接割当されているアイテム、直接の子収納単位、容量集計をまとめて返す。
-        収納内容編集画面が1requestで必要な情報を得られるようにする。
-
-        1収納単位の割当件数は実運用で少数に収まるためpaginationを行わない。
-      security:
-        - sessionCookie: []
-      responses:
-        "200":
-          description: 取得に成功した
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/StorageUnitContentsResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-
-  /storage-units/{publicId}/allocations:
-    parameters:
-      - $ref: "#/components/parameters/PublicIdPathParameter"
-
-    post:
-      tags: [storage-units]
-      operationId: createStorageAllocation
-      summary: 所持品を収納単位へ割り当てる
-      description: |
-        数量付きで割り当てる (F-009)。
-
-        制約:
-          - 割当数量は1以上
-          - 同一収納単位と同一アイテムの組み合わせは1件 (409)
-          - 同一アイテムの割当数量合計は所有数量以下 (422)
-          - archive済みアイテム・archive済み収納単位へは割当できない (422)
-
-        割当集合の競合を検知するため `expectedStorageUnitVersion` を要求し、
-        成功時に収納単位のversionを1増加させる。
-        responseは更新後の収納内容全体を返す。
-      security:
-        - sessionCookie: []
-          csrfToken: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateStorageAllocationRequest"
-      responses:
-        "201":
-          description: 割当に成功した
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/StorageUnitContentsResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          description: |
-            version競合、または同一アイテムが既に本収納単位へ割当済みである
-            (`STORAGE_ALLOCATION_ALREADY_EXISTS`)。
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "422":
-          $ref: "#/components/responses/UnprocessableEntity"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-
-    put:
-      tags: [storage-units]
-      operationId: setStorageUnitAllocations
-      summary: 収納単位の割当を一括置換する
-      description: |
-        設計書 12.4 の `setStorageUnitAllocations`。
-        指定した割当集合へ置き換える。含まれない既存割当は削除する。
-
-        `expectedStorageUnitVersion` で割当集合全体の競合を検知する。
-        競合時はクライアント入力でserver状態を上書きせず 409 を返す。
-
-        単一transactionで実行し、対象アイテム行を `SELECT FOR UPDATE` で
-        ロックしてから割当数量合計を検証する (設計書 20章)。
-      security:
-        - sessionCookie: []
-          csrfToken: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/SetStorageUnitAllocationsRequest"
-      responses:
-        "200":
-          description: 置換に成功した
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/StorageUnitContentsResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/UnprocessableEntity"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-
-  /storage-units/{publicId}/allocations/{allocationPublicId}:
-    parameters:
-      - $ref: "#/components/parameters/PublicIdPathParameter"
-      - $ref: "#/components/parameters/AllocationPublicIdPathParameter"
-
-    put:
-      tags: [storage-units]
-      operationId: updateStorageAllocation
-      summary: 収納割当の数量を変更する
-      description: |
-        割当自身の `expectedVersion` と収納単位の
-        `expectedStorageUnitVersion` の双方を検証する。
-        成功時は割当と収納単位の両方のversionを1増加させる。
-      security:
-        - sessionCookie: []
-          csrfToken: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UpdateStorageAllocationRequest"
-      responses:
-        "200":
-          description: 変更に成功した
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/StorageUnitContentsResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/UnprocessableEntity"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-
-    delete:
-      tags: [storage-units]
-      operationId: deleteStorageAllocation
-      summary: 収納割当を削除する
-      description: |
-        物理削除する。割当は「今どこに入っているか」を表す現在状態であり、
-        取り出した履歴を保持する要件が無いためsoft deleteとしない。
-
-        bodyを持たないmethodのため、version値はquery parameterで受け取る
-        (`deleteTag` と同じ方針)。
-
-        更新後の収納単位versionをクライアントへ返す必要があるため、
-        204ではなく 200 で収納内容を返す。
-      security:
-        - sessionCookie: []
-          csrfToken: []
-      parameters:
-        - name: expectedVersion
-          in: query
-          required: true
-          description: 収納割当の現在version (設計書 11.7)
-          schema:
-            type: integer
-            format: int32
-            minimum: 1
-        - name: expectedStorageUnitVersion
-          in: query
-          required: true
-          description: 収納単位の現在version。割当集合の競合を検知する。
-          schema:
-            type: integer
-            format: int32
-            minimum: 1
-      responses:
-        "200":
-          description: 削除に成功した
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/StorageUnitContentsResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/UnprocessableEntity"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-
 components:
   securitySchemes:
     sessionCookie:
@@ -1308,14 +645,6 @@ components:
       in: path
       required: true
       description: 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。
-      schema:
-        type: string
-        format: uuid
-    AllocationPublicIdPathParameter:
-      name: allocationPublicId
-      in: path
-      required: true
-      description: 収納割当の外部公開ID。
       schema:
         type: string
         format: uuid
@@ -1573,67 +902,27 @@ components:
     ItemKindCode:
       type: string
       description: |
-        アイテム種別。設計書 13.7 は種別の存在のみを定め、値集合を定義していない。
-        12.5 の例 `durable` を基に、耐久品と消耗品の2値で開始する。
+        アイテム種別 (設計書 14.3)。未指定時はserverが `durable` を適用する。
       enum: [durable, consumable]
       example: durable
 
     NecessityLevelCode:
       type: string
-      description: 必要度 (設計書 14.5)
+      description: 必要度 (設計書 14.2)
       enum: [essential, important, optional, undecided, unnecessary]
       example: essential
 
     UsageFrequencyCode:
       type: string
-      description: 使用頻度 (設計書 14.3)
+      description: 使用頻度 (設計書 14.1)
       enum: [daily, weekly, monthly, quarterly, yearly, rarely, never]
       example: monthly
-
-    SubstitutabilityCode:
-      type: string
-      description: 代替可能性 (設計書 14.4)
-      enum: [none, partial, full, unknown]
-      example: none
-
-    MobilityClassCode:
-      type: string
-      description: 携行区分 (設計書 16.1)
-      enum:
-        [
-          worn,
-          pocket,
-          daily_bag,
-          on_demand,
-          self_carry,
-          parcel,
-          mover,
-          dispose_rebuy,
-          fixed,
-        ]
-      example: daily_bag
-
-    StorageTypeCode:
-      type: string
-      description: |
-        収納単位の種別。設計書 13.8 は `bag、pouch、box等` と例示のみで
-        値集合を定義していないため、実運用で必要な7値で開始する。
-      enum: [bag, pouch, box, shelf, room, appliance, other]
-      example: bag
 
     ItemSortKey:
       type: string
       description: 所持品一覧の並び替えkey
-      enum: [name, quantity, lastUsedAt, updatedAt]
+      enum: [name, quantity, updatedAt]
       example: updatedAt
-
-    StorageUnitSortKey:
-      type: string
-      description: |
-        収納単位一覧の並び替えkey。
-        `totalWeightGram` はDBへ保存しない集計値のためsort keyへ含めない。
-      enum: [name, sortOrder, updatedAt]
-      example: sortOrder
 
     SortOrder:
       type: string
@@ -1814,8 +1103,6 @@ components:
       description: |
         所持品 (設計書 12.6 / 13.7)。内部IDを含めない。
         一覧と詳細で同一の表現を使用する。
-
-        `review` (見直しスコア) はPhase 3のスコープのため含めない。
       required:
         - publicId
         - name
@@ -1823,37 +1110,15 @@ components:
         - itemKindCode
         - itemKindLabel
         - quantity
-        - desiredQuantity
         - unitName
         - necessityLevelCode
         - necessityLevelLabel
         - usageFrequencyCode
         - usageFrequencyLabel
-        - substitutabilityCode
-        - substitutabilityLabel
-        - mobilityClassCode
-        - mobilityClassLabel
-        - ownershipReason
-        - disposalCondition
-        - lastUsedAt
         - purchasedOn
-        - purchaseAmount
-        - replacementAmount
-        - resaleAmount
-        - weightGram
-        - volumeMilliliter
-        - isFragile
-        - isValuable
-        - isSentimental
-        - requiresMaintenance
-        - expiresOn
         - sourceUrl
         - notes
-        - isConfirmed
-        - confirmedAt
         - tags
-        - storageAllocations
-        - unassignedQuantity
         - isArchived
         - archivedAt
         - version
@@ -1878,12 +1143,6 @@ components:
           type: integer
           format: int32
           example: 1
-        desiredQuantity:
-          type: integer
-          format: int32
-          nullable: true
-          description: 希望上限数量。未設定の場合はnull。
-          example: 1
         unitName:
           type: string
           example: 本
@@ -1897,62 +1156,7 @@ components:
         usageFrequencyLabel:
           type: string
           example: 月に1回程度
-        substitutabilityCode:
-          $ref: "#/components/schemas/SubstitutabilityCode"
-        substitutabilityLabel:
-          type: string
-          example: 代替不可
-        mobilityClassCode:
-          $ref: "#/components/schemas/MobilityClassCode"
-        mobilityClassLabel:
-          type: string
-          example: 常時リュック
-        ownershipReason:
-          type: string
-          nullable: true
-          example: 突然の雨に対応するため
-        disposalCondition:
-          type: string
-          nullable: true
-          example: 破損して修理不能になった場合
-        lastUsedAt:
-          type: string
-          format: date-time
-          nullable: true
         purchasedOn:
-          type: string
-          format: date
-          nullable: true
-        purchaseAmount:
-          type: integer
-          format: int64
-          nullable: true
-          description: 購入金額 (円)。丸め誤差を避けるため整数で扱う (設計書 11章)。
-        replacementAmount:
-          type: integer
-          format: int64
-          nullable: true
-        resaleAmount:
-          type: integer
-          format: int64
-          nullable: true
-        weightGram:
-          type: integer
-          format: int32
-          nullable: true
-        volumeMilliliter:
-          type: integer
-          format: int32
-          nullable: true
-        isFragile:
-          type: boolean
-        isValuable:
-          type: boolean
-        isSentimental:
-          type: boolean
-        requiresMaintenance:
-          type: boolean
-        expiresOn:
           type: string
           format: date
           nullable: true
@@ -1964,33 +1168,10 @@ components:
         notes:
           type: string
           nullable: true
-        isConfirmed:
-          type: boolean
-          description: |
-            棚卸し確認済みか (設計書 13.7)。
-            確認操作 (`confirmItem`) はPhase 1のスコープ外のため、常にfalseとなる。
-        confirmedAt:
-          type: string
-          format: date-time
-          nullable: true
         tags:
           type: array
           items:
             $ref: "#/components/schemas/TagReferenceResponse"
-        storageAllocations:
-          type: array
-          description: |
-            本アイテムがどの収納単位へ何個入っているか (F-009)。
-            同一アイテムを複数収納単位へ分割割当できるため配列とする。
-          items:
-            $ref: "#/components/schemas/ItemStorageAllocationResponse"
-        unassignedQuantity:
-          type: integer
-          format: int32
-          description: |
-            未割当数量。`quantity - sum(storageAllocations[].quantity)` で算出する。
-            DBへ重複保存せず取得時に算出する。
-          example: 0
         isArchived:
           type: boolean
           description: archive (soft delete) 済みか
@@ -2032,8 +1213,6 @@ components:
         - quantity
         - necessityLevelCode
         - usageFrequencyCode
-        - substitutabilityCode
-        - mobilityClassCode
       additionalProperties: false
       properties:
         name:
@@ -2054,13 +1233,6 @@ components:
           minimum: 0
           maximum: 1000000
           example: 1
-        desiredQuantity:
-          type: integer
-          format: int32
-          minimum: 0
-          maximum: 1000000
-          nullable: true
-          example: 1
         unitName:
           type: string
           minLength: 1
@@ -2071,64 +1243,7 @@ components:
           $ref: "#/components/schemas/NecessityLevelCode"
         usageFrequencyCode:
           $ref: "#/components/schemas/UsageFrequencyCode"
-        substitutabilityCode:
-          $ref: "#/components/schemas/SubstitutabilityCode"
-        mobilityClassCode:
-          $ref: "#/components/schemas/MobilityClassCode"
-        ownershipReason:
-          type: string
-          maxLength: 1000
-          nullable: true
-        disposalCondition:
-          type: string
-          maxLength: 1000
-          nullable: true
-        lastUsedAt:
-          type: string
-          format: date-time
-          nullable: true
         purchasedOn:
-          type: string
-          format: date
-          nullable: true
-        purchaseAmount:
-          type: integer
-          format: int64
-          minimum: 0
-          nullable: true
-        replacementAmount:
-          type: integer
-          format: int64
-          minimum: 0
-          nullable: true
-        resaleAmount:
-          type: integer
-          format: int64
-          minimum: 0
-          nullable: true
-        weightGram:
-          type: integer
-          format: int32
-          minimum: 0
-          nullable: true
-        volumeMilliliter:
-          type: integer
-          format: int32
-          minimum: 0
-          nullable: true
-        isFragile:
-          type: boolean
-          description: 未指定時はfalse。
-        isValuable:
-          type: boolean
-          description: 未指定時はfalse。
-        isSentimental:
-          type: boolean
-          description: 未指定時はfalse。
-        requiresMaintenance:
-          type: boolean
-          description: 未指定時はfalse。
-        expiresOn:
           type: string
           format: date
           nullable: true
@@ -2159,8 +1274,6 @@ components:
         - quantity
         - necessityLevelCode
         - usageFrequencyCode
-        - substitutabilityCode
-        - mobilityClassCode
         - expectedVersion
       additionalProperties: false
       properties:
@@ -2180,12 +1293,6 @@ components:
           format: int32
           minimum: 0
           maximum: 1000000
-        desiredQuantity:
-          type: integer
-          format: int32
-          minimum: 0
-          maximum: 1000000
-          nullable: true
         unitName:
           type: string
           minLength: 1
@@ -2195,60 +1302,7 @@ components:
           $ref: "#/components/schemas/NecessityLevelCode"
         usageFrequencyCode:
           $ref: "#/components/schemas/UsageFrequencyCode"
-        substitutabilityCode:
-          $ref: "#/components/schemas/SubstitutabilityCode"
-        mobilityClassCode:
-          $ref: "#/components/schemas/MobilityClassCode"
-        ownershipReason:
-          type: string
-          maxLength: 1000
-          nullable: true
-        disposalCondition:
-          type: string
-          maxLength: 1000
-          nullable: true
-        lastUsedAt:
-          type: string
-          format: date-time
-          nullable: true
         purchasedOn:
-          type: string
-          format: date
-          nullable: true
-        purchaseAmount:
-          type: integer
-          format: int64
-          minimum: 0
-          nullable: true
-        replacementAmount:
-          type: integer
-          format: int64
-          minimum: 0
-          nullable: true
-        resaleAmount:
-          type: integer
-          format: int64
-          minimum: 0
-          nullable: true
-        weightGram:
-          type: integer
-          format: int32
-          minimum: 0
-          nullable: true
-        volumeMilliliter:
-          type: integer
-          format: int32
-          minimum: 0
-          nullable: true
-        isFragile:
-          type: boolean
-        isValuable:
-          type: boolean
-        isSentimental:
-          type: boolean
-        requiresMaintenance:
-          type: boolean
-        expiresOn:
           type: string
           format: date
           nullable: true
@@ -2285,677 +1339,82 @@ components:
           description: 楽観ロック用の現在version (設計書 11.7)
 
     # ---------------------------------------------------------------------
-    # Item usage record
+    # Dashboard
     # ---------------------------------------------------------------------
-    ItemUsageRecordResponse:
-      type: object
-      required: [publicId, usedAt, quantity, note, createdAt]
-      additionalProperties: false
-      properties:
-        publicId:
-          type: string
-          format: uuid
-        usedAt:
-          type: string
-          format: date-time
-        quantity:
-          type: integer
-          format: int32
-          description: 使用した数量。
-          example: 1
-        note:
-          type: string
-          nullable: true
-          example: 通勤時に使用
-        createdAt:
-          type: string
-          format: date-time
-
-    ItemUsageRecordListResponse:
-      type: object
-      required: [items, pagination]
-      additionalProperties: false
-      properties:
-        items:
-          type: array
-          items:
-            $ref: "#/components/schemas/ItemUsageRecordResponse"
-        pagination:
-          $ref: "#/components/schemas/PaginationResponse"
-
-    CreateItemUsageRecordRequest:
-      type: object
-      additionalProperties: false
-      properties:
-        usedAt:
-          type: string
-          format: date-time
-          description: 使用日時。未指定時はserverの現在時刻を使用する。未来日時は許可しない。
-        quantity:
-          type: integer
-          format: int32
-          minimum: 1
-          maximum: 1000000
-          description: 使用した数量。未指定時は1。
-        note:
-          type: string
-          maxLength: 500
-          nullable: true
-
-    # ---------------------------------------------------------------------
-    # Storage unit (設計書 13.8 / 16章)
-    # ---------------------------------------------------------------------
-    StorageUnitReferenceResponse:
-      type: object
-      description: 他resourceから参照する際の最小表現
-      required: [publicId, name]
-      additionalProperties: false
-      properties:
-        publicId:
-          type: string
-          format: uuid
-        name:
-          type: string
-          example: 日常リュック
-
-    StorageUnitCapacityResponse:
+    DashboardSummaryResponse:
       type: object
       description: |
-        収納単位の重量・容積の集計と超過判定 (設計書 16.2 / 16.3)。
-
-        重量の内訳:
-          tareWeightGram        : 本収納単位の自重
-          itemWeightGram        : 直接割当されたアイテムの重量合計
-          descendantWeightGram  : 子孫収納単位の自重と内容物重量の合計
-          totalWeightGram       = tareWeightGram + itemWeightGram + descendantWeightGram
-
-        親と子で同じ重量を二重計上しないため、descendantWeightGramには
-        親自身の自重・直接割当分を含めない。
-
-        重量・容積が未設定のアイテムが含まれる場合、既知分だけを合計し
-        hasUnknownWeight / hasUnknownVolume を trueとする。
-        未設定を0として扱い、完全な値に見せることはしない。
+        ダッシュボードの集計値 (設計書 9.3)。archive済みのアイテムを含めない。
       required:
-        - allocatedItemKindCount
-        - allocatedQuantity
-        - tareWeightGram
-        - itemWeightGram
-        - descendantWeightGram
-        - totalWeightGram
-        - itemVolumeMilliliter
-        - descendantVolumeMilliliter
-        - totalVolumeMilliliter
-        - maximumWeightGram
-        - maximumVolumeMilliliter
-        - remainingWeightGram
-        - remainingVolumeMilliliter
-        - isWeightExceeded
-        - isVolumeExceeded
-        - hasUnknownWeight
-        - hasUnknownVolume
+        - itemTypeCount
+        - totalQuantity
+        - categoryBreakdown
+        - necessityLevelBreakdown
+        - usageFrequencyBreakdown
       additionalProperties: false
       properties:
-        allocatedItemKindCount:
-          type: integer
-          format: int32
-          description: 直接割当されているアイテムの種類数
-          example: 4
-        allocatedQuantity:
+        itemTypeCount:
           type: integer
           format: int64
-          description: 直接割当されている数量の合計
+          description: 所持アイテム種類数。単位はアイテム種別 (登録済みアイテムの件数)。
+          example: 42
+        totalQuantity:
+          type: integer
+          format: int64
+          description: 所持アイテム数。単位はアイテム数 (各アイテムの数量の合計)。
+          example: 87
+        categoryBreakdown:
+          type: array
+          description: カテゴリー別の内訳。カテゴリーの表示順で返す。
+          items:
+            $ref: "#/components/schemas/DashboardCategoryBreakdownResponse"
+        necessityLevelBreakdown:
+          type: array
+          description: 必要度別の内訳。必要度の定義順で返す。
+          items:
+            $ref: "#/components/schemas/DashboardCodeBreakdownResponse"
+        usageFrequencyBreakdown:
+          type: array
+          description: 使用頻度別の内訳。使用頻度の定義順で返す。
+          items:
+            $ref: "#/components/schemas/DashboardCodeBreakdownResponse"
+
+    DashboardCategoryBreakdownResponse:
+      type: object
+      required: [category, itemTypeCount, totalQuantity]
+      additionalProperties: false
+      properties:
+        category:
+          $ref: "#/components/schemas/CategoryReferenceResponse"
+        itemTypeCount:
+          type: integer
+          format: int64
           example: 7
-        tareWeightGram:
+        totalQuantity:
           type: integer
           format: int64
-          description: 本収納単位の自重。未設定の場合は0とし hasUnknownWeight をtrueとする。
-          example: 900
-        itemWeightGram:
-          type: integer
-          format: int64
-          description: 直接割当されたアイテムの重量合計 (既知分のみ)
-          example: 2400
-        descendantWeightGram:
-          type: integer
-          format: int64
-          description: 子孫収納単位の自重と内容物重量の合計 (既知分のみ)
-          example: 1300
-        totalWeightGram:
-          type: integer
-          format: int64
-          example: 4600
-        itemVolumeMilliliter:
-          type: integer
-          format: int64
-          description: 直接割当されたアイテムの容積合計 (既知分のみ)
-          example: 5200
-        descendantVolumeMilliliter:
-          type: integer
-          format: int64
-          description: |
-            子孫収納単位の内容物容積の合計 (既知分のみ)。
-            設計書 13.8 に収納単位自身の外寸容積columnが無いため、
-            空の子収納単位が占める容積は含められない。
-          example: 800
-        totalVolumeMilliliter:
-          type: integer
-          format: int64
-          example: 6000
-        maximumWeightGram:
-          type: integer
-          format: int32
-          nullable: true
-          description: 最大重量。未設定の場合はnullとし、超過判定を行わない。
-          example: 8000
-        maximumVolumeMilliliter:
-          type: integer
-          format: int32
-          nullable: true
-          example: 25000
-        remainingWeightGram:
-          type: integer
-          format: int64
-          nullable: true
-          description: |
-            `maximumWeightGram - totalWeightGram`。
-            最大重量が未設定の場合はnull。超過時は負値を返す。
-          example: 3400
-        remainingVolumeMilliliter:
-          type: integer
-          format: int64
-          nullable: true
-          example: 19000
-        isWeightExceeded:
-          type: boolean
-          description: totalWeightGram が maximumWeightGram を超えたか (設計書 16.3)
-        isVolumeExceeded:
-          type: boolean
-        hasUnknownWeight:
-          type: boolean
-          description: |
-            自重、または集計対象アイテムのいずれかに重量が未設定のものがあるか。
-            trueの場合、合計値は「入力済み分のみ」である (設計書 16.2)。
-        hasUnknownVolume:
-          type: boolean
+          example: 12
 
-    StorageUnitResponse:
-      type: object
-      description: 収納単位 (設計書 13.8)。内部IDを含めない。
-      required:
-        - publicId
-        - name
-        - storageTypeCode
-        - storageTypeLabel
-        - mobilityClassCode
-        - mobilityClassLabel
-        - parent
-        - ancestors
-        - depth
-        - childCount
-        - tareWeightGram
-        - maximumWeightGram
-        - maximumVolumeMilliliter
-        - description
-        - sortOrder
-        - capacity
-        - isArchived
-        - archivedAt
-        - version
-        - createdAt
-        - updatedAt
-      additionalProperties: false
-      properties:
-        publicId:
-          type: string
-          format: uuid
-        name:
-          type: string
-          example: 日常リュック
-        storageTypeCode:
-          $ref: "#/components/schemas/StorageTypeCode"
-        storageTypeLabel:
-          type: string
-          example: バッグ
-        mobilityClassCode:
-          $ref: "#/components/schemas/MobilityClassCode"
-        mobilityClassLabel:
-          type: string
-          example: 常時リュック
-        parent:
-          allOf:
-            - $ref: "#/components/schemas/StorageUnitReferenceResponse"
-          nullable: true
-          description: 直接の親。親を持たない場合はnull。
-        ancestors:
-          type: array
-          description: |
-            rootから直接の親までの並び。階層のbreadcrumb表示に使用する。
-            自身は含めない。
-          items:
-            $ref: "#/components/schemas/StorageUnitReferenceResponse"
-        depth:
-          type: integer
-          format: int32
-          minimum: 1
-          maximum: 3
-          description: 階層の深さ。rootは1。最大3 (設計書 7.3)。
-          example: 1
-        childCount:
-          type: integer
-          format: int32
-          description: archive前の直接の子収納単位の件数
-          example: 2
-        tareWeightGram:
-          type: integer
-          format: int32
-          nullable: true
-          description: 収納単位自身の重量 (グラム)。未設定の場合はnull。
-        maximumWeightGram:
-          type: integer
-          format: int32
-          nullable: true
-        maximumVolumeMilliliter:
-          type: integer
-          format: int32
-          nullable: true
-        description:
-          type: string
-          nullable: true
-        sortOrder:
-          type: integer
-          format: int32
-          description: 画面の表示順。小さい順に表示する。
-          example: 10
-        capacity:
-          $ref: "#/components/schemas/StorageUnitCapacityResponse"
-        isArchived:
-          type: boolean
-        archivedAt:
-          type: string
-          format: date-time
-          nullable: true
-          description: archive日時。DBの `deleted_at` に対応する。
-        version:
-          type: integer
-          format: int32
-          example: 1
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-
-    StorageUnitListResponse:
-      type: object
-      required: [items, pagination]
-      additionalProperties: false
-      properties:
-        items:
-          type: array
-          items:
-            $ref: "#/components/schemas/StorageUnitResponse"
-        pagination:
-          $ref: "#/components/schemas/PaginationResponse"
-
-    CreateStorageUnitRequest:
-      type: object
-      required: [name, storageTypeCode, mobilityClassCode]
-      additionalProperties: false
-      properties:
-        name:
-          type: string
-          minLength: 1
-          maxLength: 100
-          example: 日常リュック
-        storageTypeCode:
-          $ref: "#/components/schemas/StorageTypeCode"
-        mobilityClassCode:
-          $ref: "#/components/schemas/MobilityClassCode"
-        parentStorageUnitPublicId:
-          type: string
-          format: uuid
-          nullable: true
-          description: |
-            親収納単位。未指定時はrootとする。
-            自身と合わせて階層が3を超える指定は 422 を返す。
-        tareWeightGram:
-          type: integer
-          format: int32
-          minimum: 0
-          maximum: 1000000
-          nullable: true
-        maximumWeightGram:
-          type: integer
-          format: int32
-          minimum: 0
-          maximum: 1000000
-          nullable: true
-        maximumVolumeMilliliter:
-          type: integer
-          format: int32
-          minimum: 0
-          maximum: 100000000
-          nullable: true
-        description:
-          type: string
-          maxLength: 500
-          nullable: true
-        sortOrder:
-          type: integer
-          format: int32
-          minimum: 0
-          maximum: 100000
-          description: 未指定時はserverが0を適用する。
-          nullable: true
-
-    UpdateStorageUnitRequest:
+    DashboardCodeBreakdownResponse:
       type: object
       description: |
-        全項目を置き換える。CreateStorageUnitRequestと同じ項目に
-        `expectedVersion` を加える。
-        allOfで合成せず明示的に列挙し `additionalProperties: false` を機能させる。
-      required: [name, storageTypeCode, mobilityClassCode, expectedVersion]
+        code値ごとの内訳。codeとlabelを対で返し、画面はlabelをそのまま表示する
+        (設計書 12.6)。
+      required: [code, label, itemTypeCount, totalQuantity]
       additionalProperties: false
       properties:
-        name:
+        code:
           type: string
-          minLength: 1
-          maxLength: 100
-        storageTypeCode:
-          $ref: "#/components/schemas/StorageTypeCode"
-        mobilityClassCode:
-          $ref: "#/components/schemas/MobilityClassCode"
-        parentStorageUnitPublicId:
+          description: 必要度または使用頻度のcode
+          example: essential
+        label:
           type: string
-          format: uuid
-          nullable: true
-        tareWeightGram:
+          example: 必須
+        itemTypeCount:
           type: integer
-          format: int32
-          minimum: 0
-          maximum: 1000000
-          nullable: true
-        maximumWeightGram:
+          format: int64
+          example: 7
+        totalQuantity:
           type: integer
-          format: int32
-          minimum: 0
-          maximum: 1000000
-          nullable: true
-        maximumVolumeMilliliter:
-          type: integer
-          format: int32
-          minimum: 0
-          maximum: 100000000
-          nullable: true
-        description:
-          type: string
-          maxLength: 500
-          nullable: true
-        sortOrder:
-          type: integer
-          format: int32
-          minimum: 0
-          maximum: 100000
-          nullable: true
-        expectedVersion:
-          type: integer
-          format: int32
-          minimum: 1
-          description: 楽観ロック用の現在version (設計書 11.7)
-
-    StorageUnitVersionRequest:
-      type: object
-      description: archive・restoreのように追加入力を持たない操作で使用する。
-      required: [expectedVersion]
-      additionalProperties: false
-      properties:
-        expectedVersion:
-          type: integer
-          format: int32
-          minimum: 1
-          description: 楽観ロック用の現在version (設計書 11.7)
-
-    # ---------------------------------------------------------------------
-    # Storage allocation (設計書 13.9)
-    # ---------------------------------------------------------------------
-    AllocatedItemResponse:
-      type: object
-      description: |
-        収納割当から参照するアイテムの表現。
-        収納内容編集画面が整合性表示 (現在数量・他収納への割当数量・未割当数量)
-        を行うために必要な項目だけを持つ。
-      required:
-        - publicId
-        - name
-        - unitName
-        - quantity
-        - assignedQuantity
-        - unassignedQuantity
-        - weightGram
-        - volumeMilliliter
-        - isArchived
-      additionalProperties: false
-      properties:
-        publicId:
-          type: string
-          format: uuid
-        name:
-          type: string
-          example: 半袖シャツ
-        unitName:
-          type: string
-          example: 枚
-        quantity:
-          type: integer
-          format: int32
-          description: アイテムの所有数量
-          example: 3
-        assignedQuantity:
-          type: integer
-          format: int32
-          description: 全収納単位への割当数量の合計
-          example: 3
-        unassignedQuantity:
-          type: integer
-          format: int32
-          description: quantity - assignedQuantity
-          example: 0
-        weightGram:
-          type: integer
-          format: int32
-          nullable: true
-          description: nullの場合、収納単位の重量集計は不完全となる。
-        volumeMilliliter:
-          type: integer
-          format: int32
-          nullable: true
-        isArchived:
-          type: boolean
-          description: |
-            archive済みのアイテムか。
-            archive済みアイテムへ新規割当はできないが、既存割当は保持する。
-            archiveは手放しではなく、物理的には収納単位へ入ったままであるため
-            容量集計にも含める。手放し時の整合はPhase 3で扱う。
-
-    StorageAllocationResponse:
-      type: object
-      description: 収納単位配下の割当1件。親の収納単位は文脈から明らかなため含めない。
-      required: [publicId, item, quantity, version, createdAt, updatedAt]
-      additionalProperties: false
-      properties:
-        publicId:
-          type: string
-          format: uuid
-        item:
-          $ref: "#/components/schemas/AllocatedItemResponse"
-        quantity:
-          type: integer
-          format: int32
-          minimum: 1
-          description: 本収納単位へ入れている数量。1以上。
-          example: 2
-        version:
-          type: integer
-          format: int32
-          example: 1
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-
-    ItemStorageAllocationResponse:
-      type: object
-      description: アイテム側から見た割当1件。収納単位を参照として持つ。
-      required: [publicId, storageUnit, quantity, version, createdAt, updatedAt]
-      additionalProperties: false
-      properties:
-        publicId:
-          type: string
-          format: uuid
-        storageUnit:
-          $ref: "#/components/schemas/StorageUnitReferenceResponse"
-        quantity:
-          type: integer
-          format: int32
-          minimum: 1
-          example: 2
-        version:
-          type: integer
-          format: int32
-          example: 1
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-
-    ItemStorageAllocationListResponse:
-      type: object
-      description: |
-        1アイテムの収納割当一覧。
-        件数が収納単位数で上限づけられるためpaginationを持たない。
-      required: [items, quantity, assignedQuantity, unassignedQuantity]
-      additionalProperties: false
-      properties:
-        items:
-          type: array
-          items:
-            $ref: "#/components/schemas/ItemStorageAllocationResponse"
-        quantity:
-          type: integer
-          format: int32
-          description: アイテムの所有数量
-          example: 3
-        assignedQuantity:
-          type: integer
-          format: int32
-          example: 3
-        unassignedQuantity:
-          type: integer
-          format: int32
-          example: 0
-
-    StorageUnitContentsResponse:
-      type: object
-      description: |
-        収納単位の内容。割当の追加・変更・削除・一括置換のresponseにも使用する。
-
-        更新後のversion (収納単位・各割当)、容量集計、超過判定を1requestで
-        返すことで、クライアントが追加requestなしに整合した画面を描ける。
-      required: [storageUnit, allocations, childStorageUnits]
-      additionalProperties: false
-      properties:
-        storageUnit:
-          $ref: "#/components/schemas/StorageUnitResponse"
-        allocations:
-          type: array
-          description: 直接割当されているアイテム。アイテム名昇順で返す。
-          items:
-            $ref: "#/components/schemas/StorageAllocationResponse"
-        childStorageUnits:
-          type: array
-          description: 直接の子収納単位。archive済みは含めない。
-          items:
-            $ref: "#/components/schemas/StorageUnitResponse"
-
-    CreateStorageAllocationRequest:
-      type: object
-      required: [itemPublicId, quantity, expectedStorageUnitVersion]
-      additionalProperties: false
-      properties:
-        itemPublicId:
-          type: string
-          format: uuid
-        quantity:
-          type: integer
-          format: int32
-          minimum: 1
-          maximum: 1000000
-          example: 2
-        expectedStorageUnitVersion:
-          type: integer
-          format: int32
-          minimum: 1
-          description: |
-            収納単位の現在version。割当集合の競合を検知する (設計書 11.7)。
-            成功時に収納単位のversionを1増加させる。
-
-    UpdateStorageAllocationRequest:
-      type: object
-      required: [quantity, expectedVersion, expectedStorageUnitVersion]
-      additionalProperties: false
-      properties:
-        quantity:
-          type: integer
-          format: int32
-          minimum: 1
-          maximum: 1000000
-          example: 3
-        expectedVersion:
-          type: integer
-          format: int32
-          minimum: 1
-          description: 収納割当の現在version
-        expectedStorageUnitVersion:
-          type: integer
-          format: int32
-          minimum: 1
-          description: 収納単位の現在version
-
-    StorageAllocationInput:
-      type: object
-      description: 一括置換で指定する割当1件。
-      required: [itemPublicId, quantity]
-      additionalProperties: false
-      properties:
-        itemPublicId:
-          type: string
-          format: uuid
-        quantity:
-          type: integer
-          format: int32
-          minimum: 1
-          maximum: 1000000
-
-    SetStorageUnitAllocationsRequest:
-      type: object
-      description: |
-        収納単位の割当集合を指定内容へ置き換える。
-        含まれない既存割当は削除する。空配列は「中身を空にする」を意味する。
-      required: [allocations, expectedStorageUnitVersion]
-      additionalProperties: false
-      properties:
-        allocations:
-          type: array
-          maxItems: 500
-          description: 同一アイテムを2件以上含めることはできない (400)。
-          items:
-            $ref: "#/components/schemas/StorageAllocationInput"
-        expectedStorageUnitVersion:
-          type: integer
-          format: int32
-          minimum: 1
+          format: int64
+          example: 12

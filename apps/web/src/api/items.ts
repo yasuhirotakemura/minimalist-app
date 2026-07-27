@@ -3,13 +3,9 @@ import {
   unwrap,
   withNetworkErrorHandling,
   type CreateItemRequest,
-  type CreateItemUsageRecordRequest,
   type ItemListResponse,
   type ItemResponse,
-  type ItemUsageRecordListResponse,
-  type ItemUsageRecordResponse,
   type ListItemsQuery,
-  type PageQuery,
   type UpdateItemRequest,
 } from './client'
 
@@ -70,35 +66,6 @@ export async function restoreItem(
       await apiClient.POST('/items/{publicId}/restore', {
         params: { path: { publicId } },
         body: { expectedVersion },
-      }),
-    ),
-  )
-}
-
-/** POST /api/items/{publicId}/usage-records */
-export async function createItemUsageRecord(
-  publicId: string,
-  body: CreateItemUsageRecordRequest,
-): Promise<ItemUsageRecordResponse> {
-  return withNetworkErrorHandling(async () =>
-    unwrap(
-      await apiClient.POST('/items/{publicId}/usage-records', {
-        params: { path: { publicId } },
-        body,
-      }),
-    ),
-  )
-}
-
-/** GET /api/items/{publicId}/usage-records */
-export async function listItemUsageRecords(
-  publicId: string,
-  query: PageQuery = {},
-): Promise<ItemUsageRecordListResponse> {
-  return withNetworkErrorHandling(async () =>
-    unwrap(
-      await apiClient.GET('/items/{publicId}/usage-records', {
-        params: { path: { publicId }, query },
       }),
     ),
   )

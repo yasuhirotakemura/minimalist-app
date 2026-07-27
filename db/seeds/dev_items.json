@@ -3,6 +3,7 @@
     "local開発用の所持品seed data。",
     "ownerEmail のユーザーへ、tags と items を投入する。",
     "categoryName は既定カテゴリー (domain/category/default_categories.go) の名称と一致させる。",
+    "ダッシュボードの内訳を確認できるよう、カテゴリー・必要度・使用頻度を分散させる。",
     "既に所持品が存在する場合は投入をskipする (冪等)。",
     "APP_ENV=local 以外では投入を拒否する。"
   ],
@@ -14,17 +15,10 @@
       "categoryName": "外出・携行品",
       "itemKindCode": "durable",
       "quantity": 1,
-      "desiredQuantity": 1,
       "unitName": "本",
       "necessityLevelCode": "essential",
       "usageFrequencyCode": "monthly",
-      "substitutabilityCode": "none",
-      "mobilityClassCode": "daily_bag",
-      "ownershipReason": "突然の雨に対応するため",
-      "disposalCondition": "破損して修理不能になった場合",
-      "replacementAmount": 3000,
-      "weightGram": 220,
-      "volumeMilliliter": 800,
+      "purchasedOn": "2025-06-01",
       "notes": "駅で買い足さないための最低限の1本",
       "tags": ["通勤"]
     },
@@ -33,18 +27,11 @@
       "categoryName": "電子機器",
       "itemKindCode": "durable",
       "quantity": 1,
-      "desiredQuantity": 1,
       "unitName": "台",
       "necessityLevelCode": "essential",
       "usageFrequencyCode": "daily",
-      "substitutabilityCode": "none",
-      "mobilityClassCode": "daily_bag",
-      "ownershipReason": "業務と個人開発の主作業環境",
-      "purchaseAmount": 240000,
-      "replacementAmount": 240000,
-      "weightGram": 1240,
-      "volumeMilliliter": 2400,
-      "isValuable": true,
+      "purchasedOn": "2024-11-20",
+      "sourceUrl": "https://example.com/products/notebook-pc",
       "tags": ["通勤"]
     },
     {
@@ -52,16 +39,10 @@
       "categoryName": "電子機器",
       "itemKindCode": "durable",
       "quantity": 2,
-      "desiredQuantity": 1,
       "unitName": "個",
       "necessityLevelCode": "important",
       "usageFrequencyCode": "weekly",
-      "substitutabilityCode": "partial",
-      "mobilityClassCode": "daily_bag",
-      "ownershipReason": "外出先での充電切れを避けるため",
-      "replacementAmount": 5000,
-      "weightGram": 210,
-      "notes": "1個は予備。希望数量を超えているため見直し候補",
+      "notes": "1個は予備",
       "tags": ["通勤", "防災"]
     },
     {
@@ -71,13 +52,7 @@
       "quantity": 1,
       "unitName": "着",
       "necessityLevelCode": "important",
-      "usageFrequencyCode": "quarterly",
-      "substitutabilityCode": "partial",
-      "mobilityClassCode": "self_carry",
-      "ownershipReason": "冬季の外出用",
-      "purchaseAmount": 28000,
-      "weightGram": 520,
-      "volumeMilliliter": 9000
+      "usageFrequencyCode": "quarterly"
     },
     {
       "name": "ランニングシューズ",
@@ -87,12 +62,6 @@
       "unitName": "足",
       "necessityLevelCode": "optional",
       "usageFrequencyCode": "rarely",
-      "substitutabilityCode": "full",
-      "mobilityClassCode": "self_carry",
-      "ownershipReason": "運動習慣を戻したい",
-      "purchaseAmount": 14000,
-      "resaleAmount": 2000,
-      "weightGram": 560,
       "notes": "半年以上使っていない"
     },
     {
@@ -103,10 +72,6 @@
       "unitName": "個",
       "necessityLevelCode": "essential",
       "usageFrequencyCode": "never",
-      "substitutabilityCode": "none",
-      "mobilityClassCode": "on_demand",
-      "ownershipReason": "断水時の給水手段",
-      "weightGram": 180,
       "tags": ["防災"]
     },
     {
@@ -117,11 +82,6 @@
       "unitName": "冊",
       "necessityLevelCode": "essential",
       "usageFrequencyCode": "yearly",
-      "substitutabilityCode": "none",
-      "mobilityClassCode": "on_demand",
-      "ownershipReason": "海外渡航に必須",
-      "expiresOn": "2031-05-31",
-      "isValuable": true,
       "tags": ["旅行"]
     },
     {
@@ -129,16 +89,30 @@
       "categoryName": "生活用品",
       "itemKindCode": "durable",
       "quantity": 3,
-      "desiredQuantity": 2,
       "unitName": "枚",
       "necessityLevelCode": "optional",
       "usageFrequencyCode": "yearly",
-      "substitutabilityCode": "full",
-      "mobilityClassCode": "parcel",
-      "ownershipReason": "旅行時の衣類収納",
-      "replacementAmount": 1500,
-      "weightGram": 90,
       "tags": ["旅行"]
+    },
+    {
+      "name": "予備の充電ケーブル",
+      "categoryName": "電子機器",
+      "itemKindCode": "consumable",
+      "quantity": 4,
+      "unitName": "本",
+      "necessityLevelCode": "undecided",
+      "usageFrequencyCode": "monthly",
+      "notes": "本数を見直す対象"
+    },
+    {
+      "name": "使っていない外付けHDD",
+      "categoryName": "電子機器",
+      "itemKindCode": "durable",
+      "quantity": 1,
+      "unitName": "台",
+      "necessityLevelCode": "unnecessary",
+      "usageFrequencyCode": "never",
+      "notes": "データ移行後は処分予定"
     }
   ]
 }

@@ -32,11 +32,7 @@ function renderRegisterPage() {
     routes: [
       { path: '/', name: 'root', component: { template: '<div />' } },
       { path: '/register', name: 'register', component: RegisterPage },
-      {
-        path: '/storage-units',
-        name: 'storageUnits',
-        component: { template: '<div>storage</div>' },
-      },
+      { path: '/mypage', name: 'myPage', component: { template: '<div>mypage</div>' } },
       { path: '/login', name: 'login', component: { template: '<div>login</div>' } },
       { path: '/dashboard', name: 'dashboard', component: { template: '<div>dashboard</div>' } },
     ],

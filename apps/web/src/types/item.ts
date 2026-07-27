@@ -1,10 +1,8 @@
 import type {
   ItemKindCode,
   ItemSortKey,
-  MobilityClassCode,
   NecessityLevelCode,
   SortOrder,
-  SubstitutabilityCode,
   UsageFrequencyCode,
 } from '@/api/client'
 
@@ -42,30 +40,10 @@ export const USAGE_FREQUENCY_OPTIONS: readonly CodeOption<UsageFrequencyCode>[] 
   { code: 'never', label: '使っていない' },
 ]
 
-export const SUBSTITUTABILITY_OPTIONS: readonly CodeOption<SubstitutabilityCode>[] = [
-  { code: 'none', label: '代替不可' },
-  { code: 'partial', label: '部分的に代替可能' },
-  { code: 'full', label: '完全に代替可能' },
-  { code: 'unknown', label: '不明' },
-]
-
-export const MOBILITY_CLASS_OPTIONS: readonly CodeOption<MobilityClassCode>[] = [
-  { code: 'worn', label: '身につける' },
-  { code: 'pocket', label: 'ポケット' },
-  { code: 'daily_bag', label: '常時リュック' },
-  { code: 'on_demand', label: '必要時に携行' },
-  { code: 'self_carry', label: '自力搬送' },
-  { code: 'parcel', label: '宅配便' },
-  { code: 'mover', label: '業者搬送' },
-  { code: 'dispose_rebuy', label: '処分・現地再購入候補' },
-  { code: 'fixed', label: '拠点固定' },
-]
-
 export const ITEM_SORT_OPTIONS: readonly CodeOption<ItemSortKey>[] = [
   { code: 'updatedAt', label: '更新日時' },
   { code: 'name', label: 'アイテム名' },
   { code: 'quantity', label: '数量' },
-  { code: 'lastUsedAt', label: '最終使用日時' },
 ]
 
 export const SORT_ORDER_OPTIONS: readonly CodeOption<SortOrder>[] = [

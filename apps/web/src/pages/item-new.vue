@@ -22,6 +22,7 @@ async function handleSubmit(body: CreateItemRequest): Promise<void> {
     const item = await createItem(body)
     await queryClient.invalidateQueries({ queryKey: queryKeys.items.all() })
     await queryClient.invalidateQueries({ queryKey: queryKeys.tags.list() })
+    await queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.summary() })
     return item
   })
 

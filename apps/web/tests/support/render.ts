@@ -1,19 +1,16 @@
 import { VueQueryPlugin } from '@tanstack/vue-query'
 import { render, type RenderResult } from '@testing-library/vue'
-import { createPinia } from 'pinia'
+import { createPinia, setActivePinia } from 'pinia'
 import type { Component } from 'vue'
 import { createMemoryHistory, createRouter, type RouteRecordRaw } from 'vue-router'
 
 import type {
   CategoryResponse,
+  DashboardSummaryResponse,
   ItemResponse,
-  ItemUsageRecordResponse,
-  StorageAllocationResponse,
-  StorageUnitCapacityResponse,
-  StorageUnitContentsResponse,
-  StorageUnitResponse,
   TagResponse,
 } from '@/api/client'
+import { useAuthSessionStore } from '@/stores/authSession'
 
 /**
  * page componentのrender helper。
@@ -39,32 +36,8 @@ export async function renderPage(
       name: 'itemEdit',
       component: { template: '<div>edit</div>' },
     },
-    {
-      path: '/storage-units',
-      name: 'storageUnits',
-      component: { template: '<div>storage units</div>' },
-    },
-    {
-      path: '/storage-units/new',
-      name: 'storageUnitNew',
-      component: { template: '<div>new</div>' },
-    },
-    {
-      path: '/storage-units/:publicId',
-      name: 'storageUnitDetail',
-      component: { template: '<div>detail</div>' },
-    },
-    {
-      path: '/storage-units/:publicId/edit',
-      name: 'storageUnitEdit',
-      component: { template: '<div>edit</div>' },
-    },
-    {
-      path: '/storage-units/:publicId/contents',
-      name: 'storageUnitContents',
-      component: { template: '<div>contents</div>' },
-    },
     { path: '/tags', name: 'tags', component: { template: '<div>tags</div>' } },
+    { path: '/mypage', name: 'myPage', component: { template: '<div>mypage</div>' } },
     { path: '/login', name: 'login', component: { template: '<div>login</div>' } },
   ]
 
@@ -73,10 +46,20 @@ export async function renderPage(
   await router.push(options.initialPath ?? '/items')
   await router.isReady()
 
+  const pinia = createPinia()
+  setActivePinia(pinia)
+  // 本番のrouter guardと同じく、render前に認証状態を確定させる (src/router/index.ts)。
+  // 取得失敗時は未login扱いとし、画面のerror表示をtestで確認できるようにする。
+  try {
+    await useAuthSessionStore().initialize()
+  } catch {
+    // 未login。
+  }
+
   const utils = render(component, {
     global: {
       plugins: [
-        createPinia(),
+        pinia,
         router,
         [
           VueQueryPlugin,
@@ -129,37 +112,15 @@ export function testItem(overrides: Partial<ItemResponse> = {}): ItemResponse {
     itemKindCode: 'durable',
     itemKindLabel: '耐久品',
     quantity: 1,
-    desiredQuantity: 1,
     unitName: '本',
     necessityLevelCode: 'essential',
     necessityLevelLabel: '必須',
     usageFrequencyCode: 'monthly',
     usageFrequencyLabel: '月に1回程度',
-    substitutabilityCode: 'none',
-    substitutabilityLabel: '代替不可',
-    mobilityClassCode: 'daily_bag',
-    mobilityClassLabel: '常時リュック',
-    ownershipReason: '突然の雨に対応するため',
-    disposalCondition: null,
-    lastUsedAt: null,
     purchasedOn: null,
-    purchaseAmount: null,
-    replacementAmount: 3000,
-    resaleAmount: null,
-    weightGram: 220,
-    volumeMilliliter: null,
-    isFragile: false,
-    isValuable: false,
-    isSentimental: false,
-    requiresMaintenance: false,
-    expiresOn: null,
     sourceUrl: null,
     notes: null,
-    isConfirmed: false,
-    confirmedAt: null,
     tags: [],
-    storageAllocations: [],
-    unassignedQuantity: 1,
     isArchived: false,
     archivedAt: null,
     version: 1,
@@ -169,107 +130,33 @@ export function testItem(overrides: Partial<ItemResponse> = {}): ItemResponse {
   }
 }
 
-/** testで使用する使用記録。 */
-export function testUsageRecord(
-  overrides: Partial<ItemUsageRecordResponse> = {},
-): ItemUsageRecordResponse {
+/** testで使用するダッシュボード集計。 */
+export function testDashboardSummary(
+  overrides: Partial<DashboardSummaryResponse> = {},
+): DashboardSummaryResponse {
   return {
-    publicId: '018f8d0a-1c2b-7a3d-9e4f-000000000030',
-    usedAt: '2026-07-20T09:00:00Z',
-    quantity: 1,
-    note: null,
-    createdAt: '2026-07-20T09:00:00Z',
-    ...overrides,
-  }
-}
-
-/** testで使用する容量集計。既定は超過なし・未設定なしとする。 */
-export function testCapacity(
-  overrides: Partial<StorageUnitCapacityResponse> = {},
-): StorageUnitCapacityResponse {
-  return {
-    allocatedItemKindCount: 0,
-    allocatedQuantity: 0,
-    tareWeightGram: 900,
-    itemWeightGram: 0,
-    descendantWeightGram: 0,
-    totalWeightGram: 900,
-    itemVolumeMilliliter: 0,
-    descendantVolumeMilliliter: 0,
-    totalVolumeMilliliter: 0,
-    maximumWeightGram: 8000,
-    maximumVolumeMilliliter: 25000,
-    remainingWeightGram: 7100,
-    remainingVolumeMilliliter: 25000,
-    isWeightExceeded: false,
-    isVolumeExceeded: false,
-    hasUnknownWeight: false,
-    hasUnknownVolume: false,
-    ...overrides,
-  }
-}
-
-/** testで使用する収納単位。 */
-export function testStorageUnit(overrides: Partial<StorageUnitResponse> = {}): StorageUnitResponse {
-  return {
-    publicId: '018f8d0a-1c2b-7a3d-9e4f-000000000030',
-    name: '日常リュック',
-    storageTypeCode: 'bag',
-    storageTypeLabel: 'バッグ',
-    mobilityClassCode: 'daily_bag',
-    mobilityClassLabel: '常時リュック',
-    parent: null,
-    ancestors: [],
-    depth: 1,
-    childCount: 0,
-    tareWeightGram: 900,
-    maximumWeightGram: 8000,
-    maximumVolumeMilliliter: 25000,
-    description: null,
-    sortOrder: 10,
-    capacity: testCapacity(),
-    isArchived: false,
-    archivedAt: null,
-    version: 1,
-    createdAt: '2026-07-26T00:00:00Z',
-    updatedAt: '2026-07-26T00:00:00Z',
-    ...overrides,
-  }
-}
-
-/** testで使用する収納割当。 */
-export function testStorageAllocation(
-  overrides: Partial<StorageAllocationResponse> = {},
-): StorageAllocationResponse {
-  return {
-    publicId: '018f8d0a-1c2b-7a3d-9e4f-000000000040',
-    item: {
-      publicId: testItem().publicId,
-      name: testItem().name,
-      unitName: '本',
-      quantity: 3,
-      assignedQuantity: 2,
-      unassignedQuantity: 1,
-      weightGram: 220,
-      volumeMilliliter: null,
-      isArchived: false,
-    },
-    quantity: 2,
-    version: 1,
-    createdAt: '2026-07-26T00:00:00Z',
-    updatedAt: '2026-07-26T00:00:00Z',
-    ...overrides,
-  }
-}
-
-/** testで使用する収納内容。 */
-export function testStorageUnitContents(
-  overrides: Partial<StorageUnitContentsResponse> = {},
-): StorageUnitContentsResponse {
-  return {
-    storageUnit: testStorageUnit(),
-    allocations: [],
-    childStorageUnits: [],
+    itemTypeCount: 2,
+    totalQuantity: 3,
+    categoryBreakdown: [
+      {
+        category: { publicId: testCategory().publicId, name: testCategory().name },
+        itemTypeCount: 1,
+        totalQuantity: 2,
+      },
+      {
+        category: { publicId: '018f8d0a-1c2b-7a3d-9e4f-000000000011', name: '衣類' },
+        itemTypeCount: 1,
+        totalQuantity: 1,
+      },
+    ],
+    necessityLevelBreakdown: [
+      { code: 'essential', label: '必須', itemTypeCount: 1, totalQuantity: 2 },
+      { code: 'optional', label: '任意', itemTypeCount: 1, totalQuantity: 1 },
+    ],
+    usageFrequencyBreakdown: [
+      { code: 'daily', label: '毎日', itemTypeCount: 1, totalQuantity: 1 },
+      { code: 'monthly', label: '月に1回程度', itemTypeCount: 1, totalQuantity: 2 },
+    ],
     ...overrides,
   }
 }

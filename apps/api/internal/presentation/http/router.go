@@ -53,7 +53,7 @@ type RouterDependencies struct {
 //	/api/categories      : 認証必須。
 //	/api/tags            : 認証必須。
 //	/api/items           : 認証必須。
-//	/api/storage-units   : 認証必須。
+//	/api/dashboard       : 認証必須。
 //
 // path・query parameterの解釈はOpenAPI生成のServerInterfaceWrapperへ委ね、
 // routeごとのmiddleware適用のためroute登録は明示的に行う。
@@ -97,7 +97,7 @@ func NewRouter(dependencies RouterDependencies) http.Handler {
 			})
 		})
 
-		// 所持品・カテゴリー・タグ・収納単位は全て認証必須とする。
+		// 所持品・カテゴリー・タグ・ダッシュボードは全て認証必須とする。
 		apiRouter.Group(func(protectedRouter chi.Router) {
 			protectedRouter.Use(dependencies.Authenticator.RequireAuthenticatedUser())
 
@@ -117,30 +117,9 @@ func NewRouter(dependencies RouterDependencies) http.Handler {
 				itemRouter.Put("/{publicId}", wrapper.UpdateItem)
 				itemRouter.Post("/{publicId}/archive", wrapper.ArchiveItem)
 				itemRouter.Post("/{publicId}/restore", wrapper.RestoreItem)
-				itemRouter.Get("/{publicId}/usage-records", wrapper.ListItemUsageRecords)
-				itemRouter.Post("/{publicId}/usage-records", wrapper.CreateItemUsageRecord)
-				itemRouter.Get(
-					"/{publicId}/storage-allocations", wrapper.ListItemStorageAllocations)
 			})
 
-			protectedRouter.Route("/storage-units", func(storageRouter chi.Router) {
-				storageRouter.Get("/", wrapper.ListStorageUnits)
-				storageRouter.Post("/", wrapper.CreateStorageUnit)
-				storageRouter.Get("/{publicId}", wrapper.GetStorageUnitByPublicId)
-				storageRouter.Put("/{publicId}", wrapper.UpdateStorageUnit)
-				storageRouter.Post("/{publicId}/archive", wrapper.ArchiveStorageUnit)
-				storageRouter.Post("/{publicId}/restore", wrapper.RestoreStorageUnit)
-				storageRouter.Get("/{publicId}/capacity", wrapper.GetStorageUnitCapacity)
-				storageRouter.Get("/{publicId}/contents", wrapper.GetStorageUnitContents)
-				storageRouter.Post("/{publicId}/allocations", wrapper.CreateStorageAllocation)
-				storageRouter.Put("/{publicId}/allocations", wrapper.SetStorageUnitAllocations)
-				storageRouter.Put(
-					"/{publicId}/allocations/{allocationPublicId}",
-					wrapper.UpdateStorageAllocation)
-				storageRouter.Delete(
-					"/{publicId}/allocations/{allocationPublicId}",
-					wrapper.DeleteStorageAllocation)
-			})
+			protectedRouter.Get("/dashboard/summary", wrapper.GetDashboardSummary)
 		})
 
 		apiRouter.NotFound(writeNotFound)

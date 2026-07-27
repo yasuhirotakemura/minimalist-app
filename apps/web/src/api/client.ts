@@ -29,50 +29,19 @@ export type CreateItemRequest = components['schemas']['CreateItemRequest']
 export type UpdateItemRequest = components['schemas']['UpdateItemRequest']
 export type PaginationResponse = components['schemas']['PaginationResponse']
 
-export type ItemUsageRecordResponse = components['schemas']['ItemUsageRecordResponse']
-export type ItemUsageRecordListResponse = components['schemas']['ItemUsageRecordListResponse']
-export type CreateItemUsageRecordRequest = components['schemas']['CreateItemUsageRecordRequest']
-
-export type StorageUnitResponse = components['schemas']['StorageUnitResponse']
-export type StorageUnitListResponse = components['schemas']['StorageUnitListResponse']
-export type StorageUnitReferenceResponse = components['schemas']['StorageUnitReferenceResponse']
-export type StorageUnitCapacityResponse = components['schemas']['StorageUnitCapacityResponse']
-export type StorageUnitContentsResponse = components['schemas']['StorageUnitContentsResponse']
-export type StorageAllocationResponse = components['schemas']['StorageAllocationResponse']
-export type AllocatedItemResponse = components['schemas']['AllocatedItemResponse']
-export type CreateStorageUnitRequest = components['schemas']['CreateStorageUnitRequest']
-export type UpdateStorageUnitRequest = components['schemas']['UpdateStorageUnitRequest']
-export type CreateStorageAllocationRequest = components['schemas']['CreateStorageAllocationRequest']
-export type UpdateStorageAllocationRequest = components['schemas']['UpdateStorageAllocationRequest']
-export type SetStorageUnitAllocationsRequest =
-  components['schemas']['SetStorageUnitAllocationsRequest']
-export type StorageAllocationInput = components['schemas']['StorageAllocationInput']
-export type ItemStorageAllocationResponse = components['schemas']['ItemStorageAllocationResponse']
-export type ItemStorageAllocationListResponse =
-  components['schemas']['ItemStorageAllocationListResponse']
+export type DashboardSummaryResponse = components['schemas']['DashboardSummaryResponse']
+export type DashboardCategoryBreakdownResponse =
+  components['schemas']['DashboardCategoryBreakdownResponse']
+export type DashboardCodeBreakdownResponse = components['schemas']['DashboardCodeBreakdownResponse']
 
 export type ItemKindCode = components['schemas']['ItemKindCode']
 export type NecessityLevelCode = components['schemas']['NecessityLevelCode']
 export type UsageFrequencyCode = components['schemas']['UsageFrequencyCode']
-export type SubstitutabilityCode = components['schemas']['SubstitutabilityCode']
-export type MobilityClassCode = components['schemas']['MobilityClassCode']
 export type ItemSortKey = components['schemas']['ItemSortKey']
-export type StorageTypeCode = components['schemas']['StorageTypeCode']
-export type StorageUnitSortKey = components['schemas']['StorageUnitSortKey']
 export type SortOrder = components['schemas']['SortOrder']
 
 /** GET /api/items のquery parameter。 */
 export type ListItemsQuery = NonNullable<paths['/items']['get']['parameters']['query']>
-
-/** GET /api/storage-units のquery parameter。 */
-export type ListStorageUnitsQuery = NonNullable<
-  paths['/storage-units']['get']['parameters']['query']
->
-
-/** limit / offset のみを取るquery parameter。 */
-export type PageQuery = NonNullable<
-  paths['/items/{publicId}/usage-records']['get']['parameters']['query']
->
 
 /**
  * APIのbase path。

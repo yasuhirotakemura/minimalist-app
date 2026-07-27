@@ -8,7 +8,6 @@ import (
 	categoryhttp "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/presentation/http/category"
 	itemhttp "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/presentation/http/item"
 	"github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/presentation/http/shared"
-	storagehttp "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/presentation/http/storage"
 	taghttp "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/presentation/http/tag"
 )
 
@@ -23,7 +22,6 @@ type APIServer struct {
 	auth     *authhttp.Handler
 	category *categoryhttp.Handler
 	item     *itemhttp.Handler
-	storage  *storagehttp.Handler
 	tag      *taghttp.Handler
 }
 
@@ -32,14 +30,12 @@ func NewAPIServer(
 	auth *authhttp.Handler,
 	category *categoryhttp.Handler,
 	item *itemhttp.Handler,
-	storage *storagehttp.Handler,
 	tag *taghttp.Handler,
 ) *APIServer {
 	return &APIServer{
 		auth:     auth,
 		category: category,
 		item:     item,
-		storage:  storage,
 		tag:      tag,
 	}
 }
@@ -117,119 +113,11 @@ func (s *APIServer) RestoreItem(
 	s.item.RestoreItem(w, r, publicID)
 }
 
-// CreateItemUsageRecord は使用記録を登録する。
-func (s *APIServer) CreateItemUsageRecord(
-	w http.ResponseWriter, r *http.Request, publicID openapi.PublicIdPathParameter,
-) {
-	s.item.CreateItemUsageRecord(w, r, publicID)
-}
+// --- dashboard --------------------------------------------------------------
 
-// ListItemUsageRecords は使用記録の履歴を取得する。
-func (s *APIServer) ListItemUsageRecords(
-	w http.ResponseWriter,
-	r *http.Request,
-	publicID openapi.PublicIdPathParameter,
-	params openapi.ListItemUsageRecordsParams,
-) {
-	s.item.ListItemUsageRecords(w, r, publicID, params)
-}
-
-// --- storage ----------------------------------------------------------------
-
-// ListStorageUnits は収納単位一覧を取得する。
-func (s *APIServer) ListStorageUnits(
-	w http.ResponseWriter, r *http.Request, params openapi.ListStorageUnitsParams,
-) {
-	s.storage.ListStorageUnits(w, r, params)
-}
-
-// CreateStorageUnit は収納単位を登録する。
-func (s *APIServer) CreateStorageUnit(w http.ResponseWriter, r *http.Request) {
-	s.storage.CreateStorageUnit(w, r)
-}
-
-// GetStorageUnitByPublicId は収納単位を取得する。
-func (s *APIServer) GetStorageUnitByPublicId(
-	w http.ResponseWriter, r *http.Request, publicID openapi.PublicIdPathParameter,
-) {
-	s.storage.GetStorageUnitByPublicId(w, r, publicID)
-}
-
-// UpdateStorageUnit は収納単位を更新する。
-func (s *APIServer) UpdateStorageUnit(
-	w http.ResponseWriter, r *http.Request, publicID openapi.PublicIdPathParameter,
-) {
-	s.storage.UpdateStorageUnit(w, r, publicID)
-}
-
-// ArchiveStorageUnit は収納単位をarchiveする。
-func (s *APIServer) ArchiveStorageUnit(
-	w http.ResponseWriter, r *http.Request, publicID openapi.PublicIdPathParameter,
-) {
-	s.storage.ArchiveStorageUnit(w, r, publicID)
-}
-
-// RestoreStorageUnit はarchive済みの収納単位を復元する。
-func (s *APIServer) RestoreStorageUnit(
-	w http.ResponseWriter, r *http.Request, publicID openapi.PublicIdPathParameter,
-) {
-	s.storage.RestoreStorageUnit(w, r, publicID)
-}
-
-// GetStorageUnitCapacity は収納単位の重量・容積を取得する。
-func (s *APIServer) GetStorageUnitCapacity(
-	w http.ResponseWriter, r *http.Request, publicID openapi.PublicIdPathParameter,
-) {
-	s.storage.GetStorageUnitCapacity(w, r, publicID)
-}
-
-// GetStorageUnitContents は収納単位の内容を取得する。
-func (s *APIServer) GetStorageUnitContents(
-	w http.ResponseWriter, r *http.Request, publicID openapi.PublicIdPathParameter,
-) {
-	s.storage.GetStorageUnitContents(w, r, publicID)
-}
-
-// CreateStorageAllocation は所持品を収納単位へ割り当てる。
-func (s *APIServer) CreateStorageAllocation(
-	w http.ResponseWriter, r *http.Request, publicID openapi.PublicIdPathParameter,
-) {
-	s.storage.CreateStorageAllocation(w, r, publicID)
-}
-
-// SetStorageUnitAllocations は収納単位の割当を一括置換する。
-func (s *APIServer) SetStorageUnitAllocations(
-	w http.ResponseWriter, r *http.Request, publicID openapi.PublicIdPathParameter,
-) {
-	s.storage.SetStorageUnitAllocations(w, r, publicID)
-}
-
-// UpdateStorageAllocation は収納割当の数量を変更する。
-func (s *APIServer) UpdateStorageAllocation(
-	w http.ResponseWriter,
-	r *http.Request,
-	publicID openapi.PublicIdPathParameter,
-	allocationPublicID openapi.AllocationPublicIdPathParameter,
-) {
-	s.storage.UpdateStorageAllocation(w, r, publicID, allocationPublicID)
-}
-
-// DeleteStorageAllocation は収納割当を削除する。
-func (s *APIServer) DeleteStorageAllocation(
-	w http.ResponseWriter,
-	r *http.Request,
-	publicID openapi.PublicIdPathParameter,
-	allocationPublicID openapi.AllocationPublicIdPathParameter,
-	params openapi.DeleteStorageAllocationParams,
-) {
-	s.storage.DeleteStorageAllocation(w, r, publicID, allocationPublicID, params)
-}
-
-// ListItemStorageAllocations は所持品の収納割当を取得する。
-func (s *APIServer) ListItemStorageAllocations(
-	w http.ResponseWriter, r *http.Request, publicID openapi.PublicIdPathParameter,
-) {
-	s.storage.ListItemStorageAllocations(w, r, publicID)
+// GetDashboardSummary はダッシュボードの集計値を取得する。
+func (s *APIServer) GetDashboardSummary(w http.ResponseWriter, r *http.Request) {
+	s.item.GetDashboardSummary(w, r)
 }
 
 // --- tag --------------------------------------------------------------------

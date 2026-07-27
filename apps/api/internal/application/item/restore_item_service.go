@@ -85,9 +85,5 @@ func (s *RestoreItemService) Execute(
 		return RestoreItemResult{}, err
 	}
 
-	result, err := s.dependencies.newItemResultWithStorage(ctx, params.UserID, restored)
-	if err != nil {
-		return RestoreItemResult{}, err
-	}
-	return RestoreItemResult{Item: result}, nil
+	return RestoreItemResult{Item: newItemResult(restored)}, nil
 }

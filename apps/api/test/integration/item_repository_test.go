@@ -29,10 +29,6 @@ func newItemRepository() *repositories.PostgresqlItemRepository {
 	return repositories.NewPostgresqlItemRepository(testPool)
 }
 
-func newUsageRecordRepository() *repositories.PostgresqlItemUsageRecordRepository {
-	return repositories.NewPostgresqlItemUsageRecordRepository(testPool)
-}
-
 func testInstant() time.Time {
 	return time.Now().UTC().Truncate(time.Microsecond)
 }
@@ -93,16 +89,14 @@ func testItemAttributes(
 	tags ...domaintag.Reference,
 ) domainitem.Attributes {
 	return domainitem.Attributes{
-		Name:             name,
-		Category:         category.Reference(),
-		Kind:             domainitem.ItemKindDurable,
-		Quantity:         1,
-		UnitName:         "本",
-		NecessityLevel:   domainitem.NecessityLevelEssential,
-		UsageFrequency:   domainitem.UsageFrequencyMonthly,
-		Substitutability: domainitem.SubstitutabilityNone,
-		MobilityClass:    domainitem.MobilityClassDailyBag,
-		Tags:             tags,
+		Name:           name,
+		Category:       category.Reference(),
+		Kind:           domainitem.ItemKindDurable,
+		Quantity:       1,
+		UnitName:       "本",
+		NecessityLevel: domainitem.NecessityLevelEssential,
+		UsageFrequency: domainitem.UsageFrequencyMonthly,
+		Tags:           tags,
 	}
 }
 
@@ -443,10 +437,6 @@ func TestPostgresqlItemRepository_一覧のfilterとsortとpagination(t *testing
 			input:     domainitem.ListCriteriaInput{UsageFrequencyCode: "never"},
 			wantNames: nil,
 		},
-		"mobilityClassCodeで絞り込む": {
-			input:     domainitem.ListCriteriaInput{MobilityClassCode: "daily_bag"},
-			wantNames: []string{"ジャケット", "折りたたみ傘"},
-		},
 		"数量の降順で並べる": {
 			input:     domainitem.ListCriteriaInput{SortKeyName: "quantity", Order: "desc"},
 			wantNames: []string{"折りたたみ傘", "ジャケット"},
@@ -513,100 +503,78 @@ func TestPostgresqlItemRepository_一覧のfilterとsortとpagination(t *testing
 	})
 }
 
-func TestPostgresqlItemRepository_使用記録で最終使用日時を更新する(t *testing.T) {
+func TestPostgresqlItemRepository_ダッシュボード集計を返す(t *testing.T) {
 	truncateAll(t)
 
 	ctx := context.Background()
 	owner := createTestUser(t, "owner@example.com")
-	category := createTestCategory(t, owner.ID(), "外出・携行品")
-	created := createTestItem(t, owner.ID(), testItemAttributes(category, "折りたたみ傘"))
-
-	if created.LastUsedAt() != nil {
-		t.Fatalf("LastUsedAt = %v, want nil", created.LastUsedAt())
-	}
-
-	now := testInstant()
-	usedAt := now.Add(-2 * time.Hour)
-
-	record, _, err := created.RecordUsage(mustPublicID(t), usedAt, 1, nil, now)
-	if err != nil {
-		t.Fatalf("RecordUsage returned error: %v", err)
-	}
-	if _, err := newUsageRecordRepository().Create(ctx, record); err != nil {
-		t.Fatalf("Create usage record returned error: %v", err)
-	}
-
-	updated, err := newItemRepository().TouchLastUsedAt(
-		ctx, owner.ID(), created.PublicID(), usedAt, now)
-	if err != nil {
-		t.Fatalf("TouchLastUsedAt returned error: %v", err)
-	}
-	if updated.LastUsedAt() == nil || !updated.LastUsedAt().Equal(usedAt) {
-		t.Fatalf("LastUsedAt = %v, want %v", updated.LastUsedAt(), usedAt)
-	}
-	if updated.Version() != created.Version()+1 {
-		t.Errorf("Version = %d, want %d", updated.Version(), created.Version()+1)
-	}
-
-	// より古い使用日時では最終使用日時を後退させない。
-	older := usedAt.Add(-24 * time.Hour)
-	updatedAgain, err := newItemRepository().TouchLastUsedAt(
-		ctx, owner.ID(), created.PublicID(), older, now)
-	if err != nil {
-		t.Fatalf("TouchLastUsedAt returned error: %v", err)
-	}
-	if updatedAgain.LastUsedAt() == nil || !updatedAgain.LastUsedAt().Equal(usedAt) {
-		t.Errorf("LastUsedAt = %v, want %v (unchanged)", updatedAgain.LastUsedAt(), usedAt)
-	}
-}
-
-func TestPostgresqlItemUsageRecordRepository_履歴を降順で返す(t *testing.T) {
-	truncateAll(t)
-
-	ctx := context.Background()
-	owner := createTestUser(t, "owner@example.com")
-	category := createTestCategory(t, owner.ID(), "外出・携行品")
-	created := createTestItem(t, owner.ID(), testItemAttributes(category, "折りたたみ傘"))
-
-	now := testInstant()
-	for _, offset := range []time.Duration{-3 * time.Hour, -time.Hour, -2 * time.Hour} {
-		record, _, err := created.RecordUsage(mustPublicID(t), now.Add(offset), 1, nil, now)
-		if err != nil {
-			t.Fatalf("RecordUsage returned error: %v", err)
-		}
-		if _, err := newUsageRecordRepository().Create(ctx, record); err != nil {
-			t.Fatalf("Create usage record returned error: %v", err)
-		}
-	}
-
-	count, err := newUsageRecordRepository().CountByItemID(ctx, owner.ID(), created.ID())
-	if err != nil {
-		t.Fatalf("CountByItemID returned error: %v", err)
-	}
-	if count != 3 {
-		t.Fatalf("CountByItemID = %d, want 3", count)
-	}
-
-	records, err := newUsageRecordRepository().ListByItemID(
-		ctx, owner.ID(), created.ID(), domainitem.PageCriteria{Limit: 2, Offset: 0})
-	if err != nil {
-		t.Fatalf("ListByItemID returned error: %v", err)
-	}
-	if len(records) != 2 {
-		t.Fatalf("len(records) = %d, want 2", len(records))
-	}
-	if records[0].UsedAt().Before(records[1].UsedAt()) {
-		t.Error("records are not sorted by usedAt desc")
-	}
-
-	// 他ユーザーからは参照できない。
 	intruder := createTestUser(t, "intruder@example.com")
-	otherCount, err := newUsageRecordRepository().CountByItemID(ctx, intruder.ID(), created.ID())
-	if err != nil {
-		t.Fatalf("CountByItemID returned error: %v", err)
+	outing := createTestCategory(t, owner.ID(), "外出・携行品")
+	clothes := createTestCategory(t, owner.ID(), "衣類")
+
+	umbrella := testItemAttributes(outing, "折りたたみ傘")
+	umbrella.Quantity = 2
+	createTestItem(t, owner.ID(), umbrella)
+
+	jacket := testItemAttributes(clothes, "ジャケット")
+	jacket.Quantity = 1
+	jacket.NecessityLevel = domainitem.NecessityLevelOptional
+	jacket.UsageFrequency = domainitem.UsageFrequencyDaily
+	createTestItem(t, owner.ID(), jacket)
+
+	// archive済みは集計へ含めない。
+	archivedTarget := createTestItem(
+		t, owner.ID(), testItemAttributes(outing, "使わない傘"))
+	if _, err := newItemRepository().Archive(
+		ctx, owner.ID(), archivedTarget.PublicID(),
+		archivedTarget.Version(), testInstant()); err != nil {
+		t.Fatalf("Archive returned error: %v", err)
 	}
-	if otherCount != 0 {
-		t.Errorf("CountByItemID for other user = %d, want 0", otherCount)
+
+	// 他ユーザーのアイテムも集計へ含めない。
+	intruderCategory := createTestCategory(t, intruder.ID(), "外出・携行品")
+	createTestItem(t, intruder.ID(), testItemAttributes(intruderCategory, "他人の傘"))
+
+	totals, err := newItemRepository().AggregateSummary(ctx, owner.ID())
+	if err != nil {
+		t.Fatalf("AggregateSummary returned error: %v", err)
+	}
+
+	if totals.Total.TypeCount != 2 {
+		t.Errorf("Total.TypeCount = %d, want 2", totals.Total.TypeCount)
+	}
+	if totals.Total.TotalQuantity != 3 {
+		t.Errorf("Total.TotalQuantity = %d, want 3", totals.Total.TotalQuantity)
+	}
+
+	// 内訳はカテゴリーの表示順で返る。sort_orderが同値のためid昇順となる。
+	if len(totals.ByCategory) != 2 {
+		t.Fatalf("len(ByCategory) = %d, want 2", len(totals.ByCategory))
+	}
+	if totals.ByCategory[0].Category.Name != "外出・携行品" {
+		t.Errorf("ByCategory[0].Category.Name = %q, want 外出・携行品",
+			totals.ByCategory[0].Category.Name)
+	}
+	if totals.ByCategory[0].Counts.TotalQuantity != 2 {
+		t.Errorf("ByCategory[0].Counts.TotalQuantity = %d, want 2",
+			totals.ByCategory[0].Counts.TotalQuantity)
+	}
+
+	if got := totals.ByNecessityLevelCode["essential"]; got.TypeCount != 1 {
+		t.Errorf("ByNecessityLevelCode[essential] = %+v, want TypeCount 1", got)
+	}
+	if got := totals.ByUsageFrequencyCode["daily"]; got.TypeCount != 1 {
+		t.Errorf("ByUsageFrequencyCode[daily] = %+v, want TypeCount 1", got)
+	}
+
+	// Domainの整列を通すと定義順 (daily が monthly より先) へ並ぶ。
+	summary := domainitem.NewSummary(totals)
+	if len(summary.ByUsageFrequency) != 2 {
+		t.Fatalf("len(ByUsageFrequency) = %d, want 2", len(summary.ByUsageFrequency))
+	}
+	if summary.ByUsageFrequency[0].Frequency != domainitem.UsageFrequencyDaily {
+		t.Errorf("ByUsageFrequency[0].Frequency = %q, want daily",
+			summary.ByUsageFrequency[0].Frequency)
 	}
 }
 

@@ -4,7 +4,7 @@
 // application/auth の RegisterUserService が同一transaction内で行う。
 // 本packageは参照系のみを提供する。
 //
-// カテゴリーの登録・更新・archive・並び替え (設計書 12.4) は
+// カテゴリーの登録・更新・削除 (設計書 7.3) は
 // 今回のスコープ外のため実装しない。
 package category
 

@@ -82,12 +82,7 @@ func runSeed(
 	logger.Info("seed completed", "inserted", inserted, "skipped", skipped)
 
 	// 所持品・タグはユーザー作成後に投入する。
-	if err := runItemSeed(ctx, database, cfg, logger); err != nil {
-		return err
-	}
-
-	// 収納割当は所持品を参照するため、所持品seedの後に投入する (Phase 2)。
-	return runStorageSeed(ctx, database, cfg, logger)
+	return runItemSeed(ctx, database, cfg, logger)
 }
 
 func readSeedUsers(path string) ([]seedUser, error) {

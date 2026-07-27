@@ -9,30 +9,12 @@ INSERT INTO ownership.items (
     name,
     item_kind_code,
     quantity,
-    desired_quantity,
     unit_name,
     necessity_level_code,
     usage_frequency_code,
-    substitutability_code,
-    mobility_class_code,
-    ownership_reason,
-    disposal_condition,
-    last_used_at,
     purchased_on,
-    purchase_amount,
-    replacement_amount,
-    resale_amount,
-    weight_gram,
-    volume_milliliter,
-    is_fragile,
-    is_valuable,
-    is_sentimental,
-    requires_maintenance,
-    expires_on,
     source_url,
     notes,
-    is_confirmed,
-    confirmed_at,
     created_at,
     updated_at,
     version
@@ -43,30 +25,12 @@ INSERT INTO ownership.items (
     @name,
     @item_kind_code,
     @quantity,
-    @desired_quantity,
     @unit_name,
     @necessity_level_code,
     @usage_frequency_code,
-    @substitutability_code,
-    @mobility_class_code,
-    @ownership_reason,
-    @disposal_condition,
-    @last_used_at,
     @purchased_on,
-    @purchase_amount,
-    @replacement_amount,
-    @resale_amount,
-    @weight_gram,
-    @volume_milliliter,
-    @is_fragile,
-    @is_valuable,
-    @is_sentimental,
-    @requires_maintenance,
-    @expires_on,
     @source_url,
     @notes,
-    @is_confirmed,
-    @confirmed_at,
     @created_at,
     @updated_at,
     1
@@ -90,34 +54,18 @@ WHERE i.public_id = @public_id
 -- 全項目を置き換える。versionが一致しない場合は0件となる。
 -- name: UpdateItem :one
 UPDATE ownership.items
-SET category_id           = @category_id,
-    name                  = @name,
-    item_kind_code        = @item_kind_code,
-    quantity              = @quantity,
-    desired_quantity      = @desired_quantity,
-    unit_name             = @unit_name,
-    necessity_level_code  = @necessity_level_code,
-    usage_frequency_code  = @usage_frequency_code,
-    substitutability_code = @substitutability_code,
-    mobility_class_code   = @mobility_class_code,
-    ownership_reason      = @ownership_reason,
-    disposal_condition    = @disposal_condition,
-    last_used_at          = @last_used_at,
-    purchased_on          = @purchased_on,
-    purchase_amount       = @purchase_amount,
-    replacement_amount    = @replacement_amount,
-    resale_amount         = @resale_amount,
-    weight_gram           = @weight_gram,
-    volume_milliliter     = @volume_milliliter,
-    is_fragile            = @is_fragile,
-    is_valuable           = @is_valuable,
-    is_sentimental        = @is_sentimental,
-    requires_maintenance  = @requires_maintenance,
-    expires_on            = @expires_on,
-    source_url            = @source_url,
-    notes                 = @notes,
-    updated_at            = @updated_at,
-    version               = version + 1
+SET category_id          = @category_id,
+    name                 = @name,
+    item_kind_code       = @item_kind_code,
+    quantity             = @quantity,
+    unit_name            = @unit_name,
+    necessity_level_code = @necessity_level_code,
+    usage_frequency_code = @usage_frequency_code,
+    purchased_on         = @purchased_on,
+    source_url           = @source_url,
+    notes                = @notes,
+    updated_at           = @updated_at,
+    version              = version + 1
 WHERE public_id = @public_id
   AND user_id = @user_id
   AND deleted_at IS NULL
@@ -145,20 +93,6 @@ WHERE public_id = @public_id
   AND user_id = @user_id
   AND deleted_at IS NOT NULL
   AND version = @expected_version
-RETURNING *;
-
--- 使用記録の登録に伴い最終使用日時を更新する。
--- 既存値より古い使用日時では最終使用日時を後退させない。
--- 使用記録は追記操作のため expectedVersion を要求しないが、
--- 見直しスコアの再計算契機となるため version は増加させる。
--- name: TouchItemLastUsedAt :one
-UPDATE ownership.items
-SET last_used_at = GREATEST(COALESCE(last_used_at, @used_at), @used_at),
-    updated_at   = @updated_at,
-    version      = version + 1
-WHERE public_id = @public_id
-  AND user_id = @user_id
-  AND deleted_at IS NULL
 RETURNING *;
 
 -- 更新件数0の理由 (不存在か競合か) を判定するために使用する。
@@ -197,8 +131,6 @@ WHERE i.user_id = @user_id
        OR i.necessity_level_code = sqlc.narg('necessity_level_code')::text)
   AND (sqlc.narg('usage_frequency_code')::text IS NULL
        OR i.usage_frequency_code = sqlc.narg('usage_frequency_code')::text)
-  AND (sqlc.narg('mobility_class_code')::text IS NULL
-       OR i.mobility_class_code = sqlc.narg('mobility_class_code')::text)
   AND (sqlc.narg('tag_public_id')::uuid IS NULL
        OR EXISTS (
             SELECT 1
@@ -210,26 +142,6 @@ WHERE i.user_id = @user_id
             WHERE it.item_id = i.id
               AND it.user_id = i.user_id
               AND t.public_id = sqlc.narg('tag_public_id')::uuid))
-  -- 指定した収納単位へ直接割当されているアイテムだけを返す (Phase 2)。
-  -- 子収納単位の内容は含めない。
-  AND (sqlc.narg('storage_unit_public_id')::uuid IS NULL
-       OR EXISTS (
-            SELECT 1
-            FROM ownership.storage_allocations sa
-            JOIN ownership.storage_units su
-              ON su.id = sa.storage_unit_id
-             AND su.user_id = sa.user_id
-            WHERE sa.item_id = i.id
-              AND sa.user_id = i.user_id
-              AND su.public_id = sqlc.narg('storage_unit_public_id')::uuid))
-  -- 未割当数量が1以上のアイテムだけを返す (Phase 2)。
-  -- 未割当数量はDBへ保存せず、割当合計との差で判定する。
-  AND (NOT @unassigned_only::boolean
-       OR i.quantity > COALESCE((
-            SELECT SUM(sa.quantity)
-            FROM ownership.storage_allocations sa
-            WHERE sa.item_id = i.id
-              AND sa.user_id = i.user_id), 0))
 ORDER BY
     CASE WHEN @sort_key::text = 'name' AND NOT @descending::boolean
          THEN i.name END ASC,
@@ -239,10 +151,6 @@ ORDER BY
          THEN i.quantity END ASC,
     CASE WHEN @sort_key::text = 'quantity' AND @descending::boolean
          THEN i.quantity END DESC,
-    CASE WHEN @sort_key::text = 'last_used_at' AND NOT @descending::boolean
-         THEN i.last_used_at END ASC NULLS LAST,
-    CASE WHEN @sort_key::text = 'last_used_at' AND @descending::boolean
-         THEN i.last_used_at END DESC NULLS LAST,
     CASE WHEN @sort_key::text = 'updated_at' AND NOT @descending::boolean
          THEN i.updated_at END ASC,
     CASE WHEN @sort_key::text = 'updated_at' AND @descending::boolean
@@ -271,8 +179,6 @@ WHERE i.user_id = @user_id
        OR i.necessity_level_code = sqlc.narg('necessity_level_code')::text)
   AND (sqlc.narg('usage_frequency_code')::text IS NULL
        OR i.usage_frequency_code = sqlc.narg('usage_frequency_code')::text)
-  AND (sqlc.narg('mobility_class_code')::text IS NULL
-       OR i.mobility_class_code = sqlc.narg('mobility_class_code')::text)
   AND (sqlc.narg('tag_public_id')::uuid IS NULL
        OR EXISTS (
             SELECT 1
@@ -283,23 +189,64 @@ WHERE i.user_id = @user_id
              AND t.deleted_at IS NULL
             WHERE it.item_id = i.id
               AND it.user_id = i.user_id
-              AND t.public_id = sqlc.narg('tag_public_id')::uuid))
-  AND (sqlc.narg('storage_unit_public_id')::uuid IS NULL
-       OR EXISTS (
-            SELECT 1
-            FROM ownership.storage_allocations sa
-            JOIN ownership.storage_units su
-              ON su.id = sa.storage_unit_id
-             AND su.user_id = sa.user_id
-            WHERE sa.item_id = i.id
-              AND sa.user_id = i.user_id
-              AND su.public_id = sqlc.narg('storage_unit_public_id')::uuid))
-  AND (NOT @unassigned_only::boolean
-       OR i.quantity > COALESCE((
-            SELECT SUM(sa.quantity)
-            FROM ownership.storage_allocations sa
-            WHERE sa.item_id = i.id
-              AND sa.user_id = i.user_id), 0));
+              AND t.public_id = sqlc.narg('tag_public_id')::uuid));
+
+-- ダッシュボードの合計 (設計書 9.3)。
+--
+-- item_type_count はアイテム種別 (行) の数、total_quantity は所有数量の合計。
+-- archive済みは集計へ含めない。
+-- name: AggregateItemTotals :one
+SELECT
+    COUNT(*)::bigint                        AS item_type_count,
+    COALESCE(SUM(quantity), 0)::bigint      AS total_quantity
+FROM ownership.items
+WHERE user_id = @user_id
+  AND deleted_at IS NULL;
+
+-- ダッシュボードのカテゴリー別内訳 (設計書 9.3)。
+--
+-- 所持品が1件も無いカテゴリーは行として返さない。
+-- 並びはカテゴリーの表示順 (sort_order) とする。
+-- name: AggregateItemCountsByCategory :many
+SELECT
+    c.public_id                        AS category_public_id,
+    c.name                             AS category_name,
+    COUNT(i.id)::bigint                AS item_type_count,
+    COALESCE(SUM(i.quantity), 0)::bigint AS total_quantity
+FROM ownership.categories c
+JOIN ownership.items i
+  ON i.category_id = c.id
+ AND i.user_id = c.user_id
+ AND i.deleted_at IS NULL
+WHERE c.user_id = @user_id
+  AND c.deleted_at IS NULL
+GROUP BY c.id, c.public_id, c.name, c.sort_order
+ORDER BY c.sort_order, c.id;
+
+-- ダッシュボードの必要度別内訳 (設計書 9.3)。
+-- 表示順はDomainのcode体系が決めるため、SQLではcode順に返す。
+-- name: AggregateItemCountsByNecessityLevel :many
+SELECT
+    necessity_level_code,
+    COUNT(*)::bigint                   AS item_type_count,
+    COALESCE(SUM(quantity), 0)::bigint AS total_quantity
+FROM ownership.items
+WHERE user_id = @user_id
+  AND deleted_at IS NULL
+GROUP BY necessity_level_code
+ORDER BY necessity_level_code;
+
+-- ダッシュボードの使用頻度別内訳 (設計書 9.3)。
+-- name: AggregateItemCountsByUsageFrequency :many
+SELECT
+    usage_frequency_code,
+    COUNT(*)::bigint                   AS item_type_count,
+    COALESCE(SUM(quantity), 0)::bigint AS total_quantity
+FROM ownership.items
+WHERE user_id = @user_id
+  AND deleted_at IS NULL
+GROUP BY usage_frequency_code
+ORDER BY usage_frequency_code;
 
 -- 一覧のN+1を避けるため、pageに含まれるアイテムのタグをまとめて取得する。
 -- name: ListItemTagsByItemIDs :many

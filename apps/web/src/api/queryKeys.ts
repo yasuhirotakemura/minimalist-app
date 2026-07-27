@@ -1,4 +1,4 @@
-import type { ListItemsQuery, ListStorageUnitsQuery } from './client'
+import type { ListItemsQuery } from './client'
 
 /**
  * TanStack Queryのquery key定義。
@@ -25,22 +25,10 @@ export const queryKeys = {
     list: (query: ListItemsQuery) => ['items', 'list', query] as const,
     /** 所持品詳細 (GET /api/items/{publicId}) */
     detail: (publicId: string) => ['items', 'detail', publicId] as const,
-    /** 使用記録履歴 (GET /api/items/{publicId}/usage-records) */
-    usageRecords: (publicId: string) => ['items', 'usageRecords', publicId] as const,
-    /** 収納割当 (GET /api/items/{publicId}/storage-allocations) */
-    storageAllocations: (publicId: string) => ['items', 'storageAllocations', publicId] as const,
   },
-  storageUnits: {
-    /** storageUnits配下すべて。更新後の一括無効化に使用する。 */
-    all: () => ['storageUnits'] as const,
-    /** 収納単位一覧 (GET /api/storage-units)。検索条件ごとにcacheを分ける。 */
-    list: (query: ListStorageUnitsQuery) => ['storageUnits', 'list', query] as const,
-    /** 収納単位詳細 (GET /api/storage-units/{publicId}) */
-    detail: (publicId: string) => ['storageUnits', 'detail', publicId] as const,
-    /** 収納内容 (GET /api/storage-units/{publicId}/contents) */
-    contents: (publicId: string) => ['storageUnits', 'contents', publicId] as const,
-    /** 容量集計 (GET /api/storage-units/{publicId}/capacity) */
-    capacity: (publicId: string) => ['storageUnits', 'capacity', publicId] as const,
+  dashboard: {
+    /** ダッシュボード集計 (GET /api/dashboard/summary) */
+    summary: () => ['dashboard', 'summary'] as const,
   },
 } as const
 

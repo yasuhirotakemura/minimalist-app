@@ -14,7 +14,6 @@ import (
 	domainauth "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/domain/auth"
 	domaincategory "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/domain/category"
 	domainitem "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/domain/item"
-	domainstorage "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/domain/storage"
 	domaintag "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/domain/tag"
 )
 
@@ -344,42 +343,6 @@ func (r *fakeItemRepository) Restore(
 	return restored, nil
 }
 
-func (r *fakeItemRepository) TouchLastUsedAt(
-	_ context.Context,
-	userID domainauth.UserID,
-	publicID uuid.UUID,
-	usedAt time.Time,
-	now time.Time,
-) (domainitem.Item, error) {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
-
-	stored, err := r.find(userID, publicID)
-	if err != nil {
-		return domainitem.Item{}, err
-	}
-
-	attributes := stored.Attributes()
-	if attributes.LastUsedAt == nil || attributes.LastUsedAt.Before(usedAt) {
-		attributes.LastUsedAt = &usedAt
-	}
-
-	updated := domainitem.ReconstructItem(domainitem.ReconstructItemParams{
-		ID:          stored.ID(),
-		PublicID:    stored.PublicID(),
-		UserID:      stored.UserID(),
-		Attributes:  attributes,
-		IsConfirmed: stored.IsConfirmed(),
-		ConfirmedAt: stored.ConfirmedAt(),
-		CreatedAt:   stored.CreatedAt(),
-		UpdatedAt:   now,
-		ArchivedAt:  stored.ArchivedAt(),
-		Version:     stored.Version() + 1,
-	})
-	r.itemsByID[publicID] = updated
-	return updated, nil
-}
-
 func (r *fakeItemRepository) List(
 	_ context.Context,
 	userID domainauth.UserID,
@@ -444,77 +407,59 @@ func (r *fakeItemRepository) matching(
 	return matched
 }
 
-var _ domainitem.ItemRepository = (*fakeItemRepository)(nil)
-
-// fakeUsageRecordRepository はmemory上でItemUsageRecordRepositoryを実装する。
-type fakeUsageRecordRepository struct {
-	mutex         sync.Mutex
-	recordsByItem map[domainitem.ItemID][]domainitem.UsageRecord
-	nextID        int64
-	failOnCreate  bool
-}
-
-func newFakeUsageRecordRepository() *fakeUsageRecordRepository {
-	return &fakeUsageRecordRepository{
-		recordsByItem: make(map[domainitem.ItemID][]domainitem.UsageRecord),
-		nextID:        1,
-	}
-}
-
-func (r *fakeUsageRecordRepository) Create(
+func (r *fakeItemRepository) AggregateSummary(
 	_ context.Context,
-	record domainitem.UsageRecord,
-) (domainitem.UsageRecord, error) {
-	if r.failOnCreate {
-		return domainitem.UsageRecord{}, errRepository
-	}
-
+	userID domainauth.UserID,
+) (domainitem.SummaryTotals, error) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	stored := record.WithID(domainitem.UsageRecordID(r.nextID))
-	r.nextID++
-	r.recordsByItem[record.ItemID()] = append(r.recordsByItem[record.ItemID()], stored)
-	return stored, nil
-}
+	summary := domainitem.SummaryTotals{
+		ByNecessityLevelCode: map[string]domainitem.Counts{},
+		ByUsageFrequencyCode: map[string]domainitem.Counts{},
+	}
+	countsByCategoryPublicID := map[uuid.UUID]domainitem.CategoryCounts{}
+	categoryOrder := make([]uuid.UUID, 0, len(r.itemsByID))
 
-func (r *fakeUsageRecordRepository) ListByItemID(
-	_ context.Context,
-	_ domainauth.UserID,
-	itemID domainitem.ItemID,
-	page domainitem.PageCriteria,
-) ([]domainitem.UsageRecord, error) {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
+	for _, stored := range r.itemsByID {
+		// archive済みは集計へ含めない (PostgreSQL実装と揃える)。
+		if stored.UserID() != userID || stored.IsArchived() {
+			continue
+		}
 
-	records := r.recordsByItem[itemID]
-	sorted := make([]domainitem.UsageRecord, len(records))
-	copy(sorted, records)
-	sort.Slice(sorted, func(left, right int) bool {
-		return sorted[left].UsedAt().After(sorted[right].UsedAt())
+		counts := domainitem.Counts{TypeCount: 1, TotalQuantity: int64(stored.Quantity())}
+		summary.Total = summary.Total.Add(counts)
+
+		attributes := stored.Attributes()
+		reference := attributes.Category
+		existing, ok := countsByCategoryPublicID[reference.PublicID]
+		if !ok {
+			categoryOrder = append(categoryOrder, reference.PublicID)
+			existing = domainitem.CategoryCounts{Category: reference}
+		}
+		existing.Counts = existing.Counts.Add(counts)
+		countsByCategoryPublicID[reference.PublicID] = existing
+
+		necessityCode := attributes.NecessityLevel.String()
+		summary.ByNecessityLevelCode[necessityCode] =
+			summary.ByNecessityLevelCode[necessityCode].Add(counts)
+
+		frequencyCode := attributes.UsageFrequency.String()
+		summary.ByUsageFrequencyCode[frequencyCode] =
+			summary.ByUsageFrequencyCode[frequencyCode].Add(counts)
+	}
+
+	// mapの反復順は不定のため、testが結果を比較できるようpublicIdで整列する。
+	sort.Slice(categoryOrder, func(left, right int) bool {
+		return categoryOrder[left].String() < categoryOrder[right].String()
 	})
-
-	if int(page.Offset) >= len(sorted) {
-		return nil, nil
+	for _, publicID := range categoryOrder {
+		summary.ByCategory = append(summary.ByCategory, countsByCategoryPublicID[publicID])
 	}
-	end := int(page.Offset) + int(page.Limit)
-	if end > len(sorted) {
-		end = len(sorted)
-	}
-	return sorted[page.Offset:end], nil
+	return summary, nil
 }
 
-func (r *fakeUsageRecordRepository) CountByItemID(
-	_ context.Context,
-	_ domainauth.UserID,
-	itemID domainitem.ItemID,
-) (int64, error) {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
-	return int64(len(r.recordsByItem[itemID])), nil
-}
-
-var _ domainitem.ItemUsageRecordRepository = (*fakeUsageRecordRepository)(nil)
+var _ domainitem.ItemRepository = (*fakeItemRepository)(nil)
 
 // fakeAuditLogRepository は記録された操作履歴を保持する。
 type fakeAuditLogRepository struct {
@@ -545,134 +490,3 @@ func (r *fakeAuditLogRepository) recorded() []domainaudit.AuditLog {
 }
 
 var _ domainaudit.AuditLogRepository = (*fakeAuditLogRepository)(nil)
-
-// fakeStorageAllocationRepository は収納割当repositoryの最小実装。
-//
-// 所持品のユースケースは収納割当を読み取り専用で使う (収納情報の表示と
-// 所有数量の下限検証)。書き込み系のmethodは収納側のtestで検証するため、
-// ここでは呼ばれないことを前提に未実装のerrorを返す。
-type fakeStorageAllocationRepository struct {
-	mutex sync.Mutex
-	// allocationsByItemID はアイテムごとの割当。testが直接組み立てる。
-	allocationsByItemID map[domainitem.ItemID][]domainstorage.StorageAllocation
-	// ownedQuantities は SELECT FOR UPDATE で読む所有数量。
-	ownedQuantities map[domainitem.ItemID]int32
-}
-
-func newFakeStorageAllocationRepository() *fakeStorageAllocationRepository {
-	return &fakeStorageAllocationRepository{
-		allocationsByItemID: map[domainitem.ItemID][]domainstorage.StorageAllocation{},
-		ownedQuantities:     map[domainitem.ItemID]int32{},
-	}
-}
-
-var _ domainstorage.StorageAllocationRepository = (*fakeStorageAllocationRepository)(nil)
-
-func (r *fakeStorageAllocationRepository) ListByItemID(
-	_ context.Context, _ domainauth.UserID, itemID domainitem.ItemID,
-) ([]domainstorage.StorageAllocation, error) {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
-
-	return r.allocationsByItemID[itemID], nil
-}
-
-func (r *fakeStorageAllocationRepository) ListByItemIDs(
-	_ context.Context, _ domainauth.UserID, itemIDs []domainitem.ItemID,
-) (map[domainitem.ItemID][]domainstorage.StorageAllocation, error) {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
-
-	result := make(map[domainitem.ItemID][]domainstorage.StorageAllocation, len(itemIDs))
-	for _, itemID := range itemIDs {
-		if allocations, ok := r.allocationsByItemID[itemID]; ok {
-			result[itemID] = allocations
-		}
-	}
-	return result, nil
-}
-
-func (r *fakeStorageAllocationRepository) SumQuantityByItemIDForUpdate(
-	_ context.Context,
-	_ domainauth.UserID,
-	itemID domainitem.ItemID,
-	excludeAllocationID domainstorage.AllocationID,
-) (int32, int64, error) {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
-
-	var total int64
-	for _, allocation := range r.allocationsByItemID[itemID] {
-		if allocation.ID() == excludeAllocationID && excludeAllocationID != 0 {
-			continue
-		}
-		total += int64(allocation.Quantity())
-	}
-	return r.ownedQuantities[itemID], total, nil
-}
-
-func (r *fakeStorageAllocationRepository) Create(
-	context.Context, domainstorage.StorageAllocation,
-) (domainstorage.StorageAllocation, error) {
-	return domainstorage.StorageAllocation{}, errRepository
-}
-
-func (r *fakeStorageAllocationRepository) FindByPublicID(
-	context.Context, domainauth.UserID, uuid.UUID,
-) (domainstorage.StorageAllocation, error) {
-	return domainstorage.StorageAllocation{}, errRepository
-}
-
-func (r *fakeStorageAllocationRepository) UpdateQuantity(
-	context.Context, domainstorage.StorageAllocation, int32,
-) (domainstorage.StorageAllocation, error) {
-	return domainstorage.StorageAllocation{}, errRepository
-}
-
-func (r *fakeStorageAllocationRepository) Delete(
-	context.Context, domainauth.UserID, uuid.UUID, int32,
-) error {
-	return errRepository
-}
-
-func (r *fakeStorageAllocationRepository) DeleteByStorageUnitID(
-	context.Context, domainauth.UserID, domainstorage.StorageUnitID,
-) error {
-	return errRepository
-}
-
-func (r *fakeStorageAllocationRepository) ListByStorageUnitID(
-	context.Context, domainauth.UserID, domainstorage.StorageUnitID,
-) ([]domainstorage.StorageAllocation, error) {
-	return nil, errRepository
-}
-
-func (r *fakeStorageAllocationRepository) ListByStorageUnitIDs(
-	context.Context, domainauth.UserID, []domainstorage.StorageUnitID,
-) (map[domainstorage.StorageUnitID][]domainstorage.StorageAllocation, error) {
-	return nil, errRepository
-}
-
-func (r *fakeStorageAllocationRepository) CountByStorageUnitID(
-	context.Context, domainauth.UserID, domainstorage.StorageUnitID,
-) (int64, error) {
-	return 0, errRepository
-}
-
-func (r *fakeStorageAllocationRepository) LockItemsForUpdate(
-	context.Context, domainauth.UserID, []domainitem.ItemID,
-) (map[domainitem.ItemID]int32, error) {
-	return nil, errRepository
-}
-
-func (r *fakeStorageAllocationRepository) FindAllocatedItemByPublicID(
-	context.Context, domainauth.UserID, uuid.UUID,
-) (domainstorage.AllocatedItem, error) {
-	return domainstorage.AllocatedItem{}, errRepository
-}
-
-func (r *fakeStorageAllocationRepository) ResolveAllocatedItems(
-	context.Context, domainauth.UserID, []uuid.UUID,
-) ([]domainstorage.AllocatedItem, error) {
-	return nil, errRepository
-}

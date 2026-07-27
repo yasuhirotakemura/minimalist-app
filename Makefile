@@ -218,7 +218,7 @@ test-integration-testcontainers: ## testcontainers-goでPostgreSQLを起動しin
 
 .PHONY: e2e
 e2e: ## PlaywrightによるE2E test (Phase 7で実装する)
-	@echo "E2E testは設計書 28章の Phase 7 スコープです。Phase 0では未実装です。"
+	@echo "E2E testは設計書 25.4 によりスコープ外です。integration testとcomponent testで代替します。"
 	@exit 1
 
 # ---------------------------------------------------------------------------

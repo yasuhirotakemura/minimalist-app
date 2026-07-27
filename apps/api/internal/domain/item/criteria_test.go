@@ -42,7 +42,6 @@ func TestNewListCriteria_全条件を受け取る(t *testing.T) {
 		TagPublicID:        &tagPublicID,
 		NecessityLevelCode: "essential",
 		UsageFrequencyCode: "monthly",
-		MobilityClassCode:  "daily_bag",
 		IncludeArchived:    true,
 		SortKeyName:        "name",
 		Order:              "asc",
@@ -148,22 +147,5 @@ func TestNewListCriteria_境界値(t *testing.T) {
 				t.Fatalf("NewListCriteria returned error: %v", err)
 			}
 		})
-	}
-}
-
-func TestNewPageCriteria(t *testing.T) {
-	page, err := domainitem.NewPageCriteria(nil, nil)
-	if err != nil {
-		t.Fatalf("NewPageCriteria returned error: %v", err)
-	}
-	if page.Limit != domainitem.DefaultListLimit || page.Offset != 0 {
-		t.Errorf("page = %+v, want limit %d offset 0", page, domainitem.DefaultListLimit)
-	}
-
-	if _, err := domainitem.NewPageCriteria(pointerTo(int32(0)), nil); err == nil {
-		t.Fatal("NewPageCriteria(limit=0) returned nil error, want error")
-	}
-	if _, err := domainitem.NewPageCriteria(nil, pointerTo(int32(-1))); err == nil {
-		t.Fatal("NewPageCriteria(offset=-1) returned nil error, want error")
 	}
 }

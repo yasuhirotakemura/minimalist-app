@@ -6,7 +6,6 @@ import { formatDate } from '@/utils/format'
  * 所持品一覧の表示 (設計書 9.4)。
  *
  * デスクトップは表、モバイルはカードへ切り替える (設計書 10.8)。
- * 収納単位と見直しスコアの列はPhase 2 / Phase 3のスコープのため持たない。
  */
 defineProps<{
   items: readonly ItemResponse[]
@@ -47,12 +46,12 @@ defineProps<{
           <dd class="text-slate-900">{{ item.usageFrequencyLabel }}</dd>
         </div>
         <div>
-          <dt class="text-xs text-slate-500">携行区分</dt>
-          <dd class="text-slate-900">{{ item.mobilityClassLabel }}</dd>
+          <dt class="text-xs text-slate-500">種別</dt>
+          <dd class="text-slate-900">{{ item.itemKindLabel }}</dd>
         </div>
         <div>
-          <dt class="text-xs text-slate-500">最終使用</dt>
-          <dd class="text-slate-900">{{ formatDate(item.lastUsedAt) }}</dd>
+          <dt class="text-xs text-slate-500">更新日時</dt>
+          <dd class="text-slate-900">{{ formatDate(item.updatedAt) }}</dd>
         </div>
       </dl>
 
@@ -70,7 +69,7 @@ defineProps<{
 
   <!-- デスクトップ: 表 -->
   <div class="hidden overflow-x-auto rounded-lg border border-slate-200 bg-white md:block">
-    <table class="w-full min-w-4xl text-left text-sm">
+    <table class="w-full min-w-3xl text-left text-sm">
       <caption class="sr-only">
         所持品一覧
       </caption>
@@ -81,8 +80,7 @@ defineProps<{
           <th scope="col" class="px-4 py-3 font-medium">数量</th>
           <th scope="col" class="px-4 py-3 font-medium">使用頻度</th>
           <th scope="col" class="px-4 py-3 font-medium">必要度</th>
-          <th scope="col" class="px-4 py-3 font-medium">携行区分</th>
-          <th scope="col" class="px-4 py-3 font-medium">最終使用</th>
+          <th scope="col" class="px-4 py-3 font-medium">種別</th>
           <th scope="col" class="px-4 py-3 font-medium">更新日時</th>
         </tr>
       </thead>
@@ -116,8 +114,7 @@ defineProps<{
           <td class="px-4 py-3 text-slate-700">{{ item.quantity }}{{ item.unitName }}</td>
           <td class="px-4 py-3 text-slate-700">{{ item.usageFrequencyLabel }}</td>
           <td class="px-4 py-3 text-slate-700">{{ item.necessityLevelLabel }}</td>
-          <td class="px-4 py-3 text-slate-700">{{ item.mobilityClassLabel }}</td>
-          <td class="px-4 py-3 text-slate-700">{{ formatDate(item.lastUsedAt) }}</td>
+          <td class="px-4 py-3 text-slate-700">{{ item.itemKindLabel }}</td>
           <td class="px-4 py-3 text-slate-700">{{ formatDate(item.updatedAt) }}</td>
         </tr>
       </tbody>

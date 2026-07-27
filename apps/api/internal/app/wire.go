@@ -15,7 +15,6 @@ import (
 	applicationauth "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/application/auth"
 	applicationcategory "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/application/category"
 	applicationitem "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/application/item"
-	applicationstorage "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/application/storage"
 	applicationtag "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/application/tag"
 	"github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/infrastructure/config"
 	"github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/infrastructure/crypto"
@@ -29,7 +28,6 @@ import (
 	"github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/presentation/http/health"
 	itemhttp "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/presentation/http/item"
 	"github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/presentation/http/shared"
-	storagehttp "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/presentation/http/storage"
 	taghttp "github.com/YasuhiroTakemura/minimalist-app/apps/api/internal/presentation/http/tag"
 )
 
@@ -91,9 +89,6 @@ func NewHandler(
 	categoryRepository := repositories.NewPostgresqlCategoryRepository(pool)
 	tagRepository := repositories.NewPostgresqlTagRepository(pool)
 	itemRepository := repositories.NewPostgresqlItemRepository(pool)
-	usageRecordRepository := repositories.NewPostgresqlItemUsageRecordRepository(pool)
-	storageUnitRepository := repositories.NewPostgresqlStorageUnitRepository(pool)
-	storageAllocationRepository := repositories.NewPostgresqlStorageAllocationRepository(pool)
 	auditRecorder := applicationaudit.NewRecorder(
 		repositories.NewPostgresqlAuditLogRepository(pool), publicIDGenerator, systemClock)
 
@@ -107,17 +102,9 @@ func NewHandler(
 	}
 
 	itemDependencies := applicationitem.Dependencies{
-		Items:              itemRepository,
-		UsageRecords:       usageRecordRepository,
-		Categories:         categoryRepository,
-		Tags:               tagRepository,
-		StorageAllocations: storageAllocationRepository,
-		AuditRecorder:      auditRecorder,
-	}
-
-	storageDependencies := applicationstorage.Dependencies{
-		StorageUnits:  storageUnitRepository,
-		Allocations:   storageAllocationRepository,
+		Items:         itemRepository,
+		Categories:    categoryRepository,
+		Tags:          tagRepository,
 		AuditRecorder: auditRecorder,
 	}
 
@@ -161,36 +148,7 @@ func NewHandler(
 			itemDependencies, systemClock, transactionManager),
 		RestoreItem: applicationitem.NewRestoreItemService(
 			itemDependencies, systemClock, transactionManager),
-		RecordItemUsage: applicationitem.NewRecordItemUsageService(
-			itemDependencies, publicIDGenerator, systemClock, transactionManager),
-		ListItemUsageRecords: applicationitem.NewListItemUsageRecordsService(itemDependencies),
-	})
-
-	storageHandler := storagehttp.NewHandler(storagehttp.HandlerDependencies{
-		CreateStorageUnit: applicationstorage.NewCreateStorageUnitService(
-			storageDependencies, publicIDGenerator, systemClock, transactionManager),
-		UpdateStorageUnit: applicationstorage.NewUpdateStorageUnitService(
-			storageDependencies, systemClock, transactionManager),
-		ArchiveStorageUnit: applicationstorage.NewArchiveStorageUnitService(
-			storageDependencies, systemClock, transactionManager),
-		RestoreStorageUnit: applicationstorage.NewRestoreStorageUnitService(
-			storageDependencies, systemClock, transactionManager),
-		GetStorageUnit:   applicationstorage.NewGetStorageUnitService(storageDependencies),
-		ListStorageUnits: applicationstorage.NewListStorageUnitsService(storageDependencies),
-		GetStorageUnitContents: applicationstorage.NewGetStorageUnitContentsService(
-			storageDependencies),
-		CalculateCapacity: applicationstorage.NewCalculateStorageUnitCapacityService(
-			storageDependencies),
-		AssignItem: applicationstorage.NewAssignItemToStorageUnitService(
-			storageDependencies, publicIDGenerator, systemClock, transactionManager),
-		UpdateAllocation: applicationstorage.NewUpdateStorageAllocationService(
-			storageDependencies, systemClock, transactionManager),
-		RemoveAllocation: applicationstorage.NewRemoveStorageAllocationService(
-			storageDependencies, systemClock, transactionManager),
-		ReplaceAllocations: applicationstorage.NewReplaceStorageAllocationsService(
-			storageDependencies, publicIDGenerator, systemClock, transactionManager),
-		ListItemStorageAllocations: applicationstorage.NewListItemStorageAllocationsService(
-			storageDependencies),
+		GetDashboardSummary: applicationitem.NewGetDashboardSummaryService(itemDependencies),
 	})
 
 	tagHandler := taghttp.NewHandler(taghttp.HandlerDependencies{
@@ -207,7 +165,7 @@ func NewHandler(
 		Logger: logger,
 		Clock:  systemClock,
 		APIServer: presentationhttp.NewAPIServer(
-			authHandler, categoryHandler, itemHandler, storageHandler, tagHandler),
+			authHandler, categoryHandler, itemHandler, tagHandler),
 		Authenticator:       authhttp.NewAuthenticator(getAuthenticatedUserContext, sessionCookie),
 		HealthHandler:       health.NewHandler(pool),
 		CSRFTokenIssuer:     csrfTokenIssuer,

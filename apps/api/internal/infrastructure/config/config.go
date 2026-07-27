@@ -37,8 +37,6 @@ type Config struct {
 	CSRFSecret         string
 	CORSAllowedOrigins []string
 	LogLevel           slog.Level
-	MaxImportSizeMB    int
-	ExportTTL          time.Duration
 	MigrationsDir      string
 	SeedsDir           string
 }
@@ -73,15 +71,6 @@ func LoadWithMode(mode ValidationMode) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-	maxImportSizeMB, err := lookupInt("MAX_IMPORT_SIZE_MB", 10)
-	if err != nil {
-		return Config{}, err
-	}
-	exportTTLMinutes, err := lookupInt("EXPORT_TTL_MINUTES", 15)
-	if err != nil {
-		return Config{}, err
-	}
-
 	config := Config{
 		AppEnv:             lookupString("APP_ENV", EnvLocal),
 		WebBaseURL:         lookupString("WEB_BASE_URL", "http://localhost:8080"),
@@ -93,8 +82,6 @@ func LoadWithMode(mode ValidationMode) (Config, error) {
 		CSRFSecret:         lookupString("CSRF_SECRET", ""),
 		CORSAllowedOrigins: splitAndTrim(lookupString("CORS_ALLOWED_ORIGINS", "")),
 		LogLevel:           logging.ParseLevel(lookupString("LOG_LEVEL", "info")),
-		MaxImportSizeMB:    maxImportSizeMB,
-		ExportTTL:          time.Duration(exportTTLMinutes) * time.Minute,
 		MigrationsDir:      lookupString("MIGRATIONS_DIR", "../../db/migrations"),
 		SeedsDir:           lookupString("SEEDS_DIR", "../../db/seeds"),
 	}
@@ -139,12 +126,6 @@ func (c Config) validate(mode ValidationMode) error {
 		}
 		if c.APIPort <= 0 || c.APIPort > 65535 {
 			problems = append(problems, "API_PORT must be between 1 and 65535")
-		}
-		if c.MaxImportSizeMB <= 0 {
-			problems = append(problems, "MAX_IMPORT_SIZE_MB must be positive")
-		}
-		if c.ExportTTL <= 0 {
-			problems = append(problems, "EXPORT_TTL_MINUTES must be positive")
 		}
 	}
 

@@ -7,8 +7,7 @@ import { useAuthSession } from '@/composables/useAuthSession'
 /**
  * 認証後の共通レイアウト (設計書 9.2)。
  *
- * 画面数が少ないうちはheaderと主要navigationのみとする。
- * sidebar・bottom navigationは画面が増えるPhase 2以降で追加する。
+ * 画面数が少ないためheaderと主要navigationのみとする。
  */
 const router = useRouter()
 const route = useRoute()
@@ -17,14 +16,13 @@ const { user, isSubmitting, logout } = useAuthSession()
 const navigationLinks = [
   { name: 'dashboard', label: 'ホーム' },
   { name: 'items', label: '所持品' },
-  { name: 'storageUnits', label: '収納' },
   { name: 'tags', label: 'タグ' },
+  { name: 'myPage', label: 'マイページ' },
 ] as const
 
 /** 詳細・編集などの下位画面でも、対応する上位navigationを選択中として示す。 */
 const activePathPrefixes: Record<string, string> = {
   items: '/items',
-  storageUnits: '/storage-units',
 }
 
 function isActive(name: string): boolean {

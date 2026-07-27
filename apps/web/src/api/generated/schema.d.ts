@@ -144,8 +144,7 @@ export interface paths {
     get?: never
     /**
      * タグを更新する
-     * @description 設計書 12.4 のendpoint一覧には含まれないが、
-     *     タグ名の修正を行えるようにするため追加した。
+     * @description タグ名を変更する。`expectedVersion` が現在versionと一致しない場合は 409 を返す。
      */
     put: operations['updateTag']
     post?: never
@@ -227,7 +226,7 @@ export interface paths {
     /**
      * 所持品をarchiveする
      * @description soft deleteとして `archivedAt` を設定する (設計書 1.4)。
-     *     archive済みのアイテムは既定の一覧から除外され、使用記録を追加できない。
+     *     archive済みのアイテムは既定の一覧から除外される。
      */
     post: operations['archiveItem']
     delete?: never
@@ -256,64 +255,7 @@ export interface paths {
     patch?: never
     trace?: never
   }
-  '/items/{publicId}/usage-records': {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
-        publicId: components['parameters']['PublicIdPathParameter']
-      }
-      cookie?: never
-    }
-    /**
-     * 使用記録の履歴を取得する
-     * @description 使用日時の降順で返す。
-     */
-    get: operations['listItemUsageRecords']
-    put?: never
-    /**
-     * 使用記録を登録する
-     * @description 登録と同時にアイテムの最終使用日時を更新する。
-     *     既存の最終使用日時より古い記録では更新しない。
-     *     archive済みのアイテムへは登録できず 422 を返す (設計書 7.2)。
-     */
-    post: operations['createItemUsageRecord']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/items/{publicId}/storage-allocations': {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
-        publicId: components['parameters']['PublicIdPathParameter']
-      }
-      cookie?: never
-    }
-    /**
-     * 所持品の収納割当を取得する
-     * @description 1つのアイテムがどの収納単位へ何個ずつ入っているかを返す。
-     *     同一アイテムを複数収納単位へ分割割当できるため複数件になる (F-009)。
-     *
-     *     1アイテムの割当件数は収納単位数で上限が決まり少数であるため、
-     *     paginationを行わず全件を返す。
-     *     `unassignedQuantity` はDBへ保存せず取得時に算出する。
-     */
-    get: operations['listItemStorageAllocations']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/storage-units': {
+  '/dashboard/summary': {
     parameters: {
       query?: never
       header?: never
@@ -321,241 +263,17 @@ export interface paths {
       cookie?: never
     }
     /**
-     * 収納単位一覧を取得する
-     * @description 認証ユーザーの収納単位を検索・絞り込み・並び替えして返す (F-008)。
-     *     archive済みは既定で除外し、`includeArchived=true` の場合のみ含める。
+     * ダッシュボードの集計値を取得する
+     * @description 認証ユーザーの所持品を集計して返す (設計書 9.3)。
+     *     archive済みのアイテムは集計へ含めない。
      *
-     *     各要素は `capacity` に重量・容積の集計と超過判定を含む。
-     *     集計は子孫収納単位を含むため、pageに含まれない収納単位も
-     *     server側で階層をたどって計算する。
+     *     内訳は該当アイテムが1件以上ある区分のみを返す。
+     *     件数0の区分をどう表示するかは画面側の判断とする。
      */
-    get: operations['listStorageUnits']
-    put?: never
-    /** 収納単位を登録する */
-    post: operations['createStorageUnit']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/storage-units/{publicId}': {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
-        publicId: components['parameters']['PublicIdPathParameter']
-      }
-      cookie?: never
-    }
-    /**
-     * 収納単位を取得する
-     * @description 他ユーザーのpublicIdを指定した場合も 404 を返し、
-     *     存在有無を公開しない (設計書 18.3)。
-     */
-    get: operations['getStorageUnitByPublicId']
-    /**
-     * 収納単位を更新する
-     * @description 全項目を置き換える。省略した任意項目はNULLへ更新される。
-     *     `expectedVersion` が現在versionと一致しない場合は 409 を返す。
-     *
-     *     `parentStorageUnitPublicId` の変更で階層が移動する。
-     *     自分自身・子孫を親に指定した場合、および移動後の階層が3を超える場合は
-     *     422 を返す。
-     */
-    put: operations['updateStorageUnit']
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/storage-units/{publicId}/archive': {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
-        publicId: components['parameters']['PublicIdPathParameter']
-      }
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * 収納単位をarchiveする
-     * @description soft deleteとして `archivedAt` を設定する (設計書 1.4)。
-     *
-     *     以下の場合は 422 を返し、親のarchiveで子を暗黙にarchiveしない。
-     *       - archive前の子収納単位が残っている (`STORAGE_UNIT_HAS_CHILDREN`)
-     *       - 収納割当が残っている (`STORAGE_UNIT_HAS_ALLOCATIONS`)
-     *
-     *     いずれも利用者へ「子を先にarchiveする」「中身を先に出す」ことを求める。
-     *     暗黙のcascadeを行わないことで、復元時の状態を予測可能にする。
-     */
-    post: operations['archiveStorageUnit']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/storage-units/{publicId}/restore': {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
-        publicId: components['parameters']['PublicIdPathParameter']
-      }
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * archive済みの収納単位を復元する
-     * @description 親がarchive済みの場合は 422 を返す (`STORAGE_UNIT_PARENT_ARCHIVED`)。
-     *     階層の不整合を作らないため、親から順に復元させる。
-     */
-    post: operations['restoreStorageUnit']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/storage-units/{publicId}/capacity': {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
-        publicId: components['parameters']['PublicIdPathParameter']
-      }
-      cookie?: never
-    }
-    /**
-     * 収納単位の重量・容積を取得する
-     * @description 設計書 16.2 の使用量と 16.3 の超過警告を返す。
-     *
-     *     収納済みアイテムの一部に重量または容積が未設定の場合、
-     *     既知分だけを合計し `hasUnknownWeight` / `hasUnknownVolume` を trueとする。
-     *     未設定値を0として完全な値に見せない。
-     */
-    get: operations['getStorageUnitCapacity']
+    get: operations['getDashboardSummary']
     put?: never
     post?: never
     delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/storage-units/{publicId}/contents': {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
-        publicId: components['parameters']['PublicIdPathParameter']
-      }
-      cookie?: never
-    }
-    /**
-     * 収納単位の内容を取得する
-     * @description 直接割当されているアイテム、直接の子収納単位、容量集計をまとめて返す。
-     *     収納内容編集画面が1requestで必要な情報を得られるようにする。
-     *
-     *     1収納単位の割当件数は実運用で少数に収まるためpaginationを行わない。
-     */
-    get: operations['getStorageUnitContents']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/storage-units/{publicId}/allocations': {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
-        publicId: components['parameters']['PublicIdPathParameter']
-      }
-      cookie?: never
-    }
-    get?: never
-    /**
-     * 収納単位の割当を一括置換する
-     * @description 設計書 12.4 の `setStorageUnitAllocations`。
-     *     指定した割当集合へ置き換える。含まれない既存割当は削除する。
-     *
-     *     `expectedStorageUnitVersion` で割当集合全体の競合を検知する。
-     *     競合時はクライアント入力でserver状態を上書きせず 409 を返す。
-     *
-     *     単一transactionで実行し、対象アイテム行を `SELECT FOR UPDATE` で
-     *     ロックしてから割当数量合計を検証する (設計書 20章)。
-     */
-    put: operations['setStorageUnitAllocations']
-    /**
-     * 所持品を収納単位へ割り当てる
-     * @description 数量付きで割り当てる (F-009)。
-     *
-     *     制約:
-     *       - 割当数量は1以上
-     *       - 同一収納単位と同一アイテムの組み合わせは1件 (409)
-     *       - 同一アイテムの割当数量合計は所有数量以下 (422)
-     *       - archive済みアイテム・archive済み収納単位へは割当できない (422)
-     *
-     *     割当集合の競合を検知するため `expectedStorageUnitVersion` を要求し、
-     *     成功時に収納単位のversionを1増加させる。
-     *     responseは更新後の収納内容全体を返す。
-     */
-    post: operations['createStorageAllocation']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/storage-units/{publicId}/allocations/{allocationPublicId}': {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
-        publicId: components['parameters']['PublicIdPathParameter']
-        /** @description 収納割当の外部公開ID。 */
-        allocationPublicId: components['parameters']['AllocationPublicIdPathParameter']
-      }
-      cookie?: never
-    }
-    get?: never
-    /**
-     * 収納割当の数量を変更する
-     * @description 割当自身の `expectedVersion` と収納単位の
-     *     `expectedStorageUnitVersion` の双方を検証する。
-     *     成功時は割当と収納単位の両方のversionを1増加させる。
-     */
-    put: operations['updateStorageAllocation']
-    post?: never
-    /**
-     * 収納割当を削除する
-     * @description 物理削除する。割当は「今どこに入っているか」を表す現在状態であり、
-     *     取り出した履歴を保持する要件が無いためsoft deleteとしない。
-     *
-     *     bodyを持たないmethodのため、version値はquery parameterで受け取る
-     *     (`deleteTag` と同じ方針)。
-     *
-     *     更新後の収納単位versionをクライアントへ返す必要があるため、
-     *     204ではなく 200 で収納内容を返す。
-     */
-    delete: operations['deleteStorageAllocation']
     options?: never
     head?: never
     patch?: never
@@ -668,65 +386,29 @@ export interface components {
       user: components['schemas']['UserResponse']
     }
     /**
-     * @description アイテム種別。設計書 13.7 は種別の存在のみを定め、値集合を定義していない。
-     *     12.5 の例 `durable` を基に、耐久品と消耗品の2値で開始する。
+     * @description アイテム種別 (設計書 14.3)。未指定時はserverが `durable` を適用する。
      * @example durable
      * @enum {string}
      */
     ItemKindCode: 'durable' | 'consumable'
     /**
-     * @description 必要度 (設計書 14.5)
+     * @description 必要度 (設計書 14.2)
      * @example essential
      * @enum {string}
      */
     NecessityLevelCode: 'essential' | 'important' | 'optional' | 'undecided' | 'unnecessary'
     /**
-     * @description 使用頻度 (設計書 14.3)
+     * @description 使用頻度 (設計書 14.1)
      * @example monthly
      * @enum {string}
      */
     UsageFrequencyCode: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly' | 'rarely' | 'never'
     /**
-     * @description 代替可能性 (設計書 14.4)
-     * @example none
-     * @enum {string}
-     */
-    SubstitutabilityCode: 'none' | 'partial' | 'full' | 'unknown'
-    /**
-     * @description 携行区分 (設計書 16.1)
-     * @example daily_bag
-     * @enum {string}
-     */
-    MobilityClassCode:
-      | 'worn'
-      | 'pocket'
-      | 'daily_bag'
-      | 'on_demand'
-      | 'self_carry'
-      | 'parcel'
-      | 'mover'
-      | 'dispose_rebuy'
-      | 'fixed'
-    /**
-     * @description 収納単位の種別。設計書 13.8 は `bag、pouch、box等` と例示のみで
-     *     値集合を定義していないため、実運用で必要な7値で開始する。
-     * @example bag
-     * @enum {string}
-     */
-    StorageTypeCode: 'bag' | 'pouch' | 'box' | 'shelf' | 'room' | 'appliance' | 'other'
-    /**
      * @description 所持品一覧の並び替えkey
      * @example updatedAt
      * @enum {string}
      */
-    ItemSortKey: 'name' | 'quantity' | 'lastUsedAt' | 'updatedAt'
-    /**
-     * @description 収納単位一覧の並び替えkey。
-     *     `totalWeightGram` はDBへ保存しない集計値のためsort keyへ含めない。
-     * @example sortOrder
-     * @enum {string}
-     */
-    StorageUnitSortKey: 'name' | 'sortOrder' | 'updatedAt'
+    ItemSortKey: 'name' | 'quantity' | 'updatedAt'
     /**
      * @example desc
      * @enum {string}
@@ -839,8 +521,6 @@ export interface components {
     /**
      * @description 所持品 (設計書 12.6 / 13.7)。内部IDを含めない。
      *     一覧と詳細で同一の表現を使用する。
-     *
-     *     `review` (見直しスコア) はPhase 3のスコープのため含めない。
      */
     ItemResponse: {
       /** Format: uuid */
@@ -856,12 +536,6 @@ export interface components {
        * @example 1
        */
       quantity: number
-      /**
-       * Format: int32
-       * @description 希望上限数量。未設定の場合はnull。
-       * @example 1
-       */
-      desiredQuantity: number | null
       /** @example 本 */
       unitName: string
       necessityLevelCode: components['schemas']['NecessityLevelCode']
@@ -870,62 +544,12 @@ export interface components {
       usageFrequencyCode: components['schemas']['UsageFrequencyCode']
       /** @example 月に1回程度 */
       usageFrequencyLabel: string
-      substitutabilityCode: components['schemas']['SubstitutabilityCode']
-      /** @example 代替不可 */
-      substitutabilityLabel: string
-      mobilityClassCode: components['schemas']['MobilityClassCode']
-      /** @example 常時リュック */
-      mobilityClassLabel: string
-      /** @example 突然の雨に対応するため */
-      ownershipReason: string | null
-      /** @example 破損して修理不能になった場合 */
-      disposalCondition: string | null
-      /** Format: date-time */
-      lastUsedAt: string | null
       /** Format: date */
       purchasedOn: string | null
-      /**
-       * Format: int64
-       * @description 購入金額 (円)。丸め誤差を避けるため整数で扱う (設計書 11章)。
-       */
-      purchaseAmount: number | null
-      /** Format: int64 */
-      replacementAmount: number | null
-      /** Format: int64 */
-      resaleAmount: number | null
-      /** Format: int32 */
-      weightGram: number | null
-      /** Format: int32 */
-      volumeMilliliter: number | null
-      isFragile: boolean
-      isValuable: boolean
-      isSentimental: boolean
-      requiresMaintenance: boolean
-      /** Format: date */
-      expiresOn: string | null
       /** Format: uri */
       sourceUrl: string | null
       notes: string | null
-      /**
-       * @description 棚卸し確認済みか (設計書 13.7)。
-       *     確認操作 (`confirmItem`) はPhase 1のスコープ外のため、常にfalseとなる。
-       */
-      isConfirmed: boolean
-      /** Format: date-time */
-      confirmedAt: string | null
       tags: components['schemas']['TagReferenceResponse'][]
-      /**
-       * @description 本アイテムがどの収納単位へ何個入っているか (F-009)。
-       *     同一アイテムを複数収納単位へ分割割当できるため配列とする。
-       */
-      storageAllocations: components['schemas']['ItemStorageAllocationResponse'][]
-      /**
-       * Format: int32
-       * @description 未割当数量。`quantity - sum(storageAllocations[].quantity)` で算出する。
-       *     DBへ重複保存せず取得時に算出する。
-       * @example 0
-       */
-      unassignedQuantity: number
       /** @description archive (soft delete) 済みか */
       isArchived: boolean
       /**
@@ -962,45 +586,14 @@ export interface components {
        */
       quantity: number
       /**
-       * Format: int32
-       * @example 1
-       */
-      desiredQuantity?: number | null
-      /**
        * @description 未指定時はserverが `個` を適用する。
        * @example 本
        */
       unitName?: string
       necessityLevelCode: components['schemas']['NecessityLevelCode']
       usageFrequencyCode: components['schemas']['UsageFrequencyCode']
-      substitutabilityCode: components['schemas']['SubstitutabilityCode']
-      mobilityClassCode: components['schemas']['MobilityClassCode']
-      ownershipReason?: string | null
-      disposalCondition?: string | null
-      /** Format: date-time */
-      lastUsedAt?: string | null
       /** Format: date */
       purchasedOn?: string | null
-      /** Format: int64 */
-      purchaseAmount?: number | null
-      /** Format: int64 */
-      replacementAmount?: number | null
-      /** Format: int64 */
-      resaleAmount?: number | null
-      /** Format: int32 */
-      weightGram?: number | null
-      /** Format: int32 */
-      volumeMilliliter?: number | null
-      /** @description 未指定時はfalse。 */
-      isFragile?: boolean
-      /** @description 未指定時はfalse。 */
-      isValuable?: boolean
-      /** @description 未指定時はfalse。 */
-      isSentimental?: boolean
-      /** @description 未指定時はfalse。 */
-      requiresMaintenance?: boolean
-      /** Format: date */
-      expiresOn?: string | null
       /** @description httpまたはhttpsのみを許可する (設計書 24.15)。 */
       sourceUrl?: string | null
       notes?: string | null
@@ -1018,36 +611,12 @@ export interface components {
       itemKindCode?: components['schemas']['ItemKindCode']
       /** Format: int32 */
       quantity: number
-      /** Format: int32 */
-      desiredQuantity?: number | null
       /** @description 未指定時はserverが `個` を適用する。 */
       unitName?: string
       necessityLevelCode: components['schemas']['NecessityLevelCode']
       usageFrequencyCode: components['schemas']['UsageFrequencyCode']
-      substitutabilityCode: components['schemas']['SubstitutabilityCode']
-      mobilityClassCode: components['schemas']['MobilityClassCode']
-      ownershipReason?: string | null
-      disposalCondition?: string | null
-      /** Format: date-time */
-      lastUsedAt?: string | null
       /** Format: date */
       purchasedOn?: string | null
-      /** Format: int64 */
-      purchaseAmount?: number | null
-      /** Format: int64 */
-      replacementAmount?: number | null
-      /** Format: int64 */
-      resaleAmount?: number | null
-      /** Format: int32 */
-      weightGram?: number | null
-      /** Format: int32 */
-      volumeMilliliter?: number | null
-      isFragile?: boolean
-      isValuable?: boolean
-      isSentimental?: boolean
-      requiresMaintenance?: boolean
-      /** Format: date */
-      expiresOn?: string | null
       sourceUrl?: string | null
       notes?: string | null
       tagPublicIds?: string[]
@@ -1065,446 +634,62 @@ export interface components {
        */
       expectedVersion: number
     }
-    ItemUsageRecordResponse: {
-      /** Format: uuid */
-      publicId: string
-      /** Format: date-time */
-      usedAt: string
-      /**
-       * Format: int32
-       * @description 使用した数量。
-       * @example 1
-       */
-      quantity: number
-      /** @example 通勤時に使用 */
-      note: string | null
-      /** Format: date-time */
-      createdAt: string
-    }
-    ItemUsageRecordListResponse: {
-      items: components['schemas']['ItemUsageRecordResponse'][]
-      pagination: components['schemas']['PaginationResponse']
-    }
-    CreateItemUsageRecordRequest: {
-      /**
-       * Format: date-time
-       * @description 使用日時。未指定時はserverの現在時刻を使用する。未来日時は許可しない。
-       */
-      usedAt?: string
-      /**
-       * Format: int32
-       * @description 使用した数量。未指定時は1。
-       */
-      quantity?: number
-      note?: string | null
-    }
-    /** @description 他resourceから参照する際の最小表現 */
-    StorageUnitReferenceResponse: {
-      /** Format: uuid */
-      publicId: string
-      /** @example 日常リュック */
-      name: string
-    }
-    /**
-     * @description 収納単位の重量・容積の集計と超過判定 (設計書 16.2 / 16.3)。
-     *
-     *     重量の内訳:
-     *       tareWeightGram        : 本収納単位の自重
-     *       itemWeightGram        : 直接割当されたアイテムの重量合計
-     *       descendantWeightGram  : 子孫収納単位の自重と内容物重量の合計
-     *       totalWeightGram       = tareWeightGram + itemWeightGram + descendantWeightGram
-     *
-     *     親と子で同じ重量を二重計上しないため、descendantWeightGramには
-     *     親自身の自重・直接割当分を含めない。
-     *
-     *     重量・容積が未設定のアイテムが含まれる場合、既知分だけを合計し
-     *     hasUnknownWeight / hasUnknownVolume を trueとする。
-     *     未設定を0として扱い、完全な値に見せることはしない。
-     */
-    StorageUnitCapacityResponse: {
-      /**
-       * Format: int32
-       * @description 直接割当されているアイテムの種類数
-       * @example 4
-       */
-      allocatedItemKindCount: number
+    /** @description ダッシュボードの集計値 (設計書 9.3)。archive済みのアイテムを含めない。 */
+    DashboardSummaryResponse: {
       /**
        * Format: int64
-       * @description 直接割当されている数量の合計
+       * @description 所持アイテム種類数。単位はアイテム種別 (登録済みアイテムの件数)。
+       * @example 42
+       */
+      itemTypeCount: number
+      /**
+       * Format: int64
+       * @description 所持アイテム数。単位はアイテム数 (各アイテムの数量の合計)。
+       * @example 87
+       */
+      totalQuantity: number
+      /** @description カテゴリー別の内訳。カテゴリーの表示順で返す。 */
+      categoryBreakdown: components['schemas']['DashboardCategoryBreakdownResponse'][]
+      /** @description 必要度別の内訳。必要度の定義順で返す。 */
+      necessityLevelBreakdown: components['schemas']['DashboardCodeBreakdownResponse'][]
+      /** @description 使用頻度別の内訳。使用頻度の定義順で返す。 */
+      usageFrequencyBreakdown: components['schemas']['DashboardCodeBreakdownResponse'][]
+    }
+    DashboardCategoryBreakdownResponse: {
+      category: components['schemas']['CategoryReferenceResponse']
+      /**
+       * Format: int64
        * @example 7
        */
-      allocatedQuantity: number
+      itemTypeCount: number
       /**
        * Format: int64
-       * @description 本収納単位の自重。未設定の場合は0とし hasUnknownWeight をtrueとする。
-       * @example 900
+       * @example 12
        */
-      tareWeightGram: number
-      /**
-       * Format: int64
-       * @description 直接割当されたアイテムの重量合計 (既知分のみ)
-       * @example 2400
-       */
-      itemWeightGram: number
-      /**
-       * Format: int64
-       * @description 子孫収納単位の自重と内容物重量の合計 (既知分のみ)
-       * @example 1300
-       */
-      descendantWeightGram: number
-      /**
-       * Format: int64
-       * @example 4600
-       */
-      totalWeightGram: number
-      /**
-       * Format: int64
-       * @description 直接割当されたアイテムの容積合計 (既知分のみ)
-       * @example 5200
-       */
-      itemVolumeMilliliter: number
-      /**
-       * Format: int64
-       * @description 子孫収納単位の内容物容積の合計 (既知分のみ)。
-       *     設計書 13.8 に収納単位自身の外寸容積columnが無いため、
-       *     空の子収納単位が占める容積は含められない。
-       * @example 800
-       */
-      descendantVolumeMilliliter: number
-      /**
-       * Format: int64
-       * @example 6000
-       */
-      totalVolumeMilliliter: number
-      /**
-       * Format: int32
-       * @description 最大重量。未設定の場合はnullとし、超過判定を行わない。
-       * @example 8000
-       */
-      maximumWeightGram: number | null
-      /**
-       * Format: int32
-       * @example 25000
-       */
-      maximumVolumeMilliliter: number | null
-      /**
-       * Format: int64
-       * @description `maximumWeightGram - totalWeightGram`。
-       *     最大重量が未設定の場合はnull。超過時は負値を返す。
-       * @example 3400
-       */
-      remainingWeightGram: number | null
-      /**
-       * Format: int64
-       * @example 19000
-       */
-      remainingVolumeMilliliter: number | null
-      /** @description totalWeightGram が maximumWeightGram を超えたか (設計書 16.3) */
-      isWeightExceeded: boolean
-      isVolumeExceeded: boolean
-      /**
-       * @description 自重、または集計対象アイテムのいずれかに重量が未設定のものがあるか。
-       *     trueの場合、合計値は「入力済み分のみ」である (設計書 16.2)。
-       */
-      hasUnknownWeight: boolean
-      hasUnknownVolume: boolean
-    }
-    /** @description 収納単位 (設計書 13.8)。内部IDを含めない。 */
-    StorageUnitResponse: {
-      /** Format: uuid */
-      publicId: string
-      /** @example 日常リュック */
-      name: string
-      storageTypeCode: components['schemas']['StorageTypeCode']
-      /** @example バッグ */
-      storageTypeLabel: string
-      mobilityClassCode: components['schemas']['MobilityClassCode']
-      /** @example 常時リュック */
-      mobilityClassLabel: string
-      /** @description 直接の親。親を持たない場合はnull。 */
-      parent: components['schemas']['StorageUnitReferenceResponse'] | null
-      /**
-       * @description rootから直接の親までの並び。階層のbreadcrumb表示に使用する。
-       *     自身は含めない。
-       */
-      ancestors: components['schemas']['StorageUnitReferenceResponse'][]
-      /**
-       * Format: int32
-       * @description 階層の深さ。rootは1。最大3 (設計書 7.3)。
-       * @example 1
-       */
-      depth: number
-      /**
-       * Format: int32
-       * @description archive前の直接の子収納単位の件数
-       * @example 2
-       */
-      childCount: number
-      /**
-       * Format: int32
-       * @description 収納単位自身の重量 (グラム)。未設定の場合はnull。
-       */
-      tareWeightGram: number | null
-      /** Format: int32 */
-      maximumWeightGram: number | null
-      /** Format: int32 */
-      maximumVolumeMilliliter: number | null
-      description: string | null
-      /**
-       * Format: int32
-       * @description 画面の表示順。小さい順に表示する。
-       * @example 10
-       */
-      sortOrder: number
-      capacity: components['schemas']['StorageUnitCapacityResponse']
-      isArchived: boolean
-      /**
-       * Format: date-time
-       * @description archive日時。DBの `deleted_at` に対応する。
-       */
-      archivedAt: string | null
-      /**
-       * Format: int32
-       * @example 1
-       */
-      version: number
-      /** Format: date-time */
-      createdAt: string
-      /** Format: date-time */
-      updatedAt: string
-    }
-    StorageUnitListResponse: {
-      items: components['schemas']['StorageUnitResponse'][]
-      pagination: components['schemas']['PaginationResponse']
-    }
-    CreateStorageUnitRequest: {
-      /** @example 日常リュック */
-      name: string
-      storageTypeCode: components['schemas']['StorageTypeCode']
-      mobilityClassCode: components['schemas']['MobilityClassCode']
-      /**
-       * Format: uuid
-       * @description 親収納単位。未指定時はrootとする。
-       *     自身と合わせて階層が3を超える指定は 422 を返す。
-       */
-      parentStorageUnitPublicId?: string | null
-      /** Format: int32 */
-      tareWeightGram?: number | null
-      /** Format: int32 */
-      maximumWeightGram?: number | null
-      /** Format: int32 */
-      maximumVolumeMilliliter?: number | null
-      description?: string | null
-      /**
-       * Format: int32
-       * @description 未指定時はserverが0を適用する。
-       */
-      sortOrder?: number | null
+      totalQuantity: number
     }
     /**
-     * @description 全項目を置き換える。CreateStorageUnitRequestと同じ項目に
-     *     `expectedVersion` を加える。
-     *     allOfで合成せず明示的に列挙し `additionalProperties: false` を機能させる。
+     * @description code値ごとの内訳。codeとlabelを対で返し、画面はlabelをそのまま表示する
+     *     (設計書 12.6)。
      */
-    UpdateStorageUnitRequest: {
-      name: string
-      storageTypeCode: components['schemas']['StorageTypeCode']
-      mobilityClassCode: components['schemas']['MobilityClassCode']
-      /** Format: uuid */
-      parentStorageUnitPublicId?: string | null
-      /** Format: int32 */
-      tareWeightGram?: number | null
-      /** Format: int32 */
-      maximumWeightGram?: number | null
-      /** Format: int32 */
-      maximumVolumeMilliliter?: number | null
-      description?: string | null
-      /** Format: int32 */
-      sortOrder?: number | null
+    DashboardCodeBreakdownResponse: {
       /**
-       * Format: int32
-       * @description 楽観ロック用の現在version (設計書 11.7)
+       * @description 必要度または使用頻度のcode
+       * @example essential
        */
-      expectedVersion: number
-    }
-    /** @description archive・restoreのように追加入力を持たない操作で使用する。 */
-    StorageUnitVersionRequest: {
+      code: string
+      /** @example 必須 */
+      label: string
       /**
-       * Format: int32
-       * @description 楽観ロック用の現在version (設計書 11.7)
+       * Format: int64
+       * @example 7
        */
-      expectedVersion: number
-    }
-    /**
-     * @description 収納割当から参照するアイテムの表現。
-     *     収納内容編集画面が整合性表示 (現在数量・他収納への割当数量・未割当数量)
-     *     を行うために必要な項目だけを持つ。
-     */
-    AllocatedItemResponse: {
-      /** Format: uuid */
-      publicId: string
-      /** @example 半袖シャツ */
-      name: string
-      /** @example 枚 */
-      unitName: string
+      itemTypeCount: number
       /**
-       * Format: int32
-       * @description アイテムの所有数量
-       * @example 3
+       * Format: int64
+       * @example 12
        */
-      quantity: number
-      /**
-       * Format: int32
-       * @description 全収納単位への割当数量の合計
-       * @example 3
-       */
-      assignedQuantity: number
-      /**
-       * Format: int32
-       * @description quantity - assignedQuantity
-       * @example 0
-       */
-      unassignedQuantity: number
-      /**
-       * Format: int32
-       * @description nullの場合、収納単位の重量集計は不完全となる。
-       */
-      weightGram: number | null
-      /** Format: int32 */
-      volumeMilliliter: number | null
-      /**
-       * @description archive済みのアイテムか。
-       *     archive済みアイテムへ新規割当はできないが、既存割当は保持する。
-       *     archiveは手放しではなく、物理的には収納単位へ入ったままであるため
-       *     容量集計にも含める。手放し時の整合はPhase 3で扱う。
-       */
-      isArchived: boolean
-    }
-    /** @description 収納単位配下の割当1件。親の収納単位は文脈から明らかなため含めない。 */
-    StorageAllocationResponse: {
-      /** Format: uuid */
-      publicId: string
-      item: components['schemas']['AllocatedItemResponse']
-      /**
-       * Format: int32
-       * @description 本収納単位へ入れている数量。1以上。
-       * @example 2
-       */
-      quantity: number
-      /**
-       * Format: int32
-       * @example 1
-       */
-      version: number
-      /** Format: date-time */
-      createdAt: string
-      /** Format: date-time */
-      updatedAt: string
-    }
-    /** @description アイテム側から見た割当1件。収納単位を参照として持つ。 */
-    ItemStorageAllocationResponse: {
-      /** Format: uuid */
-      publicId: string
-      storageUnit: components['schemas']['StorageUnitReferenceResponse']
-      /**
-       * Format: int32
-       * @example 2
-       */
-      quantity: number
-      /**
-       * Format: int32
-       * @example 1
-       */
-      version: number
-      /** Format: date-time */
-      createdAt: string
-      /** Format: date-time */
-      updatedAt: string
-    }
-    /**
-     * @description 1アイテムの収納割当一覧。
-     *     件数が収納単位数で上限づけられるためpaginationを持たない。
-     */
-    ItemStorageAllocationListResponse: {
-      items: components['schemas']['ItemStorageAllocationResponse'][]
-      /**
-       * Format: int32
-       * @description アイテムの所有数量
-       * @example 3
-       */
-      quantity: number
-      /**
-       * Format: int32
-       * @example 3
-       */
-      assignedQuantity: number
-      /**
-       * Format: int32
-       * @example 0
-       */
-      unassignedQuantity: number
-    }
-    /**
-     * @description 収納単位の内容。割当の追加・変更・削除・一括置換のresponseにも使用する。
-     *
-     *     更新後のversion (収納単位・各割当)、容量集計、超過判定を1requestで
-     *     返すことで、クライアントが追加requestなしに整合した画面を描ける。
-     */
-    StorageUnitContentsResponse: {
-      storageUnit: components['schemas']['StorageUnitResponse']
-      /** @description 直接割当されているアイテム。アイテム名昇順で返す。 */
-      allocations: components['schemas']['StorageAllocationResponse'][]
-      /** @description 直接の子収納単位。archive済みは含めない。 */
-      childStorageUnits: components['schemas']['StorageUnitResponse'][]
-    }
-    CreateStorageAllocationRequest: {
-      /** Format: uuid */
-      itemPublicId: string
-      /**
-       * Format: int32
-       * @example 2
-       */
-      quantity: number
-      /**
-       * Format: int32
-       * @description 収納単位の現在version。割当集合の競合を検知する (設計書 11.7)。
-       *     成功時に収納単位のversionを1増加させる。
-       */
-      expectedStorageUnitVersion: number
-    }
-    UpdateStorageAllocationRequest: {
-      /**
-       * Format: int32
-       * @example 3
-       */
-      quantity: number
-      /**
-       * Format: int32
-       * @description 収納割当の現在version
-       */
-      expectedVersion: number
-      /**
-       * Format: int32
-       * @description 収納単位の現在version
-       */
-      expectedStorageUnitVersion: number
-    }
-    /** @description 一括置換で指定する割当1件。 */
-    StorageAllocationInput: {
-      /** Format: uuid */
-      itemPublicId: string
-      /** Format: int32 */
-      quantity: number
-    }
-    /**
-     * @description 収納単位の割当集合を指定内容へ置き換える。
-     *     含まれない既存割当は削除する。空配列は「中身を空にする」を意味する。
-     */
-    SetStorageUnitAllocationsRequest: {
-      /** @description 同一アイテムを2件以上含めることはできない (400)。 */
-      allocations: components['schemas']['StorageAllocationInput'][]
-      /** Format: int32 */
-      expectedStorageUnitVersion: number
+      totalQuantity: number
     }
   }
   responses: {
@@ -1649,8 +834,6 @@ export interface components {
   parameters: {
     /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
     PublicIdPathParameter: string
-    /** @description 収納割当の外部公開ID。 */
-    AllocationPublicIdPathParameter: string
     /** @description 取得件数。未指定時は50。 */
     LimitQueryParameter: number
     /** @description 読み飛ばす件数。未指定時は0。 */
@@ -1946,17 +1129,6 @@ export interface operations {
         tagPublicId?: string
         necessityLevelCode?: components['schemas']['NecessityLevelCode']
         usageFrequencyCode?: components['schemas']['UsageFrequencyCode']
-        mobilityClassCode?: components['schemas']['MobilityClassCode']
-        /**
-         * @description 指定した収納単位へ直接割当されているアイテムだけを返す (設計書 9.4)。
-         *     子収納単位の内容は含めない。
-         */
-        storageUnitPublicId?: string
-        /**
-         * @description trueの場合、未割当数量が1以上のアイテムだけを返す (設計書 9.4)。
-         *     未割当数量 = quantity - 収納割当数量の合計。
-         */
-        isUnassigned?: boolean
         /** @description archive済みのアイテムを含めるか。未指定時はfalse。 */
         includeDeleted?: boolean
         /** @description 並び替えkey。未指定時は updatedAt。 */
@@ -2158,210 +1330,13 @@ export interface operations {
       500: components['responses']['InternalServerError']
     }
   }
-  listItemUsageRecords: {
-    parameters: {
-      query?: {
-        /** @description 取得件数。未指定時は50。 */
-        limit?: components['parameters']['LimitQueryParameter']
-        /** @description 読み飛ばす件数。未指定時は0。 */
-        offset?: components['parameters']['OffsetQueryParameter']
-      }
-      header?: never
-      path: {
-        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
-        publicId: components['parameters']['PublicIdPathParameter']
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description 取得に成功した */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['ItemUsageRecordListResponse']
-        }
-      }
-      400: components['responses']['BadRequest']
-      401: components['responses']['Unauthorized']
-      404: components['responses']['NotFound']
-      500: components['responses']['InternalServerError']
-    }
-  }
-  createItemUsageRecord: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
-        publicId: components['parameters']['PublicIdPathParameter']
-      }
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['CreateItemUsageRecordRequest']
-      }
-    }
-    responses: {
-      /** @description 登録に成功した */
-      201: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['ItemUsageRecordResponse']
-        }
-      }
-      400: components['responses']['BadRequest']
-      401: components['responses']['Unauthorized']
-      403: components['responses']['Forbidden']
-      404: components['responses']['NotFound']
-      422: components['responses']['UnprocessableEntity']
-      500: components['responses']['InternalServerError']
-    }
-  }
-  listItemStorageAllocations: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
-        publicId: components['parameters']['PublicIdPathParameter']
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description 取得に成功した */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['ItemStorageAllocationListResponse']
-        }
-      }
-      400: components['responses']['BadRequest']
-      401: components['responses']['Unauthorized']
-      404: components['responses']['NotFound']
-      500: components['responses']['InternalServerError']
-    }
-  }
-  listStorageUnits: {
-    parameters: {
-      query?: {
-        /** @description 収納単位名または説明の部分一致 (大文字小文字を区別しない) */
-        keyword?: string
-        storageTypeCode?: components['schemas']['StorageTypeCode']
-        mobilityClassCode?: components['schemas']['MobilityClassCode']
-        /** @description 指定した収納単位の直接の子だけを返す。 */
-        parentStorageUnitPublicId?: string
-        /**
-         * @description trueの場合、親を持たない収納単位だけを返す。
-         *     `parentStorageUnitPublicId` と同時に指定した場合は 400 を返す。
-         */
-        rootOnly?: boolean
-        /**
-         * @description archive済みの収納単位を含めるか。未指定時はfalse。
-         *     Itemの `includeDeleted` と役割は同じだが、収納単位はarchiveのみを
-         *     利用者へ見せるため名称を `includeArchived` とした。
-         */
-        includeArchived?: boolean
-        /** @description 並び替えkey。未指定時は sortOrder。 */
-        sort?: components['schemas']['StorageUnitSortKey']
-        /** @description 並び順。未指定時は asc (sortOrder) / desc (updatedAt) ではなく常に指定値を使う。未指定時は asc。 */
-        order?: components['schemas']['SortOrder']
-        /** @description 取得件数。未指定時は50。 */
-        limit?: components['parameters']['LimitQueryParameter']
-        /** @description 読み飛ばす件数。未指定時は0。 */
-        offset?: components['parameters']['OffsetQueryParameter']
-      }
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description 取得に成功した */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['StorageUnitListResponse']
-        }
-      }
-      400: components['responses']['BadRequest']
-      401: components['responses']['Unauthorized']
-      500: components['responses']['InternalServerError']
-    }
-  }
-  createStorageUnit: {
+  getDashboardSummary: {
     parameters: {
       query?: never
       header?: never
       path?: never
       cookie?: never
     }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['CreateStorageUnitRequest']
-      }
-    }
-    responses: {
-      /** @description 登録に成功した */
-      201: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['StorageUnitResponse']
-        }
-      }
-      400: components['responses']['BadRequest']
-      401: components['responses']['Unauthorized']
-      403: components['responses']['Forbidden']
-      /**
-       * @description 指定した親収納単位が存在しない。
-       *     他ユーザーの収納単位を指定した場合も本statusを返す (設計書 18.3)。
-       */
-      404: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['ErrorResponse']
-        }
-      }
-      /**
-       * @description 業務ルール違反。以下を含む。
-       *       - 階層が3を超える (`STORAGE_HIERARCHY_TOO_DEEP`)
-       *       - archive済みの収納単位を親に指定した (`STORAGE_UNIT_PARENT_ARCHIVED`)
-       */
-      422: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['ErrorResponse']
-        }
-      }
-      500: components['responses']['InternalServerError']
-    }
-  }
-  getStorageUnitByPublicId: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
-        publicId: components['parameters']['PublicIdPathParameter']
-      }
-      cookie?: never
-    }
     requestBody?: never
     responses: {
       /** @description 取得に成功した */
@@ -2370,335 +1345,10 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          'application/json': components['schemas']['StorageUnitResponse']
+          'application/json': components['schemas']['DashboardSummaryResponse']
         }
       }
-      400: components['responses']['BadRequest']
       401: components['responses']['Unauthorized']
-      404: components['responses']['NotFound']
-      500: components['responses']['InternalServerError']
-    }
-  }
-  updateStorageUnit: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
-        publicId: components['parameters']['PublicIdPathParameter']
-      }
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['UpdateStorageUnitRequest']
-      }
-    }
-    responses: {
-      /** @description 更新に成功した */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['StorageUnitResponse']
-        }
-      }
-      400: components['responses']['BadRequest']
-      401: components['responses']['Unauthorized']
-      403: components['responses']['Forbidden']
-      404: components['responses']['NotFound']
-      409: components['responses']['Conflict']
-      /**
-       * @description 業務ルール違反。以下を含む。
-       *       - 自分自身を親に指定した (`STORAGE_UNIT_SELF_PARENT`)
-       *       - 子孫を親に指定した (`STORAGE_UNIT_CIRCULAR_PARENT`)
-       *       - 階層が3を超える (`STORAGE_HIERARCHY_TOO_DEEP`)
-       *       - archive済みの収納単位を親に指定した (`STORAGE_UNIT_PARENT_ARCHIVED`)
-       *       - archive済みの収納単位を編集した (`STORAGE_UNIT_ARCHIVED`)
-       */
-      422: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['ErrorResponse']
-        }
-      }
-      500: components['responses']['InternalServerError']
-    }
-  }
-  archiveStorageUnit: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
-        publicId: components['parameters']['PublicIdPathParameter']
-      }
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['StorageUnitVersionRequest']
-      }
-    }
-    responses: {
-      /** @description archiveに成功した */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['StorageUnitResponse']
-        }
-      }
-      400: components['responses']['BadRequest']
-      401: components['responses']['Unauthorized']
-      403: components['responses']['Forbidden']
-      404: components['responses']['NotFound']
-      409: components['responses']['Conflict']
-      422: components['responses']['UnprocessableEntity']
-      500: components['responses']['InternalServerError']
-    }
-  }
-  restoreStorageUnit: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
-        publicId: components['parameters']['PublicIdPathParameter']
-      }
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['StorageUnitVersionRequest']
-      }
-    }
-    responses: {
-      /** @description 復元に成功した */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['StorageUnitResponse']
-        }
-      }
-      400: components['responses']['BadRequest']
-      401: components['responses']['Unauthorized']
-      403: components['responses']['Forbidden']
-      404: components['responses']['NotFound']
-      409: components['responses']['Conflict']
-      422: components['responses']['UnprocessableEntity']
-      500: components['responses']['InternalServerError']
-    }
-  }
-  getStorageUnitCapacity: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
-        publicId: components['parameters']['PublicIdPathParameter']
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description 取得に成功した */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['StorageUnitCapacityResponse']
-        }
-      }
-      400: components['responses']['BadRequest']
-      401: components['responses']['Unauthorized']
-      404: components['responses']['NotFound']
-      500: components['responses']['InternalServerError']
-    }
-  }
-  getStorageUnitContents: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
-        publicId: components['parameters']['PublicIdPathParameter']
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description 取得に成功した */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['StorageUnitContentsResponse']
-        }
-      }
-      400: components['responses']['BadRequest']
-      401: components['responses']['Unauthorized']
-      404: components['responses']['NotFound']
-      500: components['responses']['InternalServerError']
-    }
-  }
-  setStorageUnitAllocations: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
-        publicId: components['parameters']['PublicIdPathParameter']
-      }
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['SetStorageUnitAllocationsRequest']
-      }
-    }
-    responses: {
-      /** @description 置換に成功した */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['StorageUnitContentsResponse']
-        }
-      }
-      400: components['responses']['BadRequest']
-      401: components['responses']['Unauthorized']
-      403: components['responses']['Forbidden']
-      404: components['responses']['NotFound']
-      409: components['responses']['Conflict']
-      422: components['responses']['UnprocessableEntity']
-      500: components['responses']['InternalServerError']
-    }
-  }
-  createStorageAllocation: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
-        publicId: components['parameters']['PublicIdPathParameter']
-      }
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['CreateStorageAllocationRequest']
-      }
-    }
-    responses: {
-      /** @description 割当に成功した */
-      201: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['StorageUnitContentsResponse']
-        }
-      }
-      400: components['responses']['BadRequest']
-      401: components['responses']['Unauthorized']
-      403: components['responses']['Forbidden']
-      404: components['responses']['NotFound']
-      /**
-       * @description version競合、または同一アイテムが既に本収納単位へ割当済みである
-       *     (`STORAGE_ALLOCATION_ALREADY_EXISTS`)。
-       */
-      409: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['ErrorResponse']
-        }
-      }
-      422: components['responses']['UnprocessableEntity']
-      500: components['responses']['InternalServerError']
-    }
-  }
-  updateStorageAllocation: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
-        publicId: components['parameters']['PublicIdPathParameter']
-        /** @description 収納割当の外部公開ID。 */
-        allocationPublicId: components['parameters']['AllocationPublicIdPathParameter']
-      }
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['UpdateStorageAllocationRequest']
-      }
-    }
-    responses: {
-      /** @description 変更に成功した */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['StorageUnitContentsResponse']
-        }
-      }
-      400: components['responses']['BadRequest']
-      401: components['responses']['Unauthorized']
-      403: components['responses']['Forbidden']
-      404: components['responses']['NotFound']
-      409: components['responses']['Conflict']
-      422: components['responses']['UnprocessableEntity']
-      500: components['responses']['InternalServerError']
-    }
-  }
-  deleteStorageAllocation: {
-    parameters: {
-      query: {
-        /** @description 収納割当の現在version (設計書 11.7) */
-        expectedVersion: number
-        /** @description 収納単位の現在version。割当集合の競合を検知する。 */
-        expectedStorageUnitVersion: number
-      }
-      header?: never
-      path: {
-        /** @description 外部公開ID。内部IDはAPIへ公開しない (設計書 12.1)。 */
-        publicId: components['parameters']['PublicIdPathParameter']
-        /** @description 収納割当の外部公開ID。 */
-        allocationPublicId: components['parameters']['AllocationPublicIdPathParameter']
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description 削除に成功した */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['StorageUnitContentsResponse']
-        }
-      }
-      400: components['responses']['BadRequest']
-      401: components['responses']['Unauthorized']
-      403: components['responses']['Forbidden']
-      404: components['responses']['NotFound']
-      409: components['responses']['Conflict']
-      422: components['responses']['UnprocessableEntity']
       500: components['responses']['InternalServerError']
     }
   }

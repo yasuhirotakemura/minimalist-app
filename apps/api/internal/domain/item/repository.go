@@ -43,39 +43,16 @@ type ItemRepository interface {
 		now time.Time,
 	) (Item, error)
 
-	// TouchLastUsedAt は最終使用日時を更新する。
-	// 既存値より古い使用日時では最終使用日時を後退させない。
-	TouchLastUsedAt(
-		ctx context.Context,
-		userID auth.UserID,
-		publicID uuid.UUID,
-		usedAt time.Time,
-		now time.Time,
-	) (Item, error)
-
 	// List は条件に一致するアイテムを返す。
 	List(ctx context.Context, userID auth.UserID, criteria ListCriteria) ([]Item, error)
 
 	// Count は条件に一致するアイテムの総件数を返す。
 	Count(ctx context.Context, userID auth.UserID, criteria ListCriteria) (int64, error)
-}
 
-// ItemUsageRecordRepository は使用記録の永続化を担う。
-//
-// 使用記録はItem Aggregateに属するが、追記と履歴取得のみを行い
-// Itemとは別のqueryとなるため、interfaceを分離する。
-type ItemUsageRecordRepository interface {
-	// Create は使用記録を作成し、内部IDを付与したUsageRecordを返す。
-	Create(ctx context.Context, record UsageRecord) (UsageRecord, error)
-
-	// ListByItemID は使用日時の降順で履歴を返す。
-	ListByItemID(
-		ctx context.Context,
-		userID auth.UserID,
-		itemID ItemID,
-		page PageCriteria,
-	) ([]UsageRecord, error)
-
-	// CountByItemID は履歴の総件数を返す。
-	CountByItemID(ctx context.Context, userID auth.UserID, itemID ItemID) (int64, error)
+	// AggregateSummary はダッシュボード向けの集計値を返す (設計書 9.3)。
+	//
+	// archive済みのアイテムは集計へ含めない。
+	// 内訳の並びはDomainが決めるため、実装は集計結果をそのまま返し
+	// 表示順の整列は行わない。
+	AggregateSummary(ctx context.Context, userID auth.UserID) (SummaryTotals, error)
 }

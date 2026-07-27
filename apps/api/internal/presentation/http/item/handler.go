@@ -19,39 +19,36 @@ import (
 // DTO変換、HTTP error変換。
 // Handlerが行わないこと (設計書 11.3): SQL、業務ルール、Entityの状態遷移。
 type Handler struct {
-	createItem           *applicationitem.CreateItemService
-	updateItem           *applicationitem.UpdateItemService
-	getItem              *applicationitem.GetItemService
-	listItems            *applicationitem.ListItemsService
-	archiveItem          *applicationitem.ArchiveItemService
-	restoreItem          *applicationitem.RestoreItemService
-	recordItemUsage      *applicationitem.RecordItemUsageService
-	listItemUsageRecords *applicationitem.ListItemUsageRecordsService
+	createItem          *applicationitem.CreateItemService
+	updateItem          *applicationitem.UpdateItemService
+	getItem             *applicationitem.GetItemService
+	listItems           *applicationitem.ListItemsService
+	archiveItem         *applicationitem.ArchiveItemService
+	restoreItem         *applicationitem.RestoreItemService
+	getDashboardSummary *applicationitem.GetDashboardSummaryService
 }
 
 // HandlerDependencies はHandlerの依存。
 type HandlerDependencies struct {
-	CreateItem           *applicationitem.CreateItemService
-	UpdateItem           *applicationitem.UpdateItemService
-	GetItem              *applicationitem.GetItemService
-	ListItems            *applicationitem.ListItemsService
-	ArchiveItem          *applicationitem.ArchiveItemService
-	RestoreItem          *applicationitem.RestoreItemService
-	RecordItemUsage      *applicationitem.RecordItemUsageService
-	ListItemUsageRecords *applicationitem.ListItemUsageRecordsService
+	CreateItem          *applicationitem.CreateItemService
+	UpdateItem          *applicationitem.UpdateItemService
+	GetItem             *applicationitem.GetItemService
+	ListItems           *applicationitem.ListItemsService
+	ArchiveItem         *applicationitem.ArchiveItemService
+	RestoreItem         *applicationitem.RestoreItemService
+	GetDashboardSummary *applicationitem.GetDashboardSummaryService
 }
 
 // NewHandler はHandlerを生成する。
 func NewHandler(dependencies HandlerDependencies) *Handler {
 	return &Handler{
-		createItem:           dependencies.CreateItem,
-		updateItem:           dependencies.UpdateItem,
-		getItem:              dependencies.GetItem,
-		listItems:            dependencies.ListItems,
-		archiveItem:          dependencies.ArchiveItem,
-		restoreItem:          dependencies.RestoreItem,
-		recordItemUsage:      dependencies.RecordItemUsage,
-		listItemUsageRecords: dependencies.ListItemUsageRecords,
+		createItem:          dependencies.CreateItem,
+		updateItem:          dependencies.UpdateItem,
+		getItem:             dependencies.GetItem,
+		listItems:           dependencies.ListItems,
+		archiveItem:         dependencies.ArchiveItem,
+		restoreItem:         dependencies.RestoreItem,
+		getDashboardSummary: dependencies.GetDashboardSummary,
 	}
 }
 
@@ -71,19 +68,16 @@ func (h *Handler) ListItems(
 	result, err := h.listItems.Execute(r.Context(), applicationitem.ListItemsParams{
 		UserID: authenticated.ID,
 		Criteria: domainitem.ListCriteriaInput{
-			Keyword:             stringValue(params.Keyword),
-			CategoryPublicID:    toUUIDPointer(params.CategoryPublicId),
-			TagPublicID:         toUUIDPointer(params.TagPublicId),
-			NecessityLevelCode:  codeValue(params.NecessityLevelCode),
-			UsageFrequencyCode:  codeValue(params.UsageFrequencyCode),
-			MobilityClassCode:   codeValue(params.MobilityClassCode),
-			StorageUnitPublicID: toUUIDPointer(params.StorageUnitPublicId),
-			IsUnassigned:        booleanValue(params.IsUnassigned),
-			IncludeArchived:     booleanValue(params.IncludeDeleted),
-			SortKeyName:         codeValue(params.Sort),
-			Order:               codeValue(params.Order),
-			Limit:               params.Limit,
-			Offset:              params.Offset,
+			Keyword:            stringValue(params.Keyword),
+			CategoryPublicID:   toUUIDPointer(params.CategoryPublicId),
+			TagPublicID:        toUUIDPointer(params.TagPublicId),
+			NecessityLevelCode: codeValue(params.NecessityLevelCode),
+			UsageFrequencyCode: codeValue(params.UsageFrequencyCode),
+			IncludeArchived:    booleanValue(params.IncludeDeleted),
+			SortKeyName:        codeValue(params.Sort),
+			Order:              codeValue(params.Order),
+			Limit:              params.Limit,
+			Offset:             params.Offset,
 		},
 	})
 	if err != nil {
@@ -122,30 +116,14 @@ func (h *Handler) CreateItem(w http.ResponseWriter, r *http.Request) {
 		body.CategoryPublicId,
 		body.ItemKindCode,
 		body.Quantity,
-		body.DesiredQuantity,
 		body.UnitName,
 		body.NecessityLevelCode,
 		body.UsageFrequencyCode,
-		body.SubstitutabilityCode,
-		body.MobilityClassCode,
 		optionalAttributes{
-			OwnershipReason:     body.OwnershipReason,
-			DisposalCondition:   body.DisposalCondition,
-			LastUsedAt:          body.LastUsedAt,
-			PurchasedOn:         body.PurchasedOn,
-			PurchaseAmount:      body.PurchaseAmount,
-			ReplacementAmount:   body.ReplacementAmount,
-			ResaleAmount:        body.ResaleAmount,
-			WeightGram:          body.WeightGram,
-			VolumeMilliliter:    body.VolumeMilliliter,
-			IsFragile:           body.IsFragile,
-			IsValuable:          body.IsValuable,
-			IsSentimental:       body.IsSentimental,
-			RequiresMaintenance: body.RequiresMaintenance,
-			ExpiresOn:           body.ExpiresOn,
-			SourceURL:           body.SourceUrl,
-			Notes:               body.Notes,
-			TagPublicIDs:        body.TagPublicIds,
+			PurchasedOn:  body.PurchasedOn,
+			SourceURL:    body.SourceUrl,
+			Notes:        body.Notes,
+			TagPublicIDs: body.TagPublicIds,
 		},
 	)
 
@@ -210,30 +188,14 @@ func (h *Handler) UpdateItem(
 		body.CategoryPublicId,
 		body.ItemKindCode,
 		body.Quantity,
-		body.DesiredQuantity,
 		body.UnitName,
 		body.NecessityLevelCode,
 		body.UsageFrequencyCode,
-		body.SubstitutabilityCode,
-		body.MobilityClassCode,
 		optionalAttributes{
-			OwnershipReason:     body.OwnershipReason,
-			DisposalCondition:   body.DisposalCondition,
-			LastUsedAt:          body.LastUsedAt,
-			PurchasedOn:         body.PurchasedOn,
-			PurchaseAmount:      body.PurchaseAmount,
-			ReplacementAmount:   body.ReplacementAmount,
-			ResaleAmount:        body.ResaleAmount,
-			WeightGram:          body.WeightGram,
-			VolumeMilliliter:    body.VolumeMilliliter,
-			IsFragile:           body.IsFragile,
-			IsValuable:          body.IsValuable,
-			IsSentimental:       body.IsSentimental,
-			RequiresMaintenance: body.RequiresMaintenance,
-			ExpiresOn:           body.ExpiresOn,
-			SourceURL:           body.SourceUrl,
-			Notes:               body.Notes,
-			TagPublicIDs:        body.TagPublicIds,
+			PurchasedOn:  body.PurchasedOn,
+			SourceURL:    body.SourceUrl,
+			Notes:        body.Notes,
+			TagPublicIDs: body.TagPublicIds,
 		},
 	)
 
@@ -315,78 +277,25 @@ func (h *Handler) RestoreItem(
 	shared.WriteJSON(r.Context(), w, http.StatusOK, toItemResponse(result.Item))
 }
 
-// CreateItemUsageRecord は使用記録を登録する。
-// POST /api/items/{publicId}/usage-records
-func (h *Handler) CreateItemUsageRecord(
-	w http.ResponseWriter,
-	r *http.Request,
-	publicID openapi.PublicIdPathParameter,
-) {
+// GetDashboardSummary はダッシュボードの集計値を取得する。
+// GET /api/dashboard/summary
+func (h *Handler) GetDashboardSummary(w http.ResponseWriter, r *http.Request) {
 	authenticated, ok := authhttp.AuthenticatedUserFromContext(r.Context())
 	if !ok {
 		shared.WriteError(w, r, shared.ErrAuthenticationMiddlewareMissing)
 		return
 	}
 
-	var body openapi.CreateItemUsageRecordJSONRequestBody
-	if err := shared.DecodeJSONBody(w, r, &body); err != nil {
-		shared.WriteError(w, r, err)
-		return
-	}
-
-	result, err := h.recordItemUsage.Execute(r.Context(), applicationitem.RecordItemUsageParams{
-		UserID:   authenticated.ID,
-		PublicID: uuid.UUID(publicID),
-		UsedAt:   body.UsedAt,
-		Quantity: body.Quantity,
-		Note:     body.Note,
-	})
-	if err != nil {
-		shared.WriteError(w, r, err)
-		return
-	}
-
-	shared.WriteJSON(
-		r.Context(), w, http.StatusCreated, toUsageRecordResponse(result.UsageRecord))
-}
-
-// ListItemUsageRecords は使用記録の履歴を取得する。
-// GET /api/items/{publicId}/usage-records
-func (h *Handler) ListItemUsageRecords(
-	w http.ResponseWriter,
-	r *http.Request,
-	publicID openapi.PublicIdPathParameter,
-	params openapi.ListItemUsageRecordsParams,
-) {
-	authenticated, ok := authhttp.AuthenticatedUserFromContext(r.Context())
-	if !ok {
-		shared.WriteError(w, r, shared.ErrAuthenticationMiddlewareMissing)
-		return
-	}
-
-	result, err := h.listItemUsageRecords.Execute(
+	result, err := h.getDashboardSummary.Execute(
 		r.Context(),
-		applicationitem.ListItemUsageRecordsParams{
-			UserID:   authenticated.ID,
-			PublicID: uuid.UUID(publicID),
-			Limit:    params.Limit,
-			Offset:   params.Offset,
-		},
+		applicationitem.GetDashboardSummaryParams{UserID: authenticated.ID},
 	)
 	if err != nil {
 		shared.WriteError(w, r, err)
 		return
 	}
 
-	records := make([]openapi.ItemUsageRecordResponse, 0, len(result.Items))
-	for _, source := range result.Items {
-		records = append(records, toUsageRecordResponse(source))
-	}
-
-	shared.WriteJSON(r.Context(), w, http.StatusOK, openapi.ItemUsageRecordListResponse{
-		Items:      records,
-		Pagination: toPaginationResponse(result.Pagination),
-	})
+	shared.WriteJSON(r.Context(), w, http.StatusOK, toDashboardSummaryResponse(result))
 }
 
 func toUUIDPointer(value *openapitypes.UUID) *uuid.UUID {

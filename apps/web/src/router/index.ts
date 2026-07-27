@@ -5,9 +5,7 @@ import { useAuthSessionStore } from '@/stores/authSession'
 /**
  * route定義 (設計書 9.1)。
  *
- * 現在のスコープは認証 (Phase 0)、所持品・タグ (Phase 1)、
- * 収納単位・収納割当 (Phase 2) とする。
- * 見直し・シナリオ等はPhase 3以降で追加する。
+ * スコープは認証・ダッシュボード・所持品・タグ・マイページとする。
  */
 export const routes: RouteRecordRaw[] = [
   {
@@ -58,40 +56,16 @@ export const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, title: 'アイテムを編集' },
   },
   {
-    path: '/storage-units',
-    name: 'storageUnits',
-    component: () => import('@/pages/storage-units.vue'),
-    meta: { requiresAuth: true, title: '収納単位' },
-  },
-  {
-    path: '/storage-units/new',
-    name: 'storageUnitNew',
-    component: () => import('@/pages/storage-unit-new.vue'),
-    meta: { requiresAuth: true, title: '収納単位を追加' },
-  },
-  {
-    path: '/storage-units/:publicId',
-    name: 'storageUnitDetail',
-    component: () => import('@/pages/storage-unit-detail.vue'),
-    meta: { requiresAuth: true, title: '収納単位詳細' },
-  },
-  {
-    path: '/storage-units/:publicId/edit',
-    name: 'storageUnitEdit',
-    component: () => import('@/pages/storage-unit-edit.vue'),
-    meta: { requiresAuth: true, title: '収納単位を編集' },
-  },
-  {
-    path: '/storage-units/:publicId/contents',
-    name: 'storageUnitContents',
-    component: () => import('@/pages/storage-unit-contents.vue'),
-    meta: { requiresAuth: true, title: '収納内容を編集' },
-  },
-  {
     path: '/tags',
     name: 'tags',
     component: () => import('@/pages/tags.vue'),
     meta: { requiresAuth: true, title: 'タグ' },
+  },
+  {
+    path: '/mypage',
+    name: 'myPage',
+    component: () => import('@/pages/mypage.vue'),
+    meta: { requiresAuth: true, title: 'マイページ' },
   },
   {
     path: '/:pathMatch(.*)*',

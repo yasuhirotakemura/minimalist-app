@@ -28,23 +28,19 @@ func pointerTo[T any](value T) *T { return &value }
 
 // fixture はitemユースケースのtest環境を組み立てる。
 type fixture struct {
-	items        *fakeItemRepository
-	usageRecords *fakeUsageRecordRepository
-	categories   *fakeCategoryRepository
-	tags         *fakeTagRepository
-	auditLogs    *fakeAuditLogRepository
-	clock        *fixedClock
+	items      *fakeItemRepository
+	categories *fakeCategoryRepository
+	tags       *fakeTagRepository
+	auditLogs  *fakeAuditLogRepository
+	clock      *fixedClock
 
-	createItem           *applicationitem.CreateItemService
-	updateItem           *applicationitem.UpdateItemService
-	getItem              *applicationitem.GetItemService
-	listItems            *applicationitem.ListItemsService
-	archiveItem          *applicationitem.ArchiveItemService
-	restoreItem          *applicationitem.RestoreItemService
-	recordItemUsage      *applicationitem.RecordItemUsageService
-	listItemUsageRecords *applicationitem.ListItemUsageRecordsService
-
-	storageAllocations *fakeStorageAllocationRepository
+	createItem          *applicationitem.CreateItemService
+	updateItem          *applicationitem.UpdateItemService
+	getItem             *applicationitem.GetItemService
+	listItems           *applicationitem.ListItemsService
+	archiveItem         *applicationitem.ArchiveItemService
+	restoreItem         *applicationitem.RestoreItemService
+	getDashboardSummary *applicationitem.GetDashboardSummaryService
 
 	ownerCategory domaincategory.Category
 	ownerTag      domaintag.Tag
@@ -54,7 +50,6 @@ func newFixture(t *testing.T) *fixture {
 	t.Helper()
 
 	items := newFakeItemRepository()
-	usageRecords := newFakeUsageRecordRepository()
 	categories := newFakeCategoryRepository()
 	tags := newFakeTagRepository()
 	auditLogs := newFakeAuditLogRepository()
@@ -62,14 +57,10 @@ func newFixture(t *testing.T) *fixture {
 	publicIDGenerator := &sequentialPublicIDGenerator{}
 	transactionManager := transaction.NewPassthroughManager()
 
-	storageAllocations := newFakeStorageAllocationRepository()
-
 	dependencies := applicationitem.Dependencies{
-		Items:              items,
-		UsageRecords:       usageRecords,
-		Categories:         categories,
-		Tags:               tags,
-		StorageAllocations: storageAllocations,
+		Items:      items,
+		Categories: categories,
+		Tags:       tags,
 		AuditRecorder: applicationaudit.NewRecorder(
 			auditLogs, publicIDGenerator, systemClock),
 	}
@@ -83,13 +74,11 @@ func newFixture(t *testing.T) *fixture {
 	tags.add(ownerTag)
 
 	return &fixture{
-		items:              items,
-		usageRecords:       usageRecords,
-		categories:         categories,
-		tags:               tags,
-		auditLogs:          auditLogs,
-		clock:              systemClock,
-		storageAllocations: storageAllocations,
+		items:      items,
+		categories: categories,
+		tags:       tags,
+		auditLogs:  auditLogs,
+		clock:      systemClock,
 		createItem: applicationitem.NewCreateItemService(
 			dependencies, publicIDGenerator, systemClock, transactionManager),
 		updateItem: applicationitem.NewUpdateItemService(
@@ -100,11 +89,9 @@ func newFixture(t *testing.T) *fixture {
 			dependencies, systemClock, transactionManager),
 		restoreItem: applicationitem.NewRestoreItemService(
 			dependencies, systemClock, transactionManager),
-		recordItemUsage: applicationitem.NewRecordItemUsageService(
-			dependencies, publicIDGenerator, systemClock, transactionManager),
-		listItemUsageRecords: applicationitem.NewListItemUsageRecordsService(dependencies),
-		ownerCategory:        ownerCategory,
-		ownerTag:             ownerTag,
+		getDashboardSummary: applicationitem.NewGetDashboardSummaryService(dependencies),
+		ownerCategory:       ownerCategory,
+		ownerTag:            ownerTag,
 	}
 }
 
@@ -130,14 +117,12 @@ func newTag(t *testing.T, userID domainauth.UserID, name string) domaintag.Tag {
 
 func (f *fixture) validAttributes() applicationitem.AttributesParams {
 	return applicationitem.AttributesParams{
-		Name:                 "折りたたみ傘",
-		CategoryPublicID:     f.ownerCategory.PublicID(),
-		Quantity:             1,
-		UnitName:             "本",
-		NecessityLevelCode:   "essential",
-		UsageFrequencyCode:   "monthly",
-		SubstitutabilityCode: "none",
-		MobilityClassCode:    "daily_bag",
+		Name:               "折りたたみ傘",
+		CategoryPublicID:   f.ownerCategory.PublicID(),
+		Quantity:           1,
+		UnitName:           "本",
+		NecessityLevelCode: "essential",
+		UsageFrequencyCode: "monthly",
 	}
 }
 
@@ -516,144 +501,6 @@ func TestRestoreItemService_archiveされていないアイテムは復元でき
 	}
 }
 
-func TestRecordItemUsageService_最終使用日時を更新する(t *testing.T) {
-	f := newFixture(t)
-	created := f.createTestItem(t, "折りたたみ傘")
-	if created.LastUsedAt != nil {
-		t.Fatalf("LastUsedAt = %v, want nil", created.LastUsedAt)
-	}
-
-	usedAt := testNow.Add(-2 * time.Hour)
-	result, err := f.recordItemUsage.Execute(
-		context.Background(),
-		applicationitem.RecordItemUsageParams{
-			UserID:   ownerID,
-			PublicID: created.PublicID,
-			UsedAt:   &usedAt,
-			Quantity: pointerTo(int32(2)),
-			Note:     pointerTo("通勤で使用"),
-		},
-	)
-	if err != nil {
-		t.Fatalf("RecordItemUsage returned error: %v", err)
-	}
-
-	if !result.UsageRecord.UsedAt.Equal(usedAt) {
-		t.Errorf("UsageRecord.UsedAt = %v, want %v", result.UsageRecord.UsedAt, usedAt)
-	}
-	if result.UsageRecord.Quantity != 2 {
-		t.Errorf("UsageRecord.Quantity = %d, want 2", result.UsageRecord.Quantity)
-	}
-	if result.Item.LastUsedAt == nil || !result.Item.LastUsedAt.Equal(usedAt) {
-		t.Errorf("Item.LastUsedAt = %v, want %v", result.Item.LastUsedAt, usedAt)
-	}
-	if result.Item.Version != created.Version+1 {
-		t.Errorf("Item.Version = %d, want %d", result.Item.Version, created.Version+1)
-	}
-
-	actions := f.auditActions()
-	if len(actions) != 2 || actions[1] != domainaudit.ActionItemUsageRecorded {
-		t.Errorf("actions = %v, want [item_created item_usage_recorded]", actions)
-	}
-}
-
-func TestRecordItemUsageService_使用日時未指定なら現在時刻を使う(t *testing.T) {
-	f := newFixture(t)
-	created := f.createTestItem(t, "折りたたみ傘")
-
-	result, err := f.recordItemUsage.Execute(
-		context.Background(),
-		applicationitem.RecordItemUsageParams{UserID: ownerID, PublicID: created.PublicID},
-	)
-	if err != nil {
-		t.Fatalf("RecordItemUsage returned error: %v", err)
-	}
-
-	if !result.UsageRecord.UsedAt.Equal(testNow) {
-		t.Errorf("UsedAt = %v, want %v", result.UsageRecord.UsedAt, testNow)
-	}
-	if result.UsageRecord.Quantity != domainitem.DefaultUsageQuantity {
-		t.Errorf("Quantity = %d, want %d",
-			result.UsageRecord.Quantity, domainitem.DefaultUsageQuantity)
-	}
-}
-
-func TestRecordItemUsageService_archive済みへは登録できない(t *testing.T) {
-	f := newFixture(t)
-	created := f.createTestItem(t, "折りたたみ傘")
-
-	if _, err := f.archiveItem.Execute(
-		context.Background(),
-		applicationitem.ArchiveItemParams{
-			UserID:          ownerID,
-			PublicID:        created.PublicID,
-			ExpectedVersion: created.Version,
-		},
-	); err != nil {
-		t.Fatalf("ArchiveItem returned error: %v", err)
-	}
-
-	_, err := f.recordItemUsage.Execute(
-		context.Background(),
-		applicationitem.RecordItemUsageParams{UserID: ownerID, PublicID: created.PublicID},
-	)
-	if !errors.Is(err, domainitem.ErrItemArchived) {
-		t.Fatalf("RecordItemUsage error = %v, want ErrItemArchived", err)
-	}
-}
-
-func TestRecordItemUsageService_他ユーザーは登録できない(t *testing.T) {
-	f := newFixture(t)
-	created := f.createTestItem(t, "折りたたみ傘")
-
-	_, err := f.recordItemUsage.Execute(
-		context.Background(),
-		applicationitem.RecordItemUsageParams{UserID: intruderID, PublicID: created.PublicID},
-	)
-	if !errors.Is(err, domainitem.ErrItemNotFound) {
-		t.Fatalf("RecordItemUsage error = %v, want ErrItemNotFound", err)
-	}
-}
-
-func TestListItemUsageRecordsService_使用日時の降順で返す(t *testing.T) {
-	f := newFixture(t)
-	created := f.createTestItem(t, "折りたたみ傘")
-
-	for _, offset := range []time.Duration{-3 * time.Hour, -time.Hour, -2 * time.Hour} {
-		usedAt := testNow.Add(offset)
-		if _, err := f.recordItemUsage.Execute(
-			context.Background(),
-			applicationitem.RecordItemUsageParams{
-				UserID:   ownerID,
-				PublicID: created.PublicID,
-				UsedAt:   &usedAt,
-			},
-		); err != nil {
-			t.Fatalf("RecordItemUsage returned error: %v", err)
-		}
-	}
-
-	result, err := f.listItemUsageRecords.Execute(
-		context.Background(),
-		applicationitem.ListItemUsageRecordsParams{
-			UserID:   ownerID,
-			PublicID: created.PublicID,
-		},
-	)
-	if err != nil {
-		t.Fatalf("ListItemUsageRecords returned error: %v", err)
-	}
-
-	if result.Pagination.TotalCount != 3 {
-		t.Fatalf("TotalCount = %d, want 3", result.Pagination.TotalCount)
-	}
-	for index := 1; index < len(result.Items); index++ {
-		if result.Items[index-1].UsedAt.Before(result.Items[index].UsedAt) {
-			t.Fatalf("records are not sorted by usedAt desc: %+v", result.Items)
-		}
-	}
-}
-
 func TestListItemsService_paginationを返す(t *testing.T) {
 	f := newFixture(t)
 	for _, name := range []string{"傘A", "傘B", "傘C"} {
@@ -723,5 +570,98 @@ func TestListItemsService_不正な条件を拒否する(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("ListItems returned nil error, want error")
+	}
+}
+
+func TestGetDashboardSummaryService_集計値を返す(t *testing.T) {
+	f := newFixture(t)
+
+	// 数量2のアイテムを1件、数量1のアイテムを1件登録する。
+	attributes := f.validAttributes()
+	attributes.Name = "モバイルバッテリー"
+	attributes.Quantity = 2
+	attributes.UsageFrequencyCode = "weekly"
+	if _, err := f.createItem.Execute(context.Background(), applicationitem.CreateItemParams{
+		UserID:     ownerID,
+		Attributes: attributes,
+	}); err != nil {
+		t.Fatalf("CreateItem returned error: %v", err)
+	}
+	f.createTestItem(t, "折りたたみ傘")
+
+	result, err := f.getDashboardSummary.Execute(
+		context.Background(),
+		applicationitem.GetDashboardSummaryParams{UserID: ownerID},
+	)
+	if err != nil {
+		t.Fatalf("GetDashboardSummary returned error: %v", err)
+	}
+
+	if result.Total.TypeCount != 2 {
+		t.Errorf("Total.TypeCount = %d, want 2", result.Total.TypeCount)
+	}
+	if result.Total.TotalQuantity != 3 {
+		t.Errorf("Total.TotalQuantity = %d, want 3", result.Total.TotalQuantity)
+	}
+
+	// 両方とも同一カテゴリーのため内訳は1件へまとまる。
+	if len(result.CategoryBreakdown) != 1 {
+		t.Fatalf("len(CategoryBreakdown) = %d, want 1", len(result.CategoryBreakdown))
+	}
+	if got := result.CategoryBreakdown[0].Category.Name; got != "外出・携行品" {
+		t.Errorf("CategoryBreakdown[0].Category.Name = %q, want 外出・携行品", got)
+	}
+	if got := result.CategoryBreakdown[0].Counts.TotalQuantity; got != 3 {
+		t.Errorf("CategoryBreakdown[0].Counts.TotalQuantity = %d, want 3", got)
+	}
+
+	// 使用頻度はcode体系の定義順 (weekly が monthly より先) で並ぶ。
+	if len(result.UsageFrequencyBreakdown) != 2 {
+		t.Fatalf("len(UsageFrequencyBreakdown) = %d, want 2", len(result.UsageFrequencyBreakdown))
+	}
+	if result.UsageFrequencyBreakdown[0].Code != "weekly" {
+		t.Errorf("UsageFrequencyBreakdown[0].Code = %q, want weekly",
+			result.UsageFrequencyBreakdown[0].Code)
+	}
+	if result.UsageFrequencyBreakdown[0].Label != "週に1回程度" {
+		t.Errorf("UsageFrequencyBreakdown[0].Label = %q, want 週に1回程度",
+			result.UsageFrequencyBreakdown[0].Label)
+	}
+
+	// 必要度は essential のみが該当し、0件の区分は返さない。
+	if len(result.NecessityLevelBreakdown) != 1 {
+		t.Fatalf("len(NecessityLevelBreakdown) = %d, want 1", len(result.NecessityLevelBreakdown))
+	}
+	if result.NecessityLevelBreakdown[0].Code != "essential" {
+		t.Errorf("NecessityLevelBreakdown[0].Code = %q, want essential",
+			result.NecessityLevelBreakdown[0].Code)
+	}
+}
+
+func TestGetDashboardSummaryService_archive済みを含めない(t *testing.T) {
+	f := newFixture(t)
+	created := f.createTestItem(t, "折りたたみ傘")
+
+	if _, err := f.archiveItem.Execute(context.Background(), applicationitem.ArchiveItemParams{
+		UserID:          ownerID,
+		PublicID:        created.PublicID,
+		ExpectedVersion: created.Version,
+	}); err != nil {
+		t.Fatalf("ArchiveItem returned error: %v", err)
+	}
+
+	result, err := f.getDashboardSummary.Execute(
+		context.Background(),
+		applicationitem.GetDashboardSummaryParams{UserID: ownerID},
+	)
+	if err != nil {
+		t.Fatalf("GetDashboardSummary returned error: %v", err)
+	}
+
+	if result.Total.TypeCount != 0 || result.Total.TotalQuantity != 0 {
+		t.Errorf("Total = %+v, want zero", result.Total)
+	}
+	if len(result.CategoryBreakdown) != 0 {
+		t.Errorf("len(CategoryBreakdown) = %d, want 0", len(result.CategoryBreakdown))
 	}
 }

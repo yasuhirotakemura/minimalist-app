@@ -123,9 +123,6 @@ func truncateAll(t *testing.T) {
 		context.Background(),
 		`TRUNCATE
 		     audit.audit_logs,
-		     ownership.storage_allocations,
-		     ownership.storage_units,
-		     ownership.item_usage_records,
 		     ownership.item_tags,
 		     ownership.items,
 		     ownership.tags,

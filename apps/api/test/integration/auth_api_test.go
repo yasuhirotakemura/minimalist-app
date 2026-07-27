@@ -31,8 +31,6 @@ func testConfig() config.Config {
 		PasswordPepper:    "integration-test-pepper-value",
 		CSRFSecret:        "integration-test-csrf-secret",
 		LogLevel:          slog.LevelError,
-		MaxImportSizeMB:   10,
-		ExportTTL:         15 * time.Minute,
 	}
 }
 

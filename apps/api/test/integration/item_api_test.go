@@ -52,15 +52,13 @@ type itemResponseBody struct {
 	ItemKindCode        string                `json:"itemKindCode"`
 	ItemKindLabel       string                `json:"itemKindLabel"`
 	Quantity            int32                 `json:"quantity"`
-	DesiredQuantity     *int32                `json:"desiredQuantity"`
 	UnitName            string                `json:"unitName"`
 	NecessityLevelCode  string                `json:"necessityLevelCode"`
 	NecessityLevelLabel string                `json:"necessityLevelLabel"`
 	UsageFrequencyCode  string                `json:"usageFrequencyCode"`
-	MobilityClassCode   string                `json:"mobilityClassCode"`
-	MobilityClassLabel  string                `json:"mobilityClassLabel"`
-	OwnershipReason     *string               `json:"ownershipReason"`
-	LastUsedAt          *string               `json:"lastUsedAt"`
+	UsageFrequencyLabel string                `json:"usageFrequencyLabel"`
+	PurchasedOn         *string               `json:"purchasedOn"`
+	SourceURL           *string               `json:"sourceUrl"`
 	Notes               *string               `json:"notes"`
 	Tags                []tagReferenceBody    `json:"tags"`
 	IsArchived          bool                  `json:"isArchived"`
@@ -82,16 +80,25 @@ type itemListBody struct {
 	Pagination paginationBody     `json:"pagination"`
 }
 
-type usageRecordBody struct {
-	PublicID string  `json:"publicId"`
-	UsedAt   string  `json:"usedAt"`
-	Quantity int32   `json:"quantity"`
-	Note     *string `json:"note"`
+type dashboardCategoryBreakdownBody struct {
+	Category      categoryReferenceBody `json:"category"`
+	ItemTypeCount int64                 `json:"itemTypeCount"`
+	TotalQuantity int64                 `json:"totalQuantity"`
 }
 
-type usageRecordListBody struct {
-	Items      []usageRecordBody `json:"items"`
-	Pagination paginationBody    `json:"pagination"`
+type dashboardCodeBreakdownBody struct {
+	Code          string `json:"code"`
+	Label         string `json:"label"`
+	ItemTypeCount int64  `json:"itemTypeCount"`
+	TotalQuantity int64  `json:"totalQuantity"`
+}
+
+type dashboardSummaryBody struct {
+	ItemTypeCount           int64                            `json:"itemTypeCount"`
+	TotalQuantity           int64                            `json:"totalQuantity"`
+	CategoryBreakdown       []dashboardCategoryBreakdownBody `json:"categoryBreakdown"`
+	NecessityLevelBreakdown []dashboardCodeBreakdownBody     `json:"necessityLevelBreakdown"`
+	UsageFrequencyBreakdown []dashboardCodeBreakdownBody     `json:"usageFrequencyBreakdown"`
 }
 
 type errorResponseBody struct {
@@ -150,13 +157,11 @@ func firstCategory(t *testing.T, client *apiClient) categoryResponseBody {
 
 func createItemPayload(categoryPublicID, name string) map[string]any {
 	return map[string]any{
-		"name":                 name,
-		"categoryPublicId":     categoryPublicID,
-		"quantity":             1,
-		"necessityLevelCode":   "essential",
-		"usageFrequencyCode":   "monthly",
-		"substitutabilityCode": "none",
-		"mobilityClassCode":    "daily_bag",
+		"name":               name,
+		"categoryPublicId":   categoryPublicID,
+		"quantity":           1,
+		"necessityLevelCode": "essential",
+		"usageFrequencyCode": "monthly",
 	}
 }
 
@@ -251,10 +256,9 @@ func TestItemAPI_登録と取得(t *testing.T) {
 
 	payload := createItemPayload(category.PublicID, "折りたたみ傘")
 	payload["unitName"] = "本"
-	payload["ownershipReason"] = "突然の雨に対応するため"
-	payload["weightGram"] = 220
-	payload["replacementAmount"] = 3000
-	payload["desiredQuantity"] = 1
+	payload["purchasedOn"] = "2026-06-01"
+	payload["sourceUrl"] = "https://example.com/items/umbrella"
+	payload["notes"] = "駅で買い足さないための最低限の1本"
 
 	created := createItem(t, client, payload)
 
@@ -275,8 +279,8 @@ func TestItemAPI_登録と取得(t *testing.T) {
 	if created.NecessityLevelLabel != "必須" {
 		t.Errorf("necessityLevelLabel = %q, want 必須", created.NecessityLevelLabel)
 	}
-	if created.MobilityClassLabel != "常時リュック" {
-		t.Errorf("mobilityClassLabel = %q, want 常時リュック", created.MobilityClassLabel)
+	if created.UsageFrequencyLabel != "月に1回程度" {
+		t.Errorf("usageFrequencyLabel = %q, want 月に1回程度", created.UsageFrequencyLabel)
 	}
 	if created.IsArchived || created.ArchivedAt != nil {
 		t.Errorf("archive状態が不正: %+v", created)
@@ -293,8 +297,11 @@ func TestItemAPI_登録と取得(t *testing.T) {
 	if found.PublicID != created.PublicID {
 		t.Errorf("publicId = %q, want %q", found.PublicID, created.PublicID)
 	}
-	if found.OwnershipReason == nil || *found.OwnershipReason != "突然の雨に対応するため" {
-		t.Errorf("ownershipReason = %v", found.OwnershipReason)
+	if found.PurchasedOn == nil || *found.PurchasedOn != "2026-06-01" {
+		t.Errorf("purchasedOn = %v, want 2026-06-01", found.PurchasedOn)
+	}
+	if found.SourceURL == nil || *found.SourceURL != "https://example.com/items/umbrella" {
+		t.Errorf("sourceUrl = %v", found.SourceURL)
 	}
 }
 
@@ -363,17 +370,6 @@ func TestItemAPI_他ユーザーのアイテムは404(t *testing.T) {
 			http.MethodPost,
 			"/api/items/"+created.PublicID+"/archive",
 			map[string]any{"expectedVersion": created.Version},
-		)
-		if response.StatusCode != http.StatusNotFound {
-			t.Fatalf("status = %d, want %d", response.StatusCode, http.StatusNotFound)
-		}
-	})
-
-	t.Run("使用記録の登録", func(t *testing.T) {
-		response := intruder.do(
-			http.MethodPost,
-			"/api/items/"+created.PublicID+"/usage-records",
-			map[string]any{},
 		)
 		if response.StatusCode != http.StatusNotFound {
 			t.Fatalf("status = %d, want %d", response.StatusCode, http.StatusNotFound)
@@ -566,7 +562,7 @@ func TestItemAPI_一覧のfilterとsortとpagination(t *testing.T) {
 	jacket := createItemPayload(categories[1].PublicID, "ジャケット")
 	jacket["quantity"] = 1
 	jacket["necessityLevelCode"] = "optional"
-	jacket["mobilityClassCode"] = "self_carry"
+	jacket["usageFrequencyCode"] = "yearly"
 	createItem(t, client, jacket)
 
 	testCases := map[string]struct {
@@ -594,12 +590,12 @@ func TestItemAPI_一覧のfilterとsortとpagination(t *testing.T) {
 			wantNames: []string{"ジャケット"},
 			wantTotal: 1,
 		},
-		"mobilityClassCode": {
-			query:     "?mobilityClassCode=self_carry",
+		"usageFrequencyCode": {
+			query:     "?usageFrequencyCode=yearly",
 			wantNames: []string{"ジャケット"},
 			wantTotal: 1,
 		},
-		"usageFrequencyCode": {
+		"該当なしのusageFrequencyCode": {
 			query:     "?usageFrequencyCode=daily",
 			wantNames: nil,
 			wantTotal: 0,
@@ -684,107 +680,124 @@ func TestItemAPI_一覧のfilterとsortとpagination(t *testing.T) {
 	})
 }
 
-func TestItemAPI_使用記録の登録と履歴(t *testing.T) {
+// ---------------------------------------------------------------------------
+// ダッシュボード
+// ---------------------------------------------------------------------------
+
+func TestDashboardAPI_集計値を返す(t *testing.T) {
 	truncateAll(t)
 
 	client := signedInClient(t, "owner@example.com")
-	category := firstCategory(t, client)
-	created := createItem(t, client, createItemPayload(category.PublicID, "折りたたみ傘"))
-
-	if created.LastUsedAt != nil {
-		t.Fatalf("lastUsedAt = %v, want null", created.LastUsedAt)
+	categoriesResponse := client.do(http.MethodGet, "/api/categories", nil)
+	categories := decodeBody[categoryListBody](t, categoriesResponse).Items
+	if len(categories) < 2 {
+		t.Fatalf("既定カテゴリーが2件未満: %d", len(categories))
 	}
 
-	usedAt := "2026-07-20T09:00:00Z"
-	response := client.do(
-		http.MethodPost,
-		"/api/items/"+created.PublicID+"/usage-records",
-		map[string]any{"usedAt": usedAt, "quantity": 2, "note": "通勤で使用"},
-	)
-	if response.StatusCode != http.StatusCreated {
-		body := decodeBody[errorResponseBody](t, response)
-		t.Fatalf("createUsageRecord status = %d (%+v)", response.StatusCode, body)
-	}
-	record := decodeBody[usageRecordBody](t, response)
-	if record.Quantity != 2 {
-		t.Errorf("quantity = %d, want 2", record.Quantity)
-	}
-	if record.Note == nil || *record.Note != "通勤で使用" {
-		t.Errorf("note = %v, want 通勤で使用", record.Note)
-	}
+	umbrella := createItemPayload(categories[0].PublicID, "折りたたみ傘")
+	umbrella["quantity"] = 2
+	createItem(t, client, umbrella)
 
-	// アイテムの最終使用日時が更新される。
-	itemResponse := client.do(http.MethodGet, "/api/items/"+created.PublicID, nil)
-	item := decodeBody[itemResponseBody](t, itemResponse)
-	if item.LastUsedAt == nil || *item.LastUsedAt != usedAt {
-		t.Errorf("lastUsedAt = %v, want %s", item.LastUsedAt, usedAt)
-	}
-	if item.Version != created.Version+1 {
-		t.Errorf("version = %d, want %d", item.Version, created.Version+1)
-	}
+	jacket := createItemPayload(categories[1].PublicID, "ジャケット")
+	jacket["necessityLevelCode"] = "optional"
+	jacket["usageFrequencyCode"] = "daily"
+	createItem(t, client, jacket)
 
-	// 履歴を取得する。
-	historyResponse := client.do(
-		http.MethodGet, "/api/items/"+created.PublicID+"/usage-records", nil)
-	if historyResponse.StatusCode != http.StatusOK {
-		t.Fatalf("listUsageRecords status = %d, want %d",
-			historyResponse.StatusCode, http.StatusOK)
-	}
-	history := decodeBody[usageRecordListBody](t, historyResponse)
-	if history.Pagination.TotalCount != 1 {
-		t.Errorf("totalCount = %d, want 1", history.Pagination.TotalCount)
-	}
-	if len(history.Items) != 1 || history.Items[0].PublicID != record.PublicID {
-		t.Errorf("items = %+v, want %s", history.Items, record.PublicID)
-	}
-}
-
-func TestItemAPI_未来の使用日時は400(t *testing.T) {
-	truncateAll(t)
-
-	client := signedInClient(t, "owner@example.com")
-	category := firstCategory(t, client)
-	created := createItem(t, client, createItemPayload(category.PublicID, "折りたたみ傘"))
-
-	response := client.do(
-		http.MethodPost,
-		"/api/items/"+created.PublicID+"/usage-records",
-		map[string]any{"usedAt": "2999-01-01T00:00:00Z"},
-	)
-	if response.StatusCode != http.StatusBadRequest {
-		t.Fatalf("status = %d, want %d", response.StatusCode, http.StatusBadRequest)
-	}
-	body := decodeBody[errorResponseBody](t, response)
-	if len(body.FieldErrors) == 0 || body.FieldErrors[0].Field != "usedAt" {
-		t.Errorf("fieldErrors = %+v, want usedAt", body.FieldErrors)
-	}
-}
-
-func TestItemAPI_archive済みへの使用記録は422(t *testing.T) {
-	truncateAll(t)
-
-	client := signedInClient(t, "owner@example.com")
-	category := firstCategory(t, client)
-	created := createItem(t, client, createItemPayload(category.PublicID, "折りたたみ傘"))
-
+	// archive済みは集計へ含めない。
+	archived := createItem(t, client, createItemPayload(categories[0].PublicID, "使わない傘"))
 	archiveResponse := client.do(
 		http.MethodPost,
-		"/api/items/"+created.PublicID+"/archive",
-		map[string]any{"expectedVersion": created.Version},
+		"/api/items/"+archived.PublicID+"/archive",
+		map[string]any{"expectedVersion": archived.Version},
 	)
 	if archiveResponse.StatusCode != http.StatusOK {
 		t.Fatalf("archive status = %d, want %d", archiveResponse.StatusCode, http.StatusOK)
 	}
 	_ = archiveResponse.Body.Close()
 
-	response := client.do(
-		http.MethodPost, "/api/items/"+created.PublicID+"/usage-records", map[string]any{})
-	if response.StatusCode != http.StatusUnprocessableEntity {
-		t.Fatalf("status = %d, want %d", response.StatusCode, http.StatusUnprocessableEntity)
+	response := client.do(http.MethodGet, "/api/dashboard/summary", nil)
+	if response.StatusCode != http.StatusOK {
+		body := decodeBody[errorResponseBody](t, response)
+		t.Fatalf("getDashboardSummary status = %d (%+v)", response.StatusCode, body)
 	}
-	body := decodeBody[errorResponseBody](t, response)
-	if body.Code != "ITEM_ARCHIVED" {
-		t.Errorf("code = %q, want ITEM_ARCHIVED", body.Code)
+	summary := decodeBody[dashboardSummaryBody](t, response)
+
+	if summary.ItemTypeCount != 2 {
+		t.Errorf("itemTypeCount = %d, want 2", summary.ItemTypeCount)
+	}
+	if summary.TotalQuantity != 3 {
+		t.Errorf("totalQuantity = %d, want 3", summary.TotalQuantity)
+	}
+
+	if len(summary.CategoryBreakdown) != 2 {
+		t.Fatalf("len(categoryBreakdown) = %d, want 2", len(summary.CategoryBreakdown))
+	}
+	if summary.CategoryBreakdown[0].Category.PublicID != categories[0].PublicID {
+		t.Errorf("categoryBreakdown[0].category.publicId = %q, want %q",
+			summary.CategoryBreakdown[0].Category.PublicID, categories[0].PublicID)
+	}
+	if summary.CategoryBreakdown[0].TotalQuantity != 2 {
+		t.Errorf("categoryBreakdown[0].totalQuantity = %d, want 2",
+			summary.CategoryBreakdown[0].TotalQuantity)
+	}
+
+	// 必要度はcode体系の定義順 (essential が optional より先) で返る。
+	if len(summary.NecessityLevelBreakdown) != 2 {
+		t.Fatalf("len(necessityLevelBreakdown) = %d, want 2",
+			len(summary.NecessityLevelBreakdown))
+	}
+	if summary.NecessityLevelBreakdown[0].Code != "essential" {
+		t.Errorf("necessityLevelBreakdown[0].code = %q, want essential",
+			summary.NecessityLevelBreakdown[0].Code)
+	}
+	if summary.NecessityLevelBreakdown[0].Label != "必須" {
+		t.Errorf("necessityLevelBreakdown[0].label = %q, want 必須",
+			summary.NecessityLevelBreakdown[0].Label)
+	}
+
+	// 使用頻度も定義順 (daily が monthly より先)。
+	if len(summary.UsageFrequencyBreakdown) != 2 {
+		t.Fatalf("len(usageFrequencyBreakdown) = %d, want 2",
+			len(summary.UsageFrequencyBreakdown))
+	}
+	if summary.UsageFrequencyBreakdown[0].Code != "daily" {
+		t.Errorf("usageFrequencyBreakdown[0].code = %q, want daily",
+			summary.UsageFrequencyBreakdown[0].Code)
+	}
+}
+
+func TestDashboardAPI_未認証は401(t *testing.T) {
+	truncateAll(t)
+
+	client := newAPIClient(t)
+	client.bootstrapCSRF()
+
+	response := client.do(http.MethodGet, "/api/dashboard/summary", nil)
+	if response.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want %d", response.StatusCode, http.StatusUnauthorized)
+	}
+	_ = response.Body.Close()
+}
+
+func TestDashboardAPI_アイテムが無い場合は0を返す(t *testing.T) {
+	truncateAll(t)
+
+	client := signedInClient(t, "owner@example.com")
+
+	response := client.do(http.MethodGet, "/api/dashboard/summary", nil)
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want %d", response.StatusCode, http.StatusOK)
+	}
+	summary := decodeBody[dashboardSummaryBody](t, response)
+
+	if summary.ItemTypeCount != 0 || summary.TotalQuantity != 0 {
+		t.Errorf("summary = %+v, want zero counts", summary)
+	}
+	// 空配列を返す (nullを返さない)。
+	if summary.CategoryBreakdown == nil ||
+		summary.NecessityLevelBreakdown == nil ||
+		summary.UsageFrequencyBreakdown == nil {
+		t.Errorf("内訳がnull。空配列を返すべき: %+v", summary)
 	}
 }
 

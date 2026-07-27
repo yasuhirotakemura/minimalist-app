@@ -6,7 +6,6 @@ import ItemList from '@/components/item/ItemList.vue'
 import ItemListFilters from '@/components/item/ItemListFilters.vue'
 import { useItemFormOptions } from '@/composables/useItemFormOptions'
 import { useItemList } from '@/composables/useItemList'
-import { useStorageUnitOptions } from '@/composables/useStorageUnitOptions'
 import AppShell from '@/layouts/AppShell.vue'
 
 /**
@@ -31,7 +30,6 @@ const {
 } = useItemList()
 
 const { categories, tags } = useItemFormOptions()
-const { storageUnits } = useStorageUnitOptions()
 </script>
 
 <template>
@@ -46,7 +44,6 @@ const { storageUnits } = useStorageUnitOptions()
         :filters="filters"
         :categories="categories"
         :tags="tags"
-        :storage-units="storageUnits"
         @apply="applyFilters"
         @reset="resetFilters"
       />

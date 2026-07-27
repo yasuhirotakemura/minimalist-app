@@ -1,6 +1,6 @@
 # LESS
 
-所有・収納・移動・購入・処分を同じ判断体系で管理するミニマリスト向け Web アプリケーション。
+所持品を同じ判断軸 (必要度・使用頻度) で並べ、構成比として見られるミニマリスト向け Web アプリケーション。
 
 仕様の正本は以下の 3 つとする。
 
@@ -10,9 +10,9 @@
 | API 契約 | [`docs/api/openapi.yml`](docs/api/openapi.yml) |
 | DB schema | [`db/migrations/`](db/migrations) と [`db/schema.sql`](db/schema.sql) |
 
-## 実装状況
+## スコープ
 
-**Phase 1 (所持品・カテゴリー) まで実装済み。**
+**所持品とタグの管理に絞ったアプリケーションである。**
 
 | 機能 | 状態 |
 | --- | --- |
@@ -25,18 +25,34 @@
 | 所持品の登録・取得・更新・アーカイブ・復元 | 実装済み |
 | 所持品一覧の検索・絞り込み・並び替え・ページング | 実装済み |
 | タグの登録・編集・削除・所持品への付与 | 実装済み |
-| 使用記録の登録と履歴表示 | 実装済み |
+| ダッシュボード (所有量の合計・カテゴリー別/必要度別/使用頻度別の円グラフ) | 実装済み |
+| マイページ (ログイン中のアカウント情報の表示) | 実装済み |
 | 楽観ロック (version / expectedVersion) | 実装済み |
-| 監査ログの記録 | 実装済み (参照 API・画面は未実装) |
-| カテゴリーの登録・編集・アーカイブ・並び替え | 未実装 |
-| アイテム間関係 / 棚卸し確認 / 一括操作 | 未実装 |
-| 収納・見直し・購入審査・シナリオ・インポート/エクスポート | 未実装 (Phase 2 以降) |
+| 監査ログの記録 | 実装済み (参照 API・画面は持たない) |
+| カテゴリーの登録・編集・削除 | 対象外 (既定カテゴリーの参照のみ) |
+| 収納単位・収納割当・携行区分 | 対象外 |
+| 所有見直し判定・購入前審査・シナリオ | 対象外 |
+| 使用記録 / 最終使用日時 | 対象外 |
+| インポート・エクスポート | 対象外 |
+
+対象外の機能は設計書からも削除している。
+削除した章の番号は欠番とし、残る章を再採番していない (設計書「改訂方針」)。
+
+### 画面
+
+| path | 画面 |
+| --- | --- |
+| `/dashboard` | ダッシュボード (ホーム) |
+| `/items` | 所持品一覧 |
+| `/items/new` / `/items/:publicId` / `/items/:publicId/edit` | 所持品の登録・詳細・編集 |
+| `/tags` | タグ管理 |
+| `/mypage` | マイページ |
 
 ## 技術構成
 
 | 層 | 採用技術 |
 | --- | --- |
-| フロントエンド | TypeScript / Vue 3 (Composition API) / Vite / Vue Router / Pinia / TanStack Query / Tailwind CSS / Zod |
+| フロントエンド | TypeScript / Vue 3 (Composition API) / Vite / Vue Router / Pinia / TanStack Query / Tailwind CSS / Zod / Chart.js |
 | バックエンド | Go 1.25 / chi / pgx / sqlc / goose / oapi-codegen / log-slog / Argon2id |
 | データベース | PostgreSQL 17 |
 | reverse proxy | Caddy |
@@ -95,8 +111,9 @@ seed で以下の開発用アカウントが作成される。**local 環境専�
 
 1. <http://localhost:8080> を開く (未ログインのため `/login` へリダイレクトされる)
 2. 上記アカウントでログインする、または `/register` から新規登録する
-3. ダッシュボードにアカウント情報が表示される
-4. ヘッダーの「ログアウト」で `/login` へ戻る
+3. ダッシュボードに所持品の集計と円グラフが表示される
+4. 「所持品」「タグ」「マイページ」タブを開く
+5. ヘッダーの「ログアウト」で `/login` へ戻る
 
 curl で確認する場合、CSRF token を Cookie から取得して header へ設定する。
 
@@ -181,11 +198,14 @@ apps/
     └── src/
         ├── api/                    生成client (generated/ は手動編集禁止)
         ├── components/base/        featureへ依存しない基礎UI
+        ├── components/item/        所持品UI
+        ├── components/dashboard/   統計タイル・円グラフ
         ├── composables/            API通信・auth session
         ├── layouts/                共通レイアウト
         ├── pages/                  URL単位の画面
         ├── router/                 route定義・guard
-        └── stores/                 認証等の最小限のglobal state
+        ├── stores/                 認証等の最小限のglobal state
+        └── utils/                  書式変換・グラフのpalette
 ```
 
 ## 認証・セキュリティ
@@ -258,9 +278,9 @@ make schema-dump
 | 種別 | 実行 | 内容 |
 | --- | --- | --- |
 | Go unit | `make test-api` | ValueObject・Entity・Application Service・Argon2id・CSRF・rate limiter |
-| Go integration | `make test-integration` | Repository CRUD・制約・soft delete・transaction rollback・他ユーザー data 不可視・認証 API 通し |
-| frontend unit | `make test-web` | store・composable・form validation・二重送信防止・router guard |
-| E2E | `make e2e` | **Phase 7 で実装する** |
+| Go integration | `make test-integration` | Repository CRUD・制約・soft delete・transaction rollback・他ユーザー data 不可視・API 通し (認証 / 所持品 / タグ / ダッシュボード) |
+| frontend unit | `make test-web` | store・composable・form validation・二重送信防止・router guard・ダッシュボードの内訳表示 |
+| E2E | `make e2e` | **対象外** (設計書 25.4)。router 通し integration test と component test で代替する |
 
 integration test は既定で compose の PostgreSQL (`less_test` database) を再利用する。
 `TEST_DATABASE_URL` を設定しない場合は testcontainers-go が PostgreSQL を起動する
@@ -280,7 +300,6 @@ integration test は既定で compose の PostgreSQL (`less_test` database) を�
 | `CSRF_SECRET` | CSRF token の署名鍵 (16 文字以上) |
 | `CORS_ALLOWED_ORIGINS` | 許可 origin。同一オリジン配信では通常不要 |
 | `LOG_LEVEL` | `debug` / `info` / `warn` / `error` |
-| `MAX_IMPORT_SIZE_MB` / `EXPORT_TTL_MINUTES` | Phase 6 で使用する上限値 |
 
 `cmd/migrate` は用途ごとに必要な設定のみを検証する。
 migration は `DATABASE_URL` のみ、seed は加えて `PASSWORD_PEPPER` を必要とし、

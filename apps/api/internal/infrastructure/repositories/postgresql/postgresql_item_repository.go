@@ -27,10 +27,9 @@ const foreignKeyViolationCode = "23503"
 //
 // ORDER BYのCASE式が比較する値と一致させる (sql/queries/items.sql)。
 var sortKeyColumns = map[domainitem.SortKey]string{
-	domainitem.SortKeyName:       "name",
-	domainitem.SortKeyQuantity:   "quantity",
-	domainitem.SortKeyLastUsedAt: "last_used_at",
-	domainitem.SortKeyUpdatedAt:  "updated_at",
+	domainitem.SortKeyName:      "name",
+	domainitem.SortKeyQuantity:  "quantity",
+	domainitem.SortKeyUpdatedAt: "updated_at",
 }
 
 // PostgresqlItemRepository はItemRepositoryのPostgreSQL実装。
@@ -60,38 +59,20 @@ func (r *PostgresqlItemRepository) Create(
 	queries := r.queries(ctx)
 
 	row, err := queries.InsertItem(ctx, sqlc.InsertItemParams{
-		PublicID:             item.PublicID(),
-		UserID:               item.UserID().Int64(),
-		CategoryID:           attributes.Category.ID.Int64(),
-		Name:                 attributes.Name,
-		ItemKindCode:         attributes.Kind.String(),
-		Quantity:             attributes.Quantity,
-		DesiredQuantity:      attributes.DesiredQuantity,
-		UnitName:             attributes.UnitName,
-		NecessityLevelCode:   attributes.NecessityLevel.String(),
-		UsageFrequencyCode:   attributes.UsageFrequency.String(),
-		SubstitutabilityCode: attributes.Substitutability.String(),
-		MobilityClassCode:    attributes.MobilityClass.String(),
-		OwnershipReason:      attributes.OwnershipReason,
-		DisposalCondition:    attributes.DisposalCondition,
-		LastUsedAt:           nullableTimestamptz(attributes.LastUsedAt),
-		PurchasedOn:          nullableDate(attributes.PurchasedOn),
-		PurchaseAmount:       attributes.PurchaseAmount,
-		ReplacementAmount:    attributes.ReplacementAmount,
-		ResaleAmount:         attributes.ResaleAmount,
-		WeightGram:           attributes.WeightGram,
-		VolumeMilliliter:     attributes.VolumeMilliliter,
-		IsFragile:            attributes.IsFragile,
-		IsValuable:           attributes.IsValuable,
-		IsSentimental:        attributes.IsSentimental,
-		RequiresMaintenance:  attributes.RequiresMaintenance,
-		ExpiresOn:            nullableDate(attributes.ExpiresOn),
-		SourceUrl:            attributes.SourceURL,
-		Notes:                attributes.Notes,
-		IsConfirmed:          item.IsConfirmed(),
-		ConfirmedAt:          nullableTimestamptz(item.ConfirmedAt()),
-		CreatedAt:            timestamptz(item.CreatedAt()),
-		UpdatedAt:            timestamptz(item.UpdatedAt()),
+		PublicID:           item.PublicID(),
+		UserID:             item.UserID().Int64(),
+		CategoryID:         attributes.Category.ID.Int64(),
+		Name:               attributes.Name,
+		ItemKindCode:       attributes.Kind.String(),
+		Quantity:           attributes.Quantity,
+		UnitName:           attributes.UnitName,
+		NecessityLevelCode: attributes.NecessityLevel.String(),
+		UsageFrequencyCode: attributes.UsageFrequency.String(),
+		PurchasedOn:        nullableDate(attributes.PurchasedOn),
+		SourceUrl:          attributes.SourceURL,
+		Notes:              attributes.Notes,
+		CreatedAt:          timestamptz(item.CreatedAt()),
+		UpdatedAt:          timestamptz(item.UpdatedAt()),
 	})
 	if err != nil {
 		if isForeignKeyViolation(err) {
@@ -147,36 +128,20 @@ func (r *PostgresqlItemRepository) Update(
 	queries := r.queries(ctx)
 
 	row, err := queries.UpdateItem(ctx, sqlc.UpdateItemParams{
-		CategoryID:           attributes.Category.ID.Int64(),
-		Name:                 attributes.Name,
-		ItemKindCode:         attributes.Kind.String(),
-		Quantity:             attributes.Quantity,
-		DesiredQuantity:      attributes.DesiredQuantity,
-		UnitName:             attributes.UnitName,
-		NecessityLevelCode:   attributes.NecessityLevel.String(),
-		UsageFrequencyCode:   attributes.UsageFrequency.String(),
-		SubstitutabilityCode: attributes.Substitutability.String(),
-		MobilityClassCode:    attributes.MobilityClass.String(),
-		OwnershipReason:      attributes.OwnershipReason,
-		DisposalCondition:    attributes.DisposalCondition,
-		LastUsedAt:           nullableTimestamptz(attributes.LastUsedAt),
-		PurchasedOn:          nullableDate(attributes.PurchasedOn),
-		PurchaseAmount:       attributes.PurchaseAmount,
-		ReplacementAmount:    attributes.ReplacementAmount,
-		ResaleAmount:         attributes.ResaleAmount,
-		WeightGram:           attributes.WeightGram,
-		VolumeMilliliter:     attributes.VolumeMilliliter,
-		IsFragile:            attributes.IsFragile,
-		IsValuable:           attributes.IsValuable,
-		IsSentimental:        attributes.IsSentimental,
-		RequiresMaintenance:  attributes.RequiresMaintenance,
-		ExpiresOn:            nullableDate(attributes.ExpiresOn),
-		SourceUrl:            attributes.SourceURL,
-		Notes:                attributes.Notes,
-		UpdatedAt:            timestamptz(item.UpdatedAt()),
-		PublicID:             item.PublicID(),
-		UserID:               item.UserID().Int64(),
-		ExpectedVersion:      expectedVersion,
+		CategoryID:         attributes.Category.ID.Int64(),
+		Name:               attributes.Name,
+		ItemKindCode:       attributes.Kind.String(),
+		Quantity:           attributes.Quantity,
+		UnitName:           attributes.UnitName,
+		NecessityLevelCode: attributes.NecessityLevel.String(),
+		UsageFrequencyCode: attributes.UsageFrequency.String(),
+		PurchasedOn:        nullableDate(attributes.PurchasedOn),
+		SourceUrl:          attributes.SourceURL,
+		Notes:              attributes.Notes,
+		UpdatedAt:          timestamptz(item.UpdatedAt()),
+		PublicID:           item.PublicID(),
+		UserID:             item.UserID().Int64(),
+		ExpectedVersion:    expectedVersion,
 	})
 	if err != nil {
 		if isForeignKeyViolation(err) {
@@ -242,29 +207,6 @@ func (r *PostgresqlItemRepository) Restore(
 	return r.FindByPublicID(ctx, userID, publicID)
 }
 
-// TouchLastUsedAt は最終使用日時を更新する。
-func (r *PostgresqlItemRepository) TouchLastUsedAt(
-	ctx context.Context,
-	userID domainauth.UserID,
-	publicID uuid.UUID,
-	usedAt time.Time,
-	now time.Time,
-) (domainitem.Item, error) {
-	_, err := r.queries(ctx).TouchItemLastUsedAt(ctx, sqlc.TouchItemLastUsedAtParams{
-		UsedAt:    timestamptz(usedAt),
-		UpdatedAt: timestamptz(now),
-		PublicID:  publicID,
-		UserID:    userID.Int64(),
-	})
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return domainitem.Item{}, domainitem.ErrItemNotFound
-		}
-		return domainitem.Item{}, fmt.Errorf("touch item last used at: %w", err)
-	}
-	return r.FindByPublicID(ctx, userID, publicID)
-}
-
 // List は条件に一致するアイテムを返す。
 func (r *PostgresqlItemRepository) List(
 	ctx context.Context,
@@ -272,20 +214,17 @@ func (r *PostgresqlItemRepository) List(
 	criteria domainitem.ListCriteria,
 ) ([]domainitem.Item, error) {
 	rows, err := r.queries(ctx).ListItems(ctx, sqlc.ListItemsParams{
-		UserID:              userID.Int64(),
-		IncludeDeleted:      criteria.IncludeArchived,
-		KeywordPattern:      likePattern(criteria.Keyword),
-		CategoryPublicID:    criteria.CategoryPublicID,
-		NecessityLevelCode:  optionalCode(criteria.NecessityLevel),
-		UsageFrequencyCode:  optionalCode(criteria.UsageFrequency),
-		MobilityClassCode:   optionalCode(criteria.MobilityClass),
-		TagPublicID:         criteria.TagPublicID,
-		StorageUnitPublicID: criteria.StorageUnitPublicID,
-		UnassignedOnly:      criteria.IsUnassigned,
-		SortKey:             sortKeyColumns[criteria.SortKey],
-		Descending:          criteria.Descending,
-		RowLimit:            criteria.Limit,
-		RowOffset:           criteria.Offset,
+		UserID:             userID.Int64(),
+		IncludeDeleted:     criteria.IncludeArchived,
+		KeywordPattern:     likePattern(criteria.Keyword),
+		CategoryPublicID:   criteria.CategoryPublicID,
+		NecessityLevelCode: optionalCode(criteria.NecessityLevel),
+		UsageFrequencyCode: optionalCode(criteria.UsageFrequency),
+		TagPublicID:        criteria.TagPublicID,
+		SortKey:            sortKeyColumns[criteria.SortKey],
+		Descending:         criteria.Descending,
+		RowLimit:           criteria.Limit,
+		RowOffset:          criteria.Offset,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("list items: %w", err)
@@ -323,21 +262,91 @@ func (r *PostgresqlItemRepository) Count(
 	criteria domainitem.ListCriteria,
 ) (int64, error) {
 	count, err := r.queries(ctx).CountItems(ctx, sqlc.CountItemsParams{
-		UserID:              userID.Int64(),
-		IncludeDeleted:      criteria.IncludeArchived,
-		KeywordPattern:      likePattern(criteria.Keyword),
-		CategoryPublicID:    criteria.CategoryPublicID,
-		NecessityLevelCode:  optionalCode(criteria.NecessityLevel),
-		UsageFrequencyCode:  optionalCode(criteria.UsageFrequency),
-		MobilityClassCode:   optionalCode(criteria.MobilityClass),
-		TagPublicID:         criteria.TagPublicID,
-		StorageUnitPublicID: criteria.StorageUnitPublicID,
-		UnassignedOnly:      criteria.IsUnassigned,
+		UserID:             userID.Int64(),
+		IncludeDeleted:     criteria.IncludeArchived,
+		KeywordPattern:     likePattern(criteria.Keyword),
+		CategoryPublicID:   criteria.CategoryPublicID,
+		NecessityLevelCode: optionalCode(criteria.NecessityLevel),
+		UsageFrequencyCode: optionalCode(criteria.UsageFrequency),
+		TagPublicID:        criteria.TagPublicID,
 	})
 	if err != nil {
 		return 0, fmt.Errorf("count items: %w", err)
 	}
 	return count, nil
+}
+
+// AggregateSummary はダッシュボード向けの集計値を返す (設計書 9.3)。
+//
+// 合計と3種の内訳をそれぞれのGROUP BY queryで取得する。
+// 単一queryへまとめるとcategoryとcodeの直積で行数が膨らむため分割する。
+// いずれも参照のみで、呼び出し元はtransactionを張らない。
+func (r *PostgresqlItemRepository) AggregateSummary(
+	ctx context.Context,
+	userID domainauth.UserID,
+) (domainitem.SummaryTotals, error) {
+	queries := r.queries(ctx)
+
+	totals, err := queries.AggregateItemTotals(ctx, userID.Int64())
+	if err != nil {
+		return domainitem.SummaryTotals{}, fmt.Errorf("aggregate item totals: %w", err)
+	}
+
+	categoryRows, err := queries.AggregateItemCountsByCategory(ctx, userID.Int64())
+	if err != nil {
+		return domainitem.SummaryTotals{}, fmt.Errorf("aggregate item counts by category: %w", err)
+	}
+
+	necessityRows, err := queries.AggregateItemCountsByNecessityLevel(ctx, userID.Int64())
+	if err != nil {
+		return domainitem.SummaryTotals{}, fmt.Errorf(
+			"aggregate item counts by necessity level: %w", err)
+	}
+
+	frequencyRows, err := queries.AggregateItemCountsByUsageFrequency(ctx, userID.Int64())
+	if err != nil {
+		return domainitem.SummaryTotals{}, fmt.Errorf(
+			"aggregate item counts by usage frequency: %w", err)
+	}
+
+	summary := domainitem.SummaryTotals{
+		Total: domainitem.Counts{
+			TypeCount:     totals.ItemTypeCount,
+			TotalQuantity: totals.TotalQuantity,
+		},
+		ByCategory:           make([]domainitem.CategoryCounts, 0, len(categoryRows)),
+		ByNecessityLevelCode: make(map[string]domainitem.Counts, len(necessityRows)),
+		ByUsageFrequencyCode: make(map[string]domainitem.Counts, len(frequencyRows)),
+	}
+
+	for _, row := range categoryRows {
+		summary.ByCategory = append(summary.ByCategory, domainitem.CategoryCounts{
+			Category: domaincategory.Reference{
+				PublicID: row.CategoryPublicID,
+				Name:     row.CategoryName,
+			},
+			Counts: domainitem.Counts{
+				TypeCount:     row.ItemTypeCount,
+				TotalQuantity: row.TotalQuantity,
+			},
+		})
+	}
+
+	for _, row := range necessityRows {
+		summary.ByNecessityLevelCode[row.NecessityLevelCode] = domainitem.Counts{
+			TypeCount:     row.ItemTypeCount,
+			TotalQuantity: row.TotalQuantity,
+		}
+	}
+
+	for _, row := range frequencyRows {
+		summary.ByUsageFrequencyCode[row.UsageFrequencyCode] = domainitem.Counts{
+			TypeCount:     row.ItemTypeCount,
+			TotalQuantity: row.TotalQuantity,
+		}
+	}
+
+	return summary, nil
 }
 
 // replaceTags はアイテムのタグ付与を指定内容へ置き換える。
@@ -423,93 +432,6 @@ func (r *PostgresqlItemRepository) resolveUpdateFailure(
 	return domainitem.ErrItemVersionConflict
 }
 
-// PostgresqlItemUsageRecordRepository はItemUsageRecordRepositoryのPostgreSQL実装。
-type PostgresqlItemUsageRecordRepository struct {
-	pool *pgxpool.Pool
-}
-
-// NewPostgresqlItemUsageRecordRepository はPostgresqlItemUsageRecordRepositoryを生成する。
-func NewPostgresqlItemUsageRecordRepository(
-	pool *pgxpool.Pool,
-) *PostgresqlItemUsageRecordRepository {
-	return &PostgresqlItemUsageRecordRepository{pool: pool}
-}
-
-var _ domainitem.ItemUsageRecordRepository = (*PostgresqlItemUsageRecordRepository)(nil)
-
-func (r *PostgresqlItemUsageRecordRepository) queries(ctx context.Context) *sqlc.Queries {
-	return sqlc.New(infrapostgresql.Querier(ctx, r.pool))
-}
-
-// Create は使用記録を作成する。
-func (r *PostgresqlItemUsageRecordRepository) Create(
-	ctx context.Context,
-	record domainitem.UsageRecord,
-) (domainitem.UsageRecord, error) {
-	row, err := r.queries(ctx).InsertItemUsageRecord(ctx, sqlc.InsertItemUsageRecordParams{
-		PublicID:  record.PublicID(),
-		UserID:    record.UserID().Int64(),
-		ItemID:    record.ItemID().Int64(),
-		UsedAt:    timestamptz(record.UsedAt()),
-		Quantity:  record.Quantity(),
-		Note:      record.Note(),
-		CreatedAt: timestamptz(record.CreatedAt()),
-	})
-	if err != nil {
-		if isForeignKeyViolation(err) {
-			return domainitem.UsageRecord{}, domainitem.ErrItemNotFound.WithCause(err)
-		}
-		return domainitem.UsageRecord{}, fmt.Errorf("insert item usage record: %w", err)
-	}
-	return toDomainUsageRecord(row), nil
-}
-
-// ListByItemID は使用日時の降順で履歴を返す。
-func (r *PostgresqlItemUsageRecordRepository) ListByItemID(
-	ctx context.Context,
-	userID domainauth.UserID,
-	itemID domainitem.ItemID,
-	page domainitem.PageCriteria,
-) ([]domainitem.UsageRecord, error) {
-	rows, err := r.queries(ctx).ListItemUsageRecordsByItemID(
-		ctx,
-		sqlc.ListItemUsageRecordsByItemIDParams{
-			UserID:    userID.Int64(),
-			ItemID:    itemID.Int64(),
-			RowLimit:  page.Limit,
-			RowOffset: page.Offset,
-		},
-	)
-	if err != nil {
-		return nil, fmt.Errorf("list item usage records: %w", err)
-	}
-
-	records := make([]domainitem.UsageRecord, 0, len(rows))
-	for _, row := range rows {
-		records = append(records, toDomainUsageRecord(row))
-	}
-	return records, nil
-}
-
-// CountByItemID は履歴の総件数を返す。
-func (r *PostgresqlItemUsageRecordRepository) CountByItemID(
-	ctx context.Context,
-	userID domainauth.UserID,
-	itemID domainitem.ItemID,
-) (int64, error) {
-	count, err := r.queries(ctx).CountItemUsageRecordsByItemID(
-		ctx,
-		sqlc.CountItemUsageRecordsByItemIDParams{
-			UserID: userID.Int64(),
-			ItemID: itemID.Int64(),
-		},
-	)
-	if err != nil {
-		return 0, fmt.Errorf("count item usage records: %w", err)
-	}
-	return count, nil
-}
-
 func toDomainItem(
 	row sqlc.OwnershipItem,
 	categoryReference domaincategory.Reference,
@@ -520,53 +442,22 @@ func toDomainItem(
 		PublicID: row.PublicID,
 		UserID:   domainauth.UserID(row.UserID),
 		Attributes: domainitem.Attributes{
-			Name:                row.Name,
-			Category:            categoryReference,
-			Kind:                domainitem.ItemKind(row.ItemKindCode),
-			Quantity:            row.Quantity,
-			DesiredQuantity:     row.DesiredQuantity,
-			UnitName:            row.UnitName,
-			NecessityLevel:      domainitem.NecessityLevel(row.NecessityLevelCode),
-			UsageFrequency:      domainitem.UsageFrequency(row.UsageFrequencyCode),
-			Substitutability:    domainitem.Substitutability(row.SubstitutabilityCode),
-			MobilityClass:       domainitem.MobilityClass(row.MobilityClassCode),
-			OwnershipReason:     row.OwnershipReason,
-			DisposalCondition:   row.DisposalCondition,
-			LastUsedAt:          optionalTime(row.LastUsedAt),
-			PurchasedOn:         optionalDate(row.PurchasedOn),
-			PurchaseAmount:      row.PurchaseAmount,
-			ReplacementAmount:   row.ReplacementAmount,
-			ResaleAmount:        row.ResaleAmount,
-			WeightGram:          row.WeightGram,
-			VolumeMilliliter:    row.VolumeMilliliter,
-			IsFragile:           row.IsFragile,
-			IsValuable:          row.IsValuable,
-			IsSentimental:       row.IsSentimental,
-			RequiresMaintenance: row.RequiresMaintenance,
-			ExpiresOn:           optionalDate(row.ExpiresOn),
-			SourceURL:           row.SourceUrl,
-			Notes:               row.Notes,
-			Tags:                tags,
+			Name:           row.Name,
+			Category:       categoryReference,
+			Kind:           domainitem.ItemKind(row.ItemKindCode),
+			Quantity:       row.Quantity,
+			UnitName:       row.UnitName,
+			NecessityLevel: domainitem.NecessityLevel(row.NecessityLevelCode),
+			UsageFrequency: domainitem.UsageFrequency(row.UsageFrequencyCode),
+			PurchasedOn:    optionalDate(row.PurchasedOn),
+			SourceURL:      row.SourceUrl,
+			Notes:          row.Notes,
+			Tags:           tags,
 		},
-		IsConfirmed: row.IsConfirmed,
-		ConfirmedAt: optionalTime(row.ConfirmedAt),
-		CreatedAt:   utcTime(row.CreatedAt),
-		UpdatedAt:   utcTime(row.UpdatedAt),
-		ArchivedAt:  optionalTime(row.DeletedAt),
-		Version:     row.Version,
-	})
-}
-
-func toDomainUsageRecord(row sqlc.OwnershipItemUsageRecord) domainitem.UsageRecord {
-	return domainitem.ReconstructUsageRecord(domainitem.ReconstructUsageRecordParams{
-		ID:        domainitem.UsageRecordID(row.ID),
-		PublicID:  row.PublicID,
-		UserID:    domainauth.UserID(row.UserID),
-		ItemID:    domainitem.ItemID(row.ItemID),
-		UsedAt:    utcTime(row.UsedAt),
-		Quantity:  row.Quantity,
-		Note:      row.Note,
-		CreatedAt: utcTime(row.CreatedAt),
+		CreatedAt:  utcTime(row.CreatedAt),
+		UpdatedAt:  utcTime(row.UpdatedAt),
+		ArchivedAt: optionalTime(row.DeletedAt),
+		Version:    row.Version,
 	})
 }
 
