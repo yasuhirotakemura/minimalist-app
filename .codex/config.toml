@@ -1,0 +1,13 @@
+model = "gpt-5.5"
+# model_provider = "openai"
+approval_policy = "never"
+sandbox_mode = "workspace-write"
+
+[sandbox_workspace_write]
+network_access = false
+
+# 必要になったら有効化
+# web_search = "cached"
+# model_reasoning_effort = "medium"
+# model_verbosity = "medium"
+# personality = "pragmatic"

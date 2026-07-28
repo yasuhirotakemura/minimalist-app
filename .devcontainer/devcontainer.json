@@ -1,0 +1,111 @@
+{
+  "name": "Less Development",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "features": {
+    // apps/api のGo開発用。go.mod の go 1.25.7 と Makefile の GO_IMAGE に揃える。
+    "ghcr.io/devcontainers/features/go:1": {
+      "version": "1.25"
+    },
+    // Makefile と compose.yml は host の docker daemon を叩く。
+    // container内へdocker CLIを入れ、host の docker socket を共有する。
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+      "moby": false
+    }
+  },
+  "runArgs": [
+    "--cap-add=SYS_ADMIN",
+    "--security-opt=seccomp=unconfined",
+    "--security-opt=apparmor=unconfined"
+  ],
+  // Makefile の $(CURDIR) と compose.yml の相対volume pathは、
+  // host の docker daemon が解決する。container内pathをhost pathと一致させ、
+  // `docker run -v $(CURDIR):/workspace` が空dirをmountするのを防ぐ。
+  "workspaceFolder": "${localWorkspaceFolder}",
+  "workspaceMount": "source=${localWorkspaceFolder},target=${localWorkspaceFolder},type=bind,consistency=cached",
+  // compose(caddy:8080, postgres:5432)はhostへ直接publishされるため転送不要。
+  // ここではdevcontainer内で直接起動した場合のportだけを転送する。
+  "forwardPorts": [5173, 8081],
+  "postCreateCommand": "pnpm install --frozen-lockfile",
+  "remoteUser": "node",
+  "mounts": [
+    // Codex CLIのログイン情報と個人設定を永続化する
+    "source=less-codex-data,target=/home/node/.codex,type=volume",
+    // Claude Code CLIのログイン情報と個人設定を永続化する
+    "source=claude-code-data,target=/home/node/.claude,type=volume"
+  ],
+  "customizations": {
+    "vscode": {
+      "settings": {
+        // Todo Treeが使用するripgrepの実行ファイル
+        "todo-tree.ripgrep.ripgrep": "/usr/bin/rg",
+        // apps/api をGo moduleのrootとして認識させる
+        "gopls": {
+          "build.directoryFilters": ["-node_modules"]
+        }
+      },
+      "extensions": [
+        // Go
+        "golang.go",
+
+        // Vue
+        "vue.volar",
+
+        // Lint / Format
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "usernamehw.errorlens",
+
+        // CSS
+        "bradlc.vscode-tailwindcss",
+
+        // Dockerfile / Compose
+        "docker.docker",
+
+        // SQL
+        "renesaarsoo.sql-formatter-vsc",
+        "mtxr.sqltools-driver-pg",
+
+        // API
+        "arjun.swagger-viewer",
+        "humao.rest-client",
+
+        // Environment variables
+        "mikestead.dotenv",
+
+        // Git・GitHub
+        "eamodio.gitlens",
+        "github.vscode-github-actions",
+
+        // Documentation
+        "davidanson.vscode-markdownlint",
+        "bierner.markdown-preview-github-styles",
+
+        // Configuration files
+        "redhat.vscode-yaml",
+        "tamasfe.even-better-toml",
+
+        // Writing support
+        "streetsidesoftware.code-spell-checker",
+        "intellsmi.comment-translate",
+
+        // Task comments
+        "gruntfuggly.todo-tree",
+
+        // Testing
+        "vitest.explorer",
+
+        // Editor settings
+        "editorconfig.editorconfig",
+
+        // Editor appearance
+        "oderwat.indent-rainbow",
+
+        // AI coding agent
+        "openai.chatgpt",
+        "anthropic.claude-code"
+      ]
+    }
+  }
+}
