@@ -1,0 +1,216 @@
+{
+  // ==================================================
+  // Files
+  // ==================================================
+
+  // LinuxコンテナとGitHub上で改行コードをLFに統一する
+  "files.eol": "\n",
+
+  // ファイル末尾に改行を入れる
+  "files.insertFinalNewline": true,
+
+  // 行末の不要な空白を削除する
+  "files.trimTrailingWhitespace": true,
+
+  // ファイル末尾の余分な空行を削除する
+  "files.trimFinalNewlines": true,
+
+  // ==================================================
+  // Editor
+  // ==================================================
+
+  // 基本インデントを半角スペース2文字に統一する
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
+  "editor.detectIndentation": false,
+
+  // 保存時にフォーマッターを実行する
+  "editor.formatOnSave": true,
+
+  // 保存時にESLintで自動修正できる問題を修正する
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+
+  // 1行が長くなりすぎたことを視覚的に確認する
+  "editor.rulers": [100],
+
+  // 括弧の対応関係を把握しやすくする
+  "editor.bracketPairColorization.enabled": true,
+  "editor.guides.bracketPairs": true,
+
+  // ==================================================
+  // TypeScript / JavaScript
+  // ==================================================
+
+  // VS Code Explorer上でTypeScriptファイルを移動・リネームした際に、
+  // 参照元のimport pathを自動更新する
+  "js/ts.updateImportsOnFileMove.enabled": "always",
+
+  // 自動import時は、深い相対pathよりaliasを優先する
+  "js/ts.preferences.importModuleSpecifier": "non-relative",
+
+  // ==================================================
+  // Terminal
+  // ==================================================
+
+  // direnv hookを設定したBashを標準ターミナルとして使う
+  "terminal.integrated.defaultProfile.linux": "bash",
+
+  // ==================================================
+  // Prettier
+  // ==================================================
+
+  "[vue]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+
+  "[jsonc]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+
+  "[html]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+
+  "[css]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+
+  "[yaml]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+
+  // Markdownは文章の改行を意図せず変更しやすいため、
+  // 自動整形せず、必要なときだけ手動で整形する
+  "[markdown]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": false
+  },
+
+  // ==================================================
+  // ESLint
+  // ==================================================
+
+  "eslint.validate": ["javascript", "typescript", "vue"],
+
+  // ==================================================
+  // SQL
+  // ==================================================
+
+  "[sql]": {
+    "editor.defaultFormatter": "ReneSaarsoo.sql-formatter-vsc",
+
+    // SQLはDDLの差分が大きくなりやすいため、
+    // 保存時ではなく必要なときに手動で整形する
+    "editor.formatOnSave": false
+  },
+
+  "SQL-Formatter-VSCode.dialect": "postgresql",
+  "SQL-Formatter-VSCode.keywordCase": "upper",
+
+  // ==================================================
+  // TOML
+  // ==================================================
+
+  "[toml]": {
+    "editor.defaultFormatter": "tamasfe.even-better-toml"
+  },
+
+  // ==================================================
+  // YAML
+  // ==================================================
+
+  "yaml.validate": true,
+
+  // ==================================================
+  // Code Spell Checker
+  // ==================================================
+  "cSpell.ignorePaths": [
+    "**/.git/**",
+    "**/.nuxt/**",
+    "**/.output/**",
+    ".vscode/**",
+    "node_modules/**",
+    "**/dist/**",
+    "**/package-lock.json",
+    "**/supabase/migrations/*_initial_nobell_schema.sql"
+  ],
+
+  "cSpell.words": [
+    "citext",
+    "direnv",
+    "nobell",
+    "nuxt",
+    "pgcrypto",
+    "postgresql",
+    "ripgrep",
+    "supabase",
+    "tailwindcss",
+    "timestamptz"
+  ],
+
+  // ==================================================
+  // Todo Tree
+  // ==================================================
+
+  "todo-tree.general.tags": ["BUG", "FIXME", "HACK", "TODO"],
+
+  // ==================================================
+  // Explorer / Search
+  // ==================================================
+
+  // Explorer上で自動生成物を非表示にする
+  "files.exclude": {
+    "**/.nuxt": true,
+    "**/.output": true,
+    "**/.nitro": true,
+    "**/.cache": true,
+    "**/node_modules": true
+  },
+
+  // 全文検索の対象から自動生成物を除外する
+  "search.exclude": {
+    "**/.nuxt/**": true,
+    "**/.output/**": true,
+    "**/.nitro/**": true,
+    "**/.cache/**": true,
+    "**/node_modules/**": true,
+    "**/dist/**": true
+  },
+
+  // ファイル監視の対象から自動生成物を除外する
+  "files.watcherExclude": {
+    "**/.nuxt/**": true,
+    "**/.output/**": true,
+    "**/.nitro/**": true,
+    "**/.cache/**": true,
+    "**/node_modules/**": true
+  },
+
+  // ==================================================
+  // Icons
+  // ==================================================
+  "vsicons.associations.folders": [
+    { "icon": "controller", "extensions": ["application"] },
+    { "icon": "model", "extensions": ["domain"] },
+    { "icon": "model", "extensions": ["valueObjects"] },
+    { "icon": "server", "extensions": ["infrastructure"] },
+    { "icon": "config", "extensions": ["params"] },
+    { "icon": "dist", "extensions": ["results"] },
+    { "icon": "api", "extensions": ["requests"] },
+    { "icon": "api", "extensions": ["responses"] }
+  ]
+}
