@@ -1,0 +1,10 @@
+{
+    "recommendations": [
+        // Dev Containerを起動する
+        "ms-vscode-remote.remote-containers",
+        // ホスト側のDocker Engineを確認・操作する
+        "ms-azuretools.vscode-containers",
+        // Dockerfile・Composeの補完や解析を強化する
+        "docker.docker"
+    ]
+}

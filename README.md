@@ -10,35 +10,7 @@
 | API 契約 | [`docs/api/openapi.yml`](docs/api/openapi.yml) |
 | DB schema | [`db/migrations/`](db/migrations) と [`db/schema.sql`](db/schema.sql) |
 
-## スコープ
-
-**所持品とタグの管理に絞ったアプリケーションである。**
-
-| 機能 | 状態 |
-| --- | --- |
-| Monorepo / Docker Compose | 実装済み |
-| OpenAPI・sqlc・migration の生成基盤 | 実装済み |
-| 共通 error / request ID / 構造化 log | 実装済み |
-| ユーザー登録・ログイン・ログアウト・認証 context | 実装済み |
-| httpOnly Cookie session / CSRF 対策 | 実装済み |
-| 既定カテゴリーの初期作成 / カテゴリー一覧 | 実装済み |
-| 所持品の登録・取得・更新・アーカイブ・復元 | 実装済み |
-| 所持品一覧の検索・絞り込み・並び替え・ページング | 実装済み |
-| タグの登録・編集・削除・所持品への付与 | 実装済み |
-| ダッシュボード (所有量の合計・カテゴリー別/必要度別/使用頻度別の円グラフ) | 実装済み |
-| マイページ (ログイン中のアカウント情報の表示) | 実装済み |
-| 楽観ロック (version / expectedVersion) | 実装済み |
-| 監査ログの記録 | 実装済み (参照 API・画面は持たない) |
-| カテゴリーの登録・編集・削除 | 対象外 (既定カテゴリーの参照のみ) |
-| 収納単位・収納割当・携行区分 | 対象外 |
-| 所有見直し判定・購入前審査・シナリオ | 対象外 |
-| 使用記録 / 最終使用日時 | 対象外 |
-| インポート・エクスポート | 対象外 |
-
-対象外の機能は設計書からも削除している。
-削除した章の番号は欠番とし、残る章を再採番していない (設計書「改訂方針」)。
-
-### 画面
+## 画面構成
 
 | path | 画面 |
 | --- | --- |
@@ -114,24 +86,6 @@ seed で以下の開発用アカウントが作成される。**local 環境専�
 3. ダッシュボードに所持品の集計と円グラフが表示される
 4. 「所持品」「タグ」「マイページ」タブを開く
 5. ヘッダーの「ログアウト」で `/login` へ戻る
-
-curl で確認する場合、CSRF token を Cookie から取得して header へ設定する。
-
-```bash
-# CSRF token Cookieを受け取る
-curl -sc /tmp/less-cookies.txt http://localhost:8080/api/auth/context
-
-# state変更requestではCookieの値をX-CSRF-Tokenへ設定する
-CSRF_TOKEN=$(awk '/less_csrf/ {print $7}' /tmp/less-cookies.txt)
-
-curl -sb /tmp/less-cookies.txt -c /tmp/less-cookies.txt \
-  -X POST http://localhost:8080/api/auth/login \
-  -H 'Content-Type: application/json' \
-  -H "X-CSRF-Token: ${CSRF_TOKEN}" \
-  -d '{"email":"dev@example.com","password":"less-dev-password"}'
-
-curl -sb /tmp/less-cookies.txt http://localhost:8080/api/auth/context
-```
 
 ## 開発用コマンド
 

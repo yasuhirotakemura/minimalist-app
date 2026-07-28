@@ -27,6 +27,9 @@
   // compose(caddy:8080, postgres:5432)はhostへ直接publishされるため転送不要。
   // ここではdevcontainer内で直接起動した場合のportだけを転送する。
   "forwardPorts": [5173, 8081],
+  "containerEnv": {
+    "CLAUDE_CONFIG_DIR": "/home/node/.claude"
+  },
   "postCreateCommand": "pnpm install --frozen-lockfile",
   "remoteUser": "node",
   "mounts": [

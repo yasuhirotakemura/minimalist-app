@@ -21,9 +21,14 @@ RUN npm install -g @openai/codex@latest
 # Claude Code CLIを開発コンテナ内で使用できるようにする
 RUN npm install -g @anthropic-ai/claude-code@latest
 
-# Codexの認証情報・個人設定の保存先
-RUN mkdir -p /home/node/.codex \
-    && chown -R node:node /home/node/.codex
+# Codex・Claude Codeの認証情報と設定の保存先
+RUN mkdir -p \
+        /home/node/.codex \
+        /home/node/.claude \
+    && chown -R node:node \
+        /home/node/.codex \
+        /home/node/.claude \
+    && chmod 700 /home/node/.claude
 
 # Bash起動時にdirenvを有効化する
 RUN echo 'eval "$(direnv hook bash)"' >> /home/node/.bashrc \
