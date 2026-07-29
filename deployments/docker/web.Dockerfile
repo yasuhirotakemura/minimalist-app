@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------------
 # dev: Vite dev server。sourceはvolume mountで上書きする。
 # ---------------------------------------------------------------------------
-FROM node:22-bookworm-slim AS dev
+FROM node:24-bookworm-slim AS dev
 
 RUN corepack enable
 
@@ -24,7 +24,7 @@ CMD ["pnpm", "dev", "--host", "0.0.0.0"]
 # ---------------------------------------------------------------------------
 # builder: 静的assetを生成する。
 # ---------------------------------------------------------------------------
-FROM node:22-bookworm-slim AS builder
+FROM node:24-bookworm-slim AS builder
 
 RUN corepack enable
 
@@ -42,7 +42,7 @@ RUN pnpm --filter @less/web build
 # ---------------------------------------------------------------------------
 # runtime: Caddyで静的配信する。
 # ---------------------------------------------------------------------------
-FROM caddy:2.9-alpine AS runtime
+FROM caddy:2.11.4-alpine AS runtime
 
 COPY --from=builder /app/apps/web/dist /srv
 COPY deployments/caddy/Caddyfile.production /etc/caddy/Caddyfile

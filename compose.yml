@@ -105,7 +105,7 @@ services:
       - "5173"
 
   reverse-proxy:
-    image: caddy:2.9-alpine
+    image: caddy:2.11.4-alpine
     ports:
       - "${PROXY_PORT:-8080}:8080"
     volumes:

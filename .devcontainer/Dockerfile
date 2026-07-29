@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm
+FROM mcr.microsoft.com/devcontainers/javascript-node:1-24-bookworm
 
 # Go toolchainは devcontainer.json の features で導入する。
 # workspaceFolder は host path と一致させるため、WORKDIRは固定しない。
@@ -13,7 +13,7 @@ RUN apt-get update \
 
 # package managerを package.json の packageManager と揃える
 RUN corepack enable \
-    && corepack prepare pnpm@11.17.0 --activate
+    && corepack prepare pnpm@11.18.0 --activate
 
 # Codex CLIを開発コンテナ内で使用できるようにする
 RUN npm install -g @openai/codex@latest

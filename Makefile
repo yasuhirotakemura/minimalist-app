@@ -6,7 +6,7 @@ SHELL := /bin/bash
 # ---------------------------------------------------------------------------
 COMPOSE            ?= docker compose
 COMPOSE_PROJECT    ?= less
-SQLC_IMAGE         ?= sqlc/sqlc:1.29.0
+SQLC_IMAGE         ?= sqlc/sqlc:1.31.1
 COMPOSE_NETWORK    ?= $(COMPOSE_PROJECT)_default
 TEST_DATABASE_NAME ?= less_test
 
