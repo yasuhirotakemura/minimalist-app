@@ -35,9 +35,9 @@
 - Docker および Docker Compose v2 以降
 - GNU Make
 
-Go と Node.js のホストへのインストールは**不要**である。
-Go の全コマンドは `golang:1.25-bookworm` container 内で実行する。
-フロントエンドの lint・test をホストで実行する場合のみ Node.js 22 と pnpm 10 を用意する。
+開発は `.devcontainer/` の dev container 内で行う前提である。
+Go 1.25 と Node.js・pnpm は dev container へ導入済みであり、`make` の Go command は
+PATH 上の `go` をそのまま使う。ホストへ Go・Node.js を追加で導入する必要はない。
 
 ## 起動手順
 

@@ -4,7 +4,8 @@
     "dockerfile": "Dockerfile"
   },
   "features": {
-    // apps/api のGo開発用。go.mod の go 1.25.7 と Makefile の GO_IMAGE に揃える。
+    // apps/api のGo開発用。go.mod の go 1.25.7 に揃える。
+    // Makefileはここで導入したPATH上の go をそのまま使う。
     "ghcr.io/devcontainers/features/go:1": {
       "version": "1.25"
     },

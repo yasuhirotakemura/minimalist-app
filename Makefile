@@ -6,7 +6,6 @@ SHELL := /bin/bash
 # ---------------------------------------------------------------------------
 COMPOSE            ?= docker compose
 COMPOSE_PROJECT    ?= less
-GO_IMAGE           ?= golang:1.25-bookworm
 SQLC_IMAGE         ?= sqlc/sqlc:1.29.0
 COMPOSE_NETWORK    ?= $(COMPOSE_PROJECT)_default
 TEST_DATABASE_NAME ?= less_test
@@ -14,23 +13,42 @@ TEST_DATABASE_NAME ?= less_test
 POSTGRES_USER     ?= less
 POSTGRES_PASSWORD ?= less_local_password
 POSTGRES_DB       ?= less
+POSTGRES_PORT     ?= 5432
 
-# ホストにGo toolchainを要求しない。全てのGo commandをcontainer内で実行する。
-# repository rootを /workspace へmountし、workdirを apps/api とする。
-DOCKER_GO = docker run --rm \
-	-v "$(CURDIR)":/workspace \
-	-v $(COMPOSE_PROJECT)_go-module-cache:/go/pkg/mod \
-	-v $(COMPOSE_PROJECT)_go-build-cache:/root/.cache/go-build \
-	-w /workspace/apps/api \
-	-e CGO_ENABLED=0 \
-	-e GOFLAGS=-buildvcs=false
+API_DIR := apps/api
 
-GO      = $(DOCKER_GO) $(GO_IMAGE) go
-GO_TOOL = $(DOCKER_GO) $(GO_IMAGE) go tool
+# ---------------------------------------------------------------------------
+# Go commandの実行方法
+# 開発はdev container内で行う前提とし、PATH上のgoをそのまま使う。
+# (dev containerには devcontainer.json の go feature でGo 1.25が導入済み)
+# ---------------------------------------------------------------------------
 
-# integration testはcompose networkのpostgresへ接続する。
-TEST_DATABASE_URL ?= postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres:5432/$(TEST_DATABASE_NAME)?sslmode=disable
-GO_NET_TEST = $(DOCKER_GO) --network $(COMPOSE_NETWORK) -e TEST_DATABASE_URL="$(TEST_DATABASE_URL)" $(GO_IMAGE) go
+# repository rootから apps/api へ移動して実行する。
+GO_ENV  = cd $(API_DIR) && CGO_ENABLED=0 GOFLAGS=-buildvcs=false
+GO      = $(GO_ENV) go
+GO_TOOL = $(GO_ENV) go tool
+GOFMT   = $(GO_ENV) gofmt
+
+ifneq ($(wildcard /.dockerenv),)
+# dev container内。hostへpublishされたportはhost側の別processが握っている場合があるため、
+# 自containerをcompose networkへ参加させ、service名で直接接続する。
+TEST_DATABASE_HOST ?= postgres
+TEST_DATABASE_PORT ?= 5432
+JOIN_COMPOSE_NETWORK = docker network connect $(COMPOSE_NETWORK) $$(cat /etc/hostname) 2>/dev/null || true
+# testcontainersは随時空きportをhostへpublishするため、host経由で接続する。
+TESTCONTAINERS_HOST ?= host.docker.internal
+else
+# host上で直接実行する場合はpublishされたportへ接続する。
+TEST_DATABASE_HOST ?= localhost
+TEST_DATABASE_PORT ?= $(POSTGRES_PORT)
+JOIN_COMPOSE_NETWORK = :
+TESTCONTAINERS_HOST ?= localhost
+endif
+
+GO_NET_TEST = $(GO_ENV) TEST_DATABASE_URL="$(TEST_DATABASE_URL)" go
+GO_TC_TEST  = $(GO_ENV) TESTCONTAINERS_HOST_OVERRIDE=$(TESTCONTAINERS_HOST) go
+
+TEST_DATABASE_URL ?= postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(TEST_DATABASE_HOST):$(TEST_DATABASE_PORT)/$(TEST_DATABASE_NAME)?sslmode=disable
 
 # ---------------------------------------------------------------------------
 # help
@@ -155,8 +173,8 @@ format-web: ## frontend codeをPrettierで整形する
 .PHONY: format-check
 format-check: ## 整形差分が無いことを確認する
 	@echo "==> gofmt check"
-	@test -z "$$($(DOCKER_GO) $(GO_IMAGE) gofmt -l . | grep -v '^internal/generated/' || true)" \
-		|| ( $(DOCKER_GO) $(GO_IMAGE) gofmt -l . ; echo "gofmt差分があります。'make format-api' を実行してください。" ; exit 1 )
+	@test -z "$$($(GOFMT) -l . | grep -v '^internal/generated/' || true)" \
+		|| ( $(GOFMT) -l . ; echo "gofmt差分があります。'make format-api' を実行してください。" ; exit 1 )
 	pnpm --filter @less/web format:check
 
 .PHONY: lint
@@ -171,7 +189,7 @@ lint-api: ## go vet と staticcheck を実行する
 .PHONY: lint-layering
 lint-layering: ## domain layerがHTTP・PostgreSQLへ依存していないことを確認する (設計書 3.3)
 	@echo "==> layering check (domain must not depend on net/http, pgx, openapi)"
-	@violations=$$($(DOCKER_GO) $(GO_IMAGE) go list -deps ./internal/domain/... \
+	@violations=$$($(GO) list -deps ./internal/domain/... \
 		| grep -E '^(net/http$$|github.com/jackc/pgx|github.com/oapi-codegen|github.com/go-chi)' || true); \
 	if [ -n "$$violations" ]; then \
 		echo "禁止依存を検出しました:"; echo "$$violations"; exit 1; \
@@ -202,19 +220,12 @@ test-web: ## frontendのunit/component testを実行する
 
 .PHONY: test-integration
 test-integration: test-db ## PostgreSQLを使うintegration testを実行する
+	@$(JOIN_COMPOSE_NETWORK)
 	$(GO_NET_TEST) test -count=1 -tags=integration ./test/integration/...
 
 .PHONY: test-integration-testcontainers
 test-integration-testcontainers: ## testcontainers-goでPostgreSQLを起動しintegration testを実行する
-	docker run --rm \
-		-v "$(CURDIR)":/workspace \
-		-v /var/run/docker.sock:/var/run/docker.sock \
-		-v $(COMPOSE_PROJECT)_go-module-cache:/go/pkg/mod \
-		-v $(COMPOSE_PROJECT)_go-build-cache:/root/.cache/go-build \
-		-w /workspace/apps/api --network host \
-		-e CGO_ENABLED=0 -e GOFLAGS=-buildvcs=false \
-		-e TESTCONTAINERS_HOST_OVERRIDE=127.0.0.1 \
-		$(GO_IMAGE) go test -count=1 -tags=integration ./test/integration/...
+	$(GO_TC_TEST) test -count=1 -tags=integration ./test/integration/...
 
 .PHONY: e2e
 e2e: ## PlaywrightによるE2E test (Phase 7で実装する)
