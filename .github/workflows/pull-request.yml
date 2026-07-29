@@ -19,7 +19,7 @@ concurrency:
 env:
   GO_VERSION: '1.25'
   NODE_VERSION: '22'
-  PNPM_VERSION: '10.17.1'
+  PNPM_VERSION: '11.17.0'
   SQLC_VERSION: '1.29.0'
 
 jobs:
