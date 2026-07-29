@@ -1,7 +1,11 @@
 packages:
   - apps/web
 
-# postinstall scriptの実行を明示的に許可する依存 (pnpm 10)。
-# esbuildはplatform別binaryの取得にpostinstallを使用する。
-onlyBuiltDependencies:
-  - esbuild
+allowBuilds:
+  # install時のbuild script実行を明示的に許可する依存。
+  # esbuildはplatform別binaryの確認・準備にinstall scriptを使用する。
+  esbuild: true
+
+  # インストールされているVueのバージョンに合わせて
+  # 互換レイヤーを切り替えるため、postinstallを使用する。
+  vue-demi: true

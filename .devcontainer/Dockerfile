@@ -13,7 +13,7 @@ RUN apt-get update \
 
 # package managerを package.json の packageManager と揃える
 RUN corepack enable \
-    && corepack prepare pnpm@10.17.1 --activate
+    && corepack prepare pnpm@11.17.0 --activate
 
 # Codex CLIを開発コンテナ内で使用できるようにする
 RUN npm install -g @openai/codex@latest
