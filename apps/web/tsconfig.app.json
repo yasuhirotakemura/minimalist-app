@@ -24,7 +24,8 @@
     "composite": true,
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
 
-    "baseUrl": ".",
+    // baseUrl は TypeScript 7.0 で削除されるため使用しない。
+    // paths は tsconfig の位置を基準に解決される。
     "paths": {
       "@/*": ["./src/*"]
     }
