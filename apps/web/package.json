@@ -14,7 +14,7 @@
     "format:check": "prettier --check \"src/**/*.{ts,vue,css}\" \"tests/**/*.ts\" \"*.{ts,json,cjs}\"",
     "test": "vitest run",
     "test:watch": "vitest",
-    "generate:api-client": "openapi-typescript ../../docs/api/openapi.yml -o ./src/api/generated/schema.d.ts"
+    "generate:api-client": "openapi-typescript ../../docs/api/openapi.yml -o ./src/api/generated/schema.d.ts && prettier --write --log-level warn ./src/api/generated/schema.d.ts"
   },
   "dependencies": {
     "@tanstack/vue-query": "^5.62.0",
