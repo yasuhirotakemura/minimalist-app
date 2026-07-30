@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/devcontainers/javascript-node:1-24-bookworm
+FROM mcr.microsoft.com/devcontainers/javascript-node:24-bookworm
 
 # Go toolchainは devcontainer.json の features で導入する。
 # workspaceFolder は host path と一致させるため、WORKDIRは固定しない。
