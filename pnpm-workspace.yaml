@@ -1,6 +1,11 @@
 packages:
   - apps/web
 
+# container内のinstallはTTYを持たないため、modules directoryの作り直し確認へ
+# 応答できず中断する (ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY)。
+# node_modulesは再installで復元できるので確認を省略する。
+confirmModulesPurge: false
+
 allowBuilds:
   # install時のbuild script実行を明示的に許可する依存。
   # esbuildはplatform別binaryの確認・準備にinstall scriptを使用する。
